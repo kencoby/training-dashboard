@@ -1,0 +1,10 @@
+{
+  "name": "training-dashboard",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^10.7.9"
+  }
+}
