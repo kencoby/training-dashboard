@@ -7231,6 +7231,7 @@ document.querySelectorAll('.sub-tab-nav').forEach(nav => {
 // ── Sub-tab navigation ───────────────────────────────────────────────────────
 function setupSubTabs(paneId, storageKey) {
   const group = document.getElementById(paneId);
+  if (!group) return; // tab pane was removed — skip silently
   group.querySelectorAll('.sub-tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       group.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active'));
@@ -8623,12 +8624,9 @@ fetchWeather();
 renderEcgQuiz();
 renderStudyStreak();
 renderDailyBriefing(); // initial render from local data; re-fires after weather/health loads
-window.__dashLog = window.__dashLog || [];
-window.__dashLog.push('init start ts=' + (localStorage.getItem('tasks_priority')||'').length);
 renderTasks();
 renderDashTasks();
 renderShopping();
-window.__dashLog.push('init done sumChildren=' + (document.getElementById('dash-tasks-summary')?.children?.length ?? 'null'));
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function main() {
@@ -8771,12 +8769,8 @@ function applySyncUpdates(updated) {
 }
 
 (async () => {
-  window.__dashLog = window.__dashLog || [];
-  window.__dashLog.push('syncAll start');
   const updated = await syncAll();
-  window.__dashLog.push('syncAll done keys=' + JSON.stringify(updated));
   applySyncUpdates(updated);
-  window.__dashLog.push('applySync done sumChildren=' + (document.getElementById('dash-tasks-summary')?.children?.length ?? 'null'));
 })();
 
 // Re-sync whenever the tab regains focus (e.g. switching back from another
@@ -8794,11 +8788,8 @@ document.addEventListener('visibilitychange', async () => {
 // Guaranteed late render of dashboard summary cards — runs after all
 // synchronous init and the first sync cycle have had time to settle.
 setTimeout(() => {
-  window.__dashLog = window.__dashLog || [];
-  window.__dashLog.push('800ms ts=' + (localStorage.getItem('tasks_priority')||'').length);
   renderDashTasks();
   renderShopping();
-  window.__dashLog.push('800ms done sumChildren=' + (document.getElementById('dash-tasks-summary')?.children?.length ?? 'null'));
 }, 800);
 </script>
 </body>
