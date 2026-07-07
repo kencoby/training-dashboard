@@ -11,6 +11,16 @@ export async function sbGet(env, key) {
   return rows.length > 0 ? rows[0].data : null;
 }
 
+export async function sbGetRow(env, key) {
+  const url = `${env.SUPABASE_URL}/rest/v1/dashboard_kv?key=eq.${encodeURIComponent(key)}&select=data,ts`;
+  const res = await fetch(url, {
+    headers: { apikey: env.SUPABASE_KEY, Authorization: `Bearer ${env.SUPABASE_KEY}` }
+  });
+  if (!res.ok) throw new Error(`Supabase GET failed: ${res.status}`);
+  const rows = await res.json();
+  return rows.length > 0 ? { data: rows[0].data, _ts: rows[0].ts } : null;
+}
+
 export async function sbSet(env, key, data) {
   const res = await fetch(`${env.SUPABASE_URL}/rest/v1/dashboard_kv`, {
     method: 'POST',

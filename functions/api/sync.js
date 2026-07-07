@@ -1,4 +1,4 @@
-import { sbGet, sbSet } from './_supabase.js';
+import { sbGetRow, sbSet } from './_supabase.js';
 
 const CORS = {
   'Content-Type': 'application/json',
@@ -22,7 +22,7 @@ export async function onRequest(context) {
 
   if (request.method === 'GET') {
     try {
-      const row = await sbGet(env, key);
+      const row = await sbGetRow(env, key);
       return json(200, row);
     } catch (err) {
       return json(500, { error: err.message });

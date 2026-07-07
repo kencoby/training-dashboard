@@ -2213,7 +2213,10 @@ function addTask(priority) {
 function toggleTask(id) {
   const items = getTasks();
   const t = items.find(t => t.id === id);
-  if (t) t.done = !t.done;
+  if (t) {
+    t.done = !t.done;
+    if (t.subtasks && t.subtasks.length) t.subtasks.forEach(s => s.done = t.done);
+  }
   saveTasks(items);
   renderTasks();
 }
@@ -2430,6 +2433,54 @@ function clearCompletedTasks() {
   renderTasks();
 }
 
+// ── Subtasks ──────────────────────────────────────────────────────────────────
+function toggleSubtaskPanel(taskId) {
+  const panel = document.getElementById(`subtask-panel-${taskId}`);
+  if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function addSubtask(taskId) {
+  const input = document.getElementById(`subtask-input-${taskId}`);
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+  const items = getTasks();
+  const task = items.find(t => t.id === taskId);
+  if (!task) return;
+  if (!task.subtasks) task.subtasks = [];
+  task.subtasks.push({ id: 'sub' + Date.now(), text, done: false });
+  saveTasks(items);
+  renderTasks();
+  const panel = document.getElementById(`subtask-panel-${taskId}`);
+  if (panel) panel.style.display = 'block';
+  setTimeout(() => { const ni = document.getElementById(`subtask-input-${taskId}`); if (ni) ni.focus(); }, 0);
+}
+
+function toggleSubtask(taskId, subtaskId) {
+  const items = getTasks();
+  const task = items.find(t => t.id === taskId);
+  if (!task || !task.subtasks) return;
+  const sub = task.subtasks.find(s => s.id === subtaskId);
+  if (sub) sub.done = !sub.done;
+  if (task.subtasks.length && task.subtasks.every(s => s.done)) task.done = true;
+  else task.done = false;
+  saveTasks(items);
+  renderTasks();
+  const panel = document.getElementById(`subtask-panel-${taskId}`);
+  if (panel) panel.style.display = 'block';
+}
+
+function deleteSubtask(taskId, subtaskId) {
+  const items = getTasks();
+  const task = items.find(t => t.id === taskId);
+  if (!task) return;
+  task.subtasks = (task.subtasks || []).filter(s => s.id !== subtaskId);
+  saveTasks(items);
+  renderTasks();
+  const panel = document.getElementById(`subtask-panel-${taskId}`);
+  if (panel) panel.style.display = 'block';
+}
+
 function addTaskFromDash() {
   const input    = document.getElementById('dash-task-input');
   const prioEl   = document.getElementById('dash-task-priority');
@@ -2481,7 +2532,10 @@ function renderDashTasks() {
   el.innerHTML = shown.map((t, i) => `
     <div style="display:flex;align-items:center;gap:8px;padding:7px 0;${i < shown.length - 1 ? 'border-bottom:1px solid #f5f5f5' : ''}">
       <span style="width:8px;height:8px;border-radius:50%;background:${TASK_TIER_COLORS[t.priority]};flex-shrink:0"></span>
-      <span style="flex:1;font-size:13px">${escHtml(t.text)}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px">${escHtml(t.text)}</div>
+        ${(t.subtasks||[]).length ? `<div style="font-size:11px;color:#9ca3af;margin-top:1px">${(t.subtasks||[]).filter(s=>s.done).length}/${(t.subtasks||[]).length} subtasks</div>` : ''}
+      </div>
       <input type="checkbox" onclick="toggleTask('${t.id}');setTimeout(()=>{renderDashTasks();renderTasks();},50)"
         style="width:15px;height:15px;cursor:pointer;flex-shrink:0;accent-color:${TASK_TIER_COLORS[t.priority]}">
     </div>`).join('') +
@@ -2508,17 +2562,42 @@ function renderTasks() {
       return;
     }
 
-    listEl.innerHTML = sorted.map(t => `
+    listEl.innerHTML = sorted.map(t => {
+      const subs = t.subtasks || [];
+      const doneSubs = subs.filter(s => s.done).length;
+      const subBadge = subs.length ? `<span style="font-size:10px;color:${doneSubs===subs.length?'#6b9e7a':'#9ca3af'};font-weight:600;margin-right:2px">${doneSubs}/${subs.length}</span>` : '';
+      const subRows = subs.map(s => `
+        <div style="display:flex;align-items:center;gap:6px;padding:3px 0;${s.done?'opacity:0.45':''}">
+          <input type="checkbox" ${s.done?'checked':''} onclick="toggleSubtask('${t.id}','${s.id}')"
+            style="width:13px;height:13px;flex-shrink:0;cursor:pointer;accent-color:${color}">
+          <span style="flex:1;font-size:12px;${s.done?'text-decoration:line-through;color:#bbb':''}">${escHtml(s.text)}</span>
+          <button onclick="deleteSubtask('${t.id}','${s.id}')" style="background:none;border:none;cursor:pointer;color:#e5e7eb;font-size:11px;padding:1px 3px;line-height:1">✕</button>
+        </div>`).join('');
+      return `
       <div data-id="${t.id}" data-priority="${priority}" draggable="true"
-        style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid #f5f5f5;${t.done?'opacity:0.4':''}transition:background 0.1s">
-        <span class="drag-handle" style="color:#d1d5db;font-size:15px;cursor:grab;flex-shrink:0;line-height:1;padding:0 2px;user-select:none" title="Drag to reorder">⠿</span>
-        <input type="checkbox" ${t.done?'checked':''} onclick="toggleTask('${t.id}')"
-          style="width:16px;height:16px;flex-shrink:0;cursor:pointer;accent-color:${color}">
-        <span style="flex:1;font-size:13px;${t.done?'text-decoration:line-through;color:#bbb':''}">${escHtml(t.text)}</span>
-        ${pi > 0 ? `<button onclick="moveTask('${t.id}',-1)" title="Escalate" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:14px;padding:2px 3px;line-height:1">↑</button>` : ''}
-        ${pi < 2 ? `<button onclick="moveTask('${t.id}',1)" title="Defer" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:14px;padding:2px 3px;line-height:1">↓</button>` : ''}
-        <button onclick="deleteTask('${t.id}')" style="background:none;border:none;cursor:pointer;color:#d1d5db;font-size:13px;padding:2px 4px;line-height:1">✕</button>
-      </div>`).join('');
+        style="border-bottom:1px solid #f5f5f5;${t.done?'opacity:0.4':''}transition:background 0.1s">
+        <div style="display:flex;align-items:center;gap:8px;padding:9px 0">
+          <span class="drag-handle" style="color:#d1d5db;font-size:15px;cursor:grab;flex-shrink:0;line-height:1;padding:0 2px;user-select:none" title="Drag to reorder">⠿</span>
+          <input type="checkbox" ${t.done?'checked':''} onclick="toggleTask('${t.id}')"
+            style="width:16px;height:16px;flex-shrink:0;cursor:pointer;accent-color:${color}">
+          <span style="flex:1;font-size:13px;${t.done?'text-decoration:line-through;color:#bbb':''}">${escHtml(t.text)}</span>
+          ${subBadge}
+          ${pi > 0 ? `<button onclick="moveTask('${t.id}',-1)" title="Escalate" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:14px;padding:2px 3px;line-height:1">↑</button>` : ''}
+          ${pi < 2 ? `<button onclick="moveTask('${t.id}',1)" title="Defer" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:14px;padding:2px 3px;line-height:1">↓</button>` : ''}
+          <button onclick="deleteTask('${t.id}')" style="background:none;border:none;cursor:pointer;color:#d1d5db;font-size:13px;padding:2px 4px;line-height:1">✕</button>
+          <button onclick="toggleSubtaskPanel('${t.id}')" title="Subtasks" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:14px;padding:2px 3px;line-height:1">${subs.length ? '⌄' : '⊕'}</button>
+        </div>
+        <div id="subtask-panel-${t.id}" style="display:none;padding:0 0 10px 30px">
+          ${subRows}
+          <div style="display:flex;gap:4px;margin-top:${subs.length?'6':'0'}px">
+            <input id="subtask-input-${t.id}" type="text" placeholder="Add subtask…"
+              onkeydown="if(event.key==='Enter'){addSubtask('${t.id}');event.preventDefault()}"
+              style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:4px 8px;font-size:12px;outline:none;font-family:inherit;color:#374151">
+            <button onclick="addSubtask('${t.id}')" style="background:#1a1a1a;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;font-weight:600">+</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
 
     initTaskDragDrop(listEl);
   });
@@ -6527,21 +6606,16 @@ function renderDailyBriefing() {
 
   // ── Placement ─────────────────────────────────────────────────────────────
   const placementDay = PLACEMENT_SCHEDULE[todayDateStr];
-  {
-    let plHtml = `<div style="${labelStyle}">🏥 Placement`;
-    if (placementDay) {
-      plHtml += ` <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#bbb">· ${placementDay.week}</span></div>`;
-      plHtml += placementDay.sessions.map(s => `
-        <div style="${rowStyle}">
-          <span style="color:#9ca3af;font-size:11px;min-width:38px;flex-shrink:0">${s.time}</span>
-          <div style="flex:1">
-            <div style="font-size:13px;font-weight:500">${s.label}</div>
-            ${s.detail ? `<div style="font-size:11px;color:#9ca3af">${s.detail}</div>` : ''}
-          </div>
-        </div>`).join('');
-    } else {
-      plHtml += `</div><div style="font-size:13px;color:#9ca3af">No placement today 🎉</div>`;
-    }
+  if (placementDay) {
+    let plHtml = `<div style="${labelStyle}">🏥 Placement <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#bbb">· ${placementDay.week}</span></div>`;
+    plHtml += placementDay.sessions.map(s => `
+      <div style="${rowStyle}">
+        <span style="color:#9ca3af;font-size:11px;min-width:38px;flex-shrink:0">${s.time}</span>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:500">${s.label}</div>
+          ${s.detail ? `<div style="font-size:11px;color:#9ca3af">${s.detail}</div>` : ''}
+        </div>
+      </div>`).join('');
     sections.push(`<div style="${sectionStyle}">${plHtml}</div>`);
   }
 
