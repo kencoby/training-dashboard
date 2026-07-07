@@ -8783,6 +8783,10 @@ document.addEventListener('visibilitychange', async () => {
   const updated = await syncAll();
   if (updated.length) applySyncUpdates(updated);
 });
+
+// Guaranteed late render of dashboard summary cards — runs after all
+// synchronous init and the first sync cycle have had time to settle.
+setTimeout(() => { renderDashTasks(); renderShopping(); }, 800);
 </script>
 </body>
 </html>
