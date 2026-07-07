@@ -207,14 +207,23 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
     <!-- RIGHT: Daily habits -->
     <div class="todo-right" style="padding-left:16px">
       <div class="lbl">Daily <span style="font-size:10px;color:#bbb;text-transform:none;letter-spacing:0;font-weight:500">— resets midnight</span></div>
+      <div id="home-suggestion"></div>
       <div id="training-todo"></div>
+      <div id="mood-row"></div>
       <div id="habit-list"></div>
+      <div id="journal-prompt"></div>
+      <div id="wake-times"></div>
     </div>
 
   </div>
 </div>
 
 <div id="warns"></div>
+
+<!-- GOALS PROGRESS -->
+<div class="section" id="home-goals-section" style="margin-bottom:0">
+<div class="card" id="home-goals" style="padding:14px 16px"></div>
+</div>
 
 <!-- TODAY OVERVIEW -->
 <div class="section">
@@ -2089,7 +2098,8 @@ const SYNC_KEYS = [
   'study_activity_log', 'finance_transactions', 'finance_accounts',
   'rev_schedule_log', 'rev_passmed_done', 'tasks_priority',
   'shopping_items',
-  'notes_data'
+  'notes_data',
+  'mood_log', 'tutoring_log', 'habit_streaks'
 ];
 
 function getSyncMeta() {
@@ -2499,15 +2509,77 @@ function renderTasks() {
     }
 
     listEl.innerHTML = sorted.map(t => `
-      <div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid #f5f5f5;${t.done?'opacity:0.4':''}">
+      <div data-id="${t.id}" data-priority="${priority}" draggable="true"
+        style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid #f5f5f5;${t.done?'opacity:0.4':''}transition:background 0.1s">
+        <span class="drag-handle" style="color:#d1d5db;font-size:15px;cursor:grab;flex-shrink:0;line-height:1;padding:0 2px;user-select:none" title="Drag to reorder">⠿</span>
         <input type="checkbox" ${t.done?'checked':''} onclick="toggleTask('${t.id}')"
           style="width:16px;height:16px;flex-shrink:0;cursor:pointer;accent-color:${color}">
         <span style="flex:1;font-size:13px;${t.done?'text-decoration:line-through;color:#bbb':''}">${escHtml(t.text)}</span>
-        ${pi > 0 ? `<button onclick="moveTask('${t.id}',-1)" title="Escalate" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:14px;padding:2px 3px;line-height:1" title="Move up">↑</button>` : ''}
+        ${pi > 0 ? `<button onclick="moveTask('${t.id}',-1)" title="Escalate" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:14px;padding:2px 3px;line-height:1">↑</button>` : ''}
         ${pi < 2 ? `<button onclick="moveTask('${t.id}',1)" title="Defer" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:14px;padding:2px 3px;line-height:1">↓</button>` : ''}
         <button onclick="deleteTask('${t.id}')" style="background:none;border:none;cursor:pointer;color:#d1d5db;font-size:13px;padding:2px 4px;line-height:1">✕</button>
       </div>`).join('');
+
+    initTaskDragDrop(listEl);
   });
+}
+
+let _dragTaskId = null;
+
+function initTaskDragDrop(listEl) {
+  listEl.querySelectorAll('[data-id]').forEach(row => {
+    row.addEventListener('dragstart', e => {
+      _dragTaskId = row.dataset.id;
+      e.dataTransfer.effectAllowed = 'move';
+      setTimeout(() => row.style.opacity = '0.35', 0);
+    });
+    row.addEventListener('dragend', () => {
+      row.style.opacity = '';
+      listEl.querySelectorAll('[data-id]').forEach(r => {
+        r.style.background = '';
+        r.style.borderTop = '';
+      });
+    });
+    row.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      listEl.querySelectorAll('[data-id]').forEach(r => {
+        r.style.background = '';
+        r.style.borderTop = '';
+      });
+      if (row.dataset.id !== _dragTaskId) {
+        row.style.borderTop = '2px solid #6b9e7a';
+      }
+    });
+    row.addEventListener('dragleave', () => {
+      row.style.background = '';
+      row.style.borderTop = '';
+    });
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      row.style.background = '';
+      row.style.borderTop = '';
+      if (_dragTaskId && _dragTaskId !== row.dataset.id) {
+        reorderTask(_dragTaskId, row.dataset.id, row.dataset.priority);
+      }
+    });
+  });
+}
+
+function reorderTask(srcId, dstId, priority) {
+  const all = getTasks();
+  const tierItems = all.filter(t => t.priority === priority);
+  const sorted = [...tierItems].sort((a, b) => a.done - b.done);
+  const srcIdx = sorted.findIndex(t => t.id === srcId);
+  const dstIdx = sorted.findIndex(t => t.id === dstId);
+  if (srcIdx < 0 || dstIdx < 0 || srcIdx === dstIdx) return;
+  const [moved] = sorted.splice(srcIdx, 1);
+  sorted.splice(dstIdx, 0, moved);
+  // Rebuild full array, replacing this priority's items with reordered version
+  let ti = 0;
+  const reordered = all.map(item => item.priority === priority ? sorted[ti++] : item);
+  saveTasks(reordered);
+  renderTasks();
 }
 
 const DAILY_HABITS = [
@@ -2579,16 +2651,286 @@ function getAutoHabitState() {
 function renderHabits() {
   const ticked = getHabits();
   const auto   = getAutoHabitState();
-  setH('habit-list', DAILY_HABITS.map((h, i) => {
+
+  // Detect sleep tracked but < 8h (show ❌ rather than just unchecked)
+  const today = new Date().toLocaleDateString('en-CA');
+  const sleepData = (typeof computeSleepForDate === 'function') ? computeSleepForDate(today) : null;
+  const sleepTrackedButMissed = sleepData != null && sleepData.totalSleep < 8;
+
+  // Auto-tracked habits at top, manual below
+  const autoHabits   = DAILY_HABITS.filter(h => h.auto);
+  const manualHabits = DAILY_HABITS.filter(h => !h.auto);
+  const ordered = [...autoHabits, ...manualHabits];
+
+  // Update streaks for all completed habits (idempotent within same day)
+  ordered.forEach(h => {
+    const autoOn = h.auto ? (auto[h.id] || false) : false;
+    if (ticked[h.id] || autoOn) updateHabitStreak(h.id, true);
+  });
+  const streaks = getHabitStreaks();
+
+  setH('habit-list', ordered.map((h, i) => {
     const autoOn = h.auto ? (auto[h.id] || false) : false;
     const isDone = ticked[h.id] || autoOn;
     const syncedLabel = autoOn && !ticked[h.id] ? `<span style="font-size:10px;color:#6b9e7a;margin-left:4px">⌚ synced</span>` : '';
-    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;${i<DAILY_HABITS.length-1?'border-bottom:1px solid #f5f5f5;':''}${isDone?'opacity:0.45':''}">
+    const sleepMiss = h.id === 'h-sleep' && sleepTrackedButMissed && !ticked[h.id];
+    const missLabel = sleepMiss ? `<span style="font-size:11px;color:#ef4444;margin-left:5px">❌ missed</span>` : '';
+    const s = streaks[h.id];
+    const streakLabel = s && s.count >= 2 ? `<span style="font-size:10px;color:#f59e0b;margin-left:4px">🔥${s.count}</span>` : '';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;${i<ordered.length-1?'border-bottom:1px solid #f5f5f5;':''}${isDone?'opacity:0.45':''}">
       <input type="checkbox" ${isDone?'checked':''} onchange="toggleHabit('${h.id}')" style="cursor:pointer;flex-shrink:0"/>
-      <span style="flex:1;font-size:13px;${isDone?'text-decoration:line-through;color:#bbb':''}">${h.label}${syncedLabel}</span>
+      <span style="flex:1;font-size:13px;${isDone?'text-decoration:line-through;color:#bbb':''}">${h.label}${syncedLabel}${missLabel}${streakLabel}</span>
     </div>`;
   }).join(''));
   renderTrainingTodo();
+  renderMoodRow();
+  renderJournalPrompt();
+  renderTrainingSuggestion();
+  renderWakeTimes();
+}
+
+// ── Habit Streaks ────────────────────────────────────────────────────────────
+function getHabitStreaks() {
+  try { return JSON.parse(localStorage.getItem('habit_streaks')) || {}; } catch { return {}; }
+}
+function saveHabitStreaks(data) {
+  localStorage.setItem('habit_streaks', JSON.stringify(data));
+}
+function updateHabitStreak(id, isDone) {
+  const today = new Date().toLocaleDateString('en-CA');
+  const yesterday = new Date(Date.now() - 864e5).toLocaleDateString('en-CA');
+  const streaks = getHabitStreaks();
+  const s = streaks[id] || { count: 0, lastDate: null };
+  if (isDone) {
+    if (s.lastDate === today) { /* already counted today */ }
+    else if (s.lastDate === yesterday) { s.count += 1; s.lastDate = today; }
+    else { s.count = 1; s.lastDate = today; }
+  }
+  streaks[id] = s;
+  saveHabitStreaks(streaks);
+}
+
+// ── Mood / Energy tap ────────────────────────────────────────────────────────
+const MOOD_OPTIONS = [
+  { emoji: '😴', label: 'Exhausted' },
+  { emoji: '😐', label: 'Meh' },
+  { emoji: '🙂', label: 'Good' },
+  { emoji: '💪', label: 'Strong' },
+  { emoji: '🔥', label: 'Peak' },
+];
+function getMoodLog() {
+  try { return JSON.parse(localStorage.getItem('mood_log')) || []; } catch { return []; }
+}
+function saveMoodLog(log) {
+  localStorage.setItem('mood_log', JSON.stringify(log));
+  syncPush('mood_log', log);
+}
+function logMood(level) {
+  const today = new Date().toLocaleDateString('en-CA');
+  const log = getMoodLog().filter(e => e.date !== today);
+  log.push({ date: today, mood: level });
+  saveMoodLog(log.slice(-60));
+  renderMoodRow();
+}
+function renderMoodRow() {
+  const el = document.getElementById('mood-row');
+  if (!el) return;
+  const today = new Date().toLocaleDateString('en-CA');
+  const entry = getMoodLog().find(e => e.date === today);
+  const current = entry ? entry.mood : null;
+  el.innerHTML = `<div style="padding:8px 0 6px;border-bottom:1px solid #f5f5f5">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:#9ca3af;font-weight:700;margin-bottom:6px">Energy today</div>
+    <div style="display:flex;gap:6px">
+      ${MOOD_OPTIONS.map((o, i) => {
+        const level = i + 1;
+        const sel = current === level;
+        return `<button onclick="logMood(${level})" title="${o.label}"
+          style="font-size:18px;padding:4px 5px;background:${sel ? '#f0fdf4' : 'transparent'};border:2px solid ${sel ? '#6b9e7a' : 'transparent'};border-radius:8px;cursor:pointer;line-height:1">${o.emoji}</button>`;
+      }).join('')}
+      ${current ? `<span style="font-size:11px;color:#9ca3af;align-self:center;margin-left:4px">${MOOD_OPTIONS[current-1].label}</span>` : ''}
+    </div>
+  </div>`;
+}
+
+// ── Journaling prompts ───────────────────────────────────────────────────────
+const JOURNAL_PROMPTS = [
+  "What's one thing you're avoiding?",
+  "What went well today that you didn't expect?",
+  "What would make tomorrow a success?",
+  "What's something you're genuinely grateful for right now?",
+  "What did you learn today?",
+  "What's draining your energy this week?",
+  "What's one decision you're proud of recently?",
+  "Where did you spend your time today — was it worth it?",
+  "What's one thing you'd do differently?",
+  "Who did you help today?",
+  "What's something you're looking forward to?",
+  "What's been on your mind that you haven't said out loud?",
+  "If today were on repeat, what would you change?",
+  "What does 'doing well' mean to you this week?",
+];
+function renderJournalPrompt() {
+  const el = document.getElementById('journal-prompt');
+  if (!el) return;
+  const ticked = getHabits();
+  if (!ticked['h-journal']) { el.innerHTML = ''; return; }
+  const today = new Date().toLocaleDateString('en-CA');
+  const seed = parseInt(today.replace(/-/g, ''), 10);
+  const prompt = JOURNAL_PROMPTS[seed % JOURNAL_PROMPTS.length];
+  el.innerHTML = `<div style="background:#f9fafb;border-radius:10px;padding:10px 12px;margin:6px 0;border-left:3px solid #6b9e7a">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:#9ca3af;font-weight:700;margin-bottom:4px">✍️ Today's prompt</div>
+    <div style="font-size:13px;color:#374151;font-style:italic">"${prompt}"</div>
+  </div>`;
+}
+
+// ── Smart training suggestion ────────────────────────────────────────────────
+function getTrainingSuggestion() {
+  const today = new Date().toLocaleDateString('en-CA');
+  const sleepData = (typeof computeSleepForDate === 'function') ? computeSleepForDate(today) : null;
+  if (!sleepData) return null;
+  const h = sleepData.totalSleep;
+  if (h < 6)   return { verdict: 'Rest day 😴', color: '#ef4444', bg: '#fef2f2', detail: `Only ${h.toFixed(1)}h sleep` };
+  if (h < 7.5) return { verdict: 'Take it easy ⚡', color: '#f59e0b', bg: '#fffbeb', detail: `${h.toFixed(1)}h sleep` };
+  return { verdict: 'Ready to push 💪', color: '#6b9e7a', bg: '#f0fdf4', detail: `${h.toFixed(1)}h sleep` };
+}
+function renderTrainingSuggestion() {
+  const el = document.getElementById('home-suggestion');
+  if (!el) return;
+  const s = getTrainingSuggestion();
+  if (!s) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div style="background:${s.bg};border-radius:8px;padding:6px 10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+    <span style="font-size:12px;font-weight:700;color:${s.color}">${s.verdict}</span>
+    <span style="font-size:11px;color:#9ca3af">${s.detail}</span>
+  </div>`;
+}
+
+// ── Optimal wake times ───────────────────────────────────────────────────────
+function computeWakeTimes(bedHH, bedMM) {
+  const now = new Date();
+  const bed = new Date(now);
+  bed.setHours(bedHH, bedMM, 0, 0);
+  if (bed > now) bed.setDate(bed.getDate() - 1); // bedtime was last night
+  const times = [];
+  for (let cycles = 5; cycles <= 6; cycles++) {
+    const wake = new Date(bed.getTime() + cycles * 90 * 60 * 1000);
+    times.push({ cycles, h: cycles * 1.5, time: wake });
+  }
+  return times;
+}
+function renderWakeTimes() {
+  const el = document.getElementById('wake-times');
+  if (!el) return;
+  const today = new Date().toLocaleDateString('en-CA');
+  const sleepData = (typeof computeSleepForDate === 'function') ? computeSleepForDate(today) : null;
+  let bedHH = null, bedMM = null;
+  const override = localStorage.getItem('bedtime_override');
+  if (override) {
+    [bedHH, bedMM] = override.split(':').map(Number);
+  } else if (sleepData && sleepData.sleepStart) {
+    // sleepStart is typically a date string; extract time
+    const t = new Date(sleepData.sleepStart);
+    if (!isNaN(t)) { bedHH = t.getHours(); bedMM = t.getMinutes(); }
+  }
+  if (bedHH === null) {
+    el.innerHTML = `<div style="padding:8px 0;border-top:1px solid #f5f5f5">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:#9ca3af;font-weight:700;margin-bottom:5px">⏰ Wake calculator</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span style="font-size:12px;color:#9ca3af">Bedtime:</span>
+        <input type="time" id="bedtime-input" style="border:1px solid #e5e7eb;border-radius:6px;padding:3px 6px;font-size:12px;font-family:inherit" onchange="saveBedtime(this.value)">
+      </div>
+    </div>`;
+    return;
+  }
+  const times = computeWakeTimes(bedHH, bedMM);
+  const bedStr = `${String(bedHH).padStart(2,'0')}:${String(bedMM).padStart(2,'0')}`;
+  el.innerHTML = `<div style="padding:8px 0;border-top:1px solid #f5f5f5">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:#9ca3af;font-weight:700;margin-bottom:6px">⏰ Wake times <span style="font-weight:400;text-transform:none;font-size:10px">· bed ${bedStr}</span></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px">
+      ${times.map(t => {
+        const hh = String(t.time.getHours()).padStart(2,'0');
+        const mm = String(t.time.getMinutes()).padStart(2,'0');
+        const best = t.cycles === 6;
+        return `<span style="background:${best?'#f0fdf4':'#f9fafb'};border:1px solid ${best?'#6b9e7a':'#e5e7eb'};border-radius:8px;padding:4px 8px;font-size:12px;font-weight:700;color:${best?'#6b9e7a':'#374151'}">${hh}:${mm}<span style="font-weight:400;font-size:10px;color:#9ca3af;margin-left:3px">${t.h}h</span></span>`;
+      }).join('')}
+    </div>
+    ${override ? `<button onclick="clearBedtime()" style="font-size:10px;color:#9ca3af;background:none;border:none;cursor:pointer;padding:0">Change bedtime</button>` : ''}
+  </div>`;
+}
+function saveBedtime(val) {
+  localStorage.setItem('bedtime_override', val);
+  renderWakeTimes();
+}
+function clearBedtime() {
+  localStorage.removeItem('bedtime_override');
+  renderWakeTimes();
+}
+
+// ── Goal progress bars ───────────────────────────────────────────────────────
+function renderHomeGoals() {
+  const el = document.getElementById('home-goals');
+  if (!el) return;
+  let html = `<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:#9ca3af;font-weight:700;margin-bottom:10px">Goals</div>`;
+  // 5km sub-19
+  const runData = computeRunningPBs(_acts);
+  const fiveK = runData.dists.find(d => d.label === '5km');
+  const goalSec5k = timeToSec('19:00'), baseSec5k = timeToSec('25:00');
+  if (fiveK && fiveK.allTime) {
+    const prog = _runClubProgress(fiveK.allTime.time, baseSec5k, goalSec5k);
+    const done = prog.remaining === 0;
+    html += `<div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12px;margin-bottom:5px">
+        <span style="font-weight:700">🏃 Sub-19 5km</span>
+        <span style="color:#9ca3af">${done ? '🎉 Done!' : `PB ${fmtRaceTime(fiveK.allTime.time)} · ${fmtMMSS(prog.remaining)} to go`}</span>
+      </div>
+      <div style="background:#f3f4f6;border-radius:99px;height:7px;overflow:hidden">
+        <div style="background:${done?'#6b9e7a':'#3b82f6'};height:100%;width:${prog.pct.toFixed(1)}%;transition:width 0.5s"></div>
+      </div>
+    </div>`;
+  }
+  // 500kg club
+  const pbData = _strengthPBData || computeStrengthPBs();
+  const strProg = _strProgress(pbData.currentTotal, pbData.goal);
+  const strDone = strProg.remaining === 0;
+  html += `<div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12px;margin-bottom:5px">
+      <span style="font-weight:700">🏋️ 500kg Club</span>
+      <span style="color:#9ca3af">${strDone ? '🎉 Done!' : `${pbData.currentTotal}kg / 500kg · ${strProg.remaining}kg to go`}</span>
+    </div>
+    <div style="background:#f3f4f6;border-radius:99px;height:7px;overflow:hidden">
+      <div style="background:${strDone?'#6b9e7a':'#d97706'};height:100%;width:${strProg.pct.toFixed(1)}%;transition:width 0.5s"></div>
+    </div>
+  </div>`;
+  el.innerHTML = html;
+}
+
+// ── Tutoring log ─────────────────────────────────────────────────────────────
+function getTutoringLog() {
+  try { return JSON.parse(localStorage.getItem('tutoring_log')) || {}; } catch { return {}; }
+}
+function saveTutoringLog(log) {
+  localStorage.setItem('tutoring_log', JSON.stringify(log));
+  syncPush('tutoring_log', log);
+}
+function getTutoringRate() {
+  return parseFloat(localStorage.getItem('tutoring_rate') || '25');
+}
+function markTutoringDone(dateStr, key, done) {
+  const log = getTutoringLog();
+  if (!log[dateStr]) log[dateStr] = {};
+  log[dateStr][key] = done;
+  if (!done) delete log[dateStr][key];
+  saveTutoringLog(log);
+  renderDailyBriefing();
+}
+function calcTutoringMonth() {
+  const rate = getTutoringRate();
+  const monthStr = new Date().toLocaleDateString('en-CA').slice(0, 7);
+  const log = getTutoringLog();
+  let sessions = 0;
+  Object.keys(log).forEach(d => {
+    if (d.startsWith(monthStr)) sessions += Object.values(log[d]).filter(Boolean).length;
+  });
+  return { sessions, earnings: sessions * rate };
 }
 
 // ── Progress photo + weight log ─────────────────────────────────────────────
@@ -6206,11 +6548,51 @@ function renderDailyBriefing() {
   // ── Tutoring ─────────────────────────────────────────────────────────────
   const tutoringSlots = TUTORING_SCHEDULE[viewDate.getDay()];
   if (tutoringSlots && tutoringSlots.length > 0) {
+    const tLog = getTutoringLog();
+    const dayLog = tLog[todayDateStr] || {};
     let tutHtml = `<div style="${labelStyle}">👨‍🏫 Tutoring</div>`;
-    tutHtml += tutoringSlots.map(s =>
-      `<div style="${rowStyle}"><span style="color:#9ca3af;font-size:11px;min-width:80px;flex-shrink:0">${s.time}</span><span style="font-weight:500">${escHtml(s.student)}</span></div>`
-    ).join('');
+    tutHtml += tutoringSlots.map(s => {
+      const key = `${s.student}|${s.time}`;
+      const done = dayLog[key] || false;
+      return `<div style="${rowStyle};justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="color:#9ca3af;font-size:11px;min-width:80px;flex-shrink:0">${s.time}</span>
+          <span style="font-weight:500${done ? ';text-decoration:line-through;color:#9ca3af' : ''}">${escHtml(s.student)}</span>
+          ${done ? '<span style="font-size:11px;color:#6b9e7a">✓</span>' : ''}
+        </div>
+        ${isToday ? `<button onclick="markTutoringDone('${todayDateStr}','${key.replace(/'/g,"\\'")}',${!done})"
+          style="font-size:11px;background:${done?'#f3f4f6':'#f0fdf4'};border:1px solid ${done?'#e5e7eb':'#6b9e7a'};border-radius:6px;padding:2px 8px;cursor:pointer;color:${done?'#9ca3af':'#6b9e7a'};white-space:nowrap">${done?'Undo':'Mark done'}</button>` : ''}
+      </div>`;
+    }).join('');
+    const { sessions, earnings } = calcTutoringMonth();
+    if (sessions > 0) {
+      tutHtml += `<div style="margin-top:6px;font-size:11px;color:#9ca3af">£${earnings.toFixed(0)} earned this month (${sessions} session${sessions !== 1 ? 's' : ''})</div>`;
+    }
     sections.push(`<div style="${sectionStyle}">${tutHtml}</div>`);
+  }
+
+  // ── Weekly Recap (Sundays only) ───────────────────────────────────────────
+  if (viewDate.getDay() === 0) {
+    const wkStart = new Date(viewDate); wkStart.setDate(wkStart.getDate() - 6);
+    const wkStartStr = wkStart.toLocaleDateString('en-CA');
+    const wkActs = (_acts || []).filter(a => {
+      const d = new Date(a.start_local).toLocaleDateString('en-CA');
+      return d >= wkStartStr && d <= todayDateStr;
+    });
+    let sleepSum = 0, sleepN = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(viewDate); d.setDate(d.getDate() - i);
+      const sl = (typeof computeSleepForDate === 'function') ? computeSleepForDate(d.toLocaleDateString('en-CA')) : null;
+      if (sl && sl.totalSleep) { sleepSum += sl.totalSleep; sleepN++; }
+    }
+    const avgSleep = sleepN > 0 ? (sleepSum / sleepN).toFixed(1) : null;
+    const streaks = getHabitStreaks();
+    const bestStreak = Object.values(streaks).reduce((b, s) => Math.max(b, s.count || 0), 0);
+    let recapHtml = `<div style="${labelStyle}">📊 This Week</div>`;
+    recapHtml += `<div style="${rowStyle}">🏃 <span>${wkActs.length} training session${wkActs.length !== 1 ? 's' : ''} logged</span></div>`;
+    if (avgSleep) recapHtml += `<div style="${rowStyle}">😴 <span>Avg sleep: <strong>${avgSleep}h</strong></span></div>`;
+    if (bestStreak >= 2) recapHtml += `<div style="${rowStyle}">🔥 <span>Best habit streak: <strong>${bestStreak} days</strong></span></div>`;
+    sections.push(`<div style="${sectionStyle}">${recapHtml}</div>`);
   }
 
   // ── Nutrition ────────────────────────────────────────────────────────────
@@ -7879,6 +8261,7 @@ async function fetchHealthData() {
       renderDailyBriefing();
       renderSleepPerformanceLink();
       renderNutrToday(); // recalc calorie target now that today's Apple Health burn data is in
+      renderHabits(); // re-render with updated auto habit state + sleep suggestion/wake times
     }
   } catch (e) {
     console.warn('Health data fetch failed', e);
@@ -8795,6 +9178,7 @@ fetchWeather();
 renderEcgQuiz();
 renderStudyStreak();
 renderDailyBriefing(); // initial render from local data; re-fires after weather/health loads
+renderHomeGoals();
 renderTasks();
 renderDashTasks();
 renderShopping();
@@ -8888,6 +9272,7 @@ async function main() {
 
     renderTodos();
     renderHabits();
+    renderHomeGoals();
 
     // AI sections — no await blocking the above
     await renderPlan(acts, acwr, call);
