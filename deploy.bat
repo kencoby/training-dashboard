@@ -22,7 +22,7 @@ if errorlevel 1 (
   git push origin main
   echo.
   echo Done! Netlify will be live in ~30 seconds.
-  echo https://training-dashboard-philipc.netlify.app
+  echo https://training-dashboard-philipcx.netlify.app
 ) else (
   echo No changes to deploy.
 )
