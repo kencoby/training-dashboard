@@ -6144,22 +6144,6 @@ function renderDailyBriefing() {
   }
   sections.push(`<div style="${sectionStyle}">${revHtml}</div>`);
 
-  // ── To Do ────────────────────────────────────────────────────────────────
-  const allTodos = getTodos();
-  const openTodos = allTodos.filter(t => !t.done);
-  let todosHtml = `<div style="${labelStyle}">📋 To Do <span style="font-weight:400;text-transform:none;letter-spacing:0">(${openTodos.length} open)</span></div>`;
-  if (!openTodos.length) {
-    todosHtml += `<div style="font-size:13px;color:#9ca3af">All done ✓</div>`;
-  } else {
-    todosHtml += openTodos.slice(0, 5).map(t =>
-      `<div style="${rowStyle}"><span style="color:#9ca3af">•</span> <span>${escHtml(t.text)}</span></div>`
-    ).join('');
-    if (openTodos.length > 5) {
-      todosHtml += `<div style="font-size:11px;color:#bbb;margin-top:4px">+${openTodos.length - 5} more</div>`;
-    }
-  }
-  sections.push(`<div style="${sectionStyle}">${todosHtml}</div>`);
-
   // ── Finance ──────────────────────────────────────────────────────────────
   const fin = getFinance();
   const curMonthKey = monthKey(today);
