@@ -8753,6 +8753,7 @@ function applySyncUpdates(updated) {
   if (updated.includes('finance_transactions') || updated.includes('finance_accounts')) safe(renderStatements);
   if (updated.includes('rev_schedule_log') || updated.includes('rev_passmed_done')) safe(renderRevSchedule);
   if (updated.includes('tasks_priority')) safe(renderTasks);
+  if (updated.includes('shopping_items')) safe(renderShopping);
   if (updated.includes('nutr_food_log')) safe(() => { renderFoodLog(); renderNutrToday(); renderNutrDashboardCard(); });
   if (updated.includes('nutr_meal_plan')) safe(renderMealPlan);
   if (updated.includes('nutr_grocery')) safe(renderGrocery);
@@ -8760,6 +8761,10 @@ function applySyncUpdates(updated) {
   // activity_notes intentionally not force-rendered here — it's spread across
   // many per-sport activity lists; it'll pick up the synced value next time
   // that list is rendered (those lists already read from localStorage fresh).
+  // Always refresh dashboard summary cards — they may have stale "—" values
+  // if timestamps matched (no update fired) but localStorage already had data.
+  safe(renderDashTasks);
+  safe(renderShopping);
 }
 
 (async () => {
