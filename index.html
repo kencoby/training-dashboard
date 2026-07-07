@@ -1598,6 +1598,7 @@ async function fetchActivities(tokens) {
     const res = await fetch(`${API}/strava-auth?action=proxy&path=${encodeURIComponent('/athlete/activities')}&access_token=${encodeURIComponent(tokens.access_token)}&per_page=200&page=${page}`);
     const raw = await res.json();
     if (res.status === 401) { clearTokens(); throw new Error('Strava session expired — reconnect to continue.'); }
+    if (res.status === 429) throw new Error('Strava rate limit hit — wait a few minutes and refresh the page.');
     if (!Array.isArray(raw)) throw new Error(raw.message || 'Failed to load Strava activities');
     all.push(...raw);
     if (raw.length < 200) break;
