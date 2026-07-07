@@ -1,30 +1,75 @@
-import { getStore } from '@netlify/blobs';
+/**
+ * Netlify Functions v2 (ES module) version of the sync handler.
+ * Backed by Supabase PostgreSQL — survives site migrations.
+ * GET  /api/sync?key=<key>  -> { data, _ts } or null
+ * POST /api/sync?key=<key>  body:{ data, _ts } -> upserts
+ */
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
+
+const CORS = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type'
+};
+
+function respond(status, body) {
+  return new Response(JSON.stringify(body), { status, headers: CORS });
+}
+
+async function sbGet(key) {
+  const url = `${SUPABASE_URL}/rest/v1/dashboard_kv?key=eq.${encodeURIComponent(key)}&select=data,ts`;
+  const res = await fetch(url, {
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+  });
+  if (!res.ok) throw new Error(`Supabase GET failed: ${res.status}`);
+  const rows = await res.json();
+  return rows.length > 0 ? { data: rows[0].data, _ts: rows[0].ts } : null;
+}
+
+async function sbUpsert(key, data, ts) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/dashboard_kv`, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'resolution=merge-duplicates'
+    },
+    body: JSON.stringify({ key, data, ts })
+  });
+  if (!res.ok) throw new Error(`Supabase upsert failed: ${res.status} ${await res.text()}`);
+}
 
 export default async (req) => {
-  const store = getStore({ name: 'dashboard-sync', consistency: 'strong' });
+  if (req.method === 'OPTIONS') return respond(200, {});
+
   const url = new URL(req.url);
   const key = url.searchParams.get('key');
-  if (!key) return new Response('Missing key', { status: 400 });
-
-  const headers = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*'
-  };
+  if (!key) return respond(400, { error: 'Missing key parameter' });
+  if (!SUPABASE_URL || !SUPABASE_KEY) return respond(500, { error: 'Supabase not configured' });
 
   if (req.method === 'GET') {
-    const data = await store.get(key);
-    return new Response(data || 'null', { status: 200, headers });
+    try {
+      return respond(200, await sbGet(key));
+    } catch (err) {
+      return respond(500, { error: err.message });
+    }
   }
 
   if (req.method === 'POST') {
-    const body = JSON.parse((await req.text()) || 'null');
-    // last-write-wins: only overwrite if incoming timestamp is newer
-    const existing = JSON.parse((await store.get(key)) || 'null');
-    if (!existing || !body?._ts || !existing?._ts || body._ts >= existing._ts) {
-      await store.set(key, JSON.stringify(body));
+    const body = JSON.parse((await req.text()) || '{}');
+    const ts = body._ts !== undefined ? body._ts : Date.now();
+    const data = body.data !== undefined ? body.data : body;
+    try {
+      await sbUpsert(key, data, ts);
+      return respond(200, { ok: true, _ts: ts });
+    } catch (err) {
+      return respond(500, { error: err.message });
     }
-    return new Response(JSON.stringify({ ok: true }), { status: 200, headers });
   }
 
-  return new Response('Method not allowed', { status: 405 });
+  return respond(405, { error: 'Method not allowed' });
 };

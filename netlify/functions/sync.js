@@ -1,34 +1,70 @@
-const { getStore } = require('@netlify/blobs');
+/**
+ * Generic cross-device sync store backed by Supabase PostgreSQL.
+ * GET  /api/sync?key=<key>          -> { data, _ts } or null
+ * POST /api/sync?key=<key>  body:{ data, _ts } -> upserts, last-write-wins
+ */
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
 
 function json(statusCode, body) {
   return {
     statusCode,
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    },
     body: JSON.stringify(body)
   };
 }
 
-// Falls back to explicit siteID/token if Netlify's automatic Blobs context
-// isn't available in this deploy (set BLOBS_SITE_ID / BLOBS_TOKEN env vars to enable).
-function blobStore(name) {
-  const siteID = process.env.BLOBS_SITE_ID;
-  const token = process.env.BLOBS_TOKEN;
-  return siteID && token ? getStore({ name, siteID, token }) : getStore(name);
+async function sbGet(key) {
+  const url = `${SUPABASE_URL}/rest/v1/dashboard_kv?key=eq.${encodeURIComponent(key)}&select=data,ts`;
+  const res = await fetch(url, {
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`
+    }
+  });
+  if (!res.ok) throw new Error(`Supabase GET failed: ${res.status}`);
+  const rows = await res.json();
+  return rows.length > 0 ? { data: rows[0].data, _ts: rows[0].ts } : null;
 }
 
-// Generic cross-device sync store.
-// GET  /api/sync?key=<key>          -> { data, _ts } or null
-// POST /api/sync?key=<key>  body:{ data, _ts } -> stores as-is, last-write-wins (client compares _ts)
+async function sbUpsert(key, data, ts) {
+  const url = `${SUPABASE_URL}/rest/v1/dashboard_kv`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'resolution=merge-duplicates'
+    },
+    body: JSON.stringify({ key, data, ts })
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Supabase upsert failed: ${res.status} ${text}`);
+  }
+}
+
 exports.handler = async (event) => {
+  // CORS preflight
+  if (event.httpMethod === 'OPTIONS') {
+    return json(200, {});
+  }
+
   const key = event.queryStringParameters && event.queryStringParameters.key;
   if (!key) return json(400, { error: 'Missing key parameter' });
-
-  const store = blobStore('dashboard-sync');
+  if (!SUPABASE_URL || !SUPABASE_KEY) return json(500, { error: 'Supabase not configured' });
 
   if (event.httpMethod === 'GET') {
     try {
-      const raw = await store.get(key);
-      return json(200, raw ? JSON.parse(raw) : null);
+      const row = await sbGet(key);
+      return json(200, row);
     } catch (err) {
       return json(500, { error: err.message });
     }
@@ -41,10 +77,11 @@ exports.handler = async (event) => {
     } catch {
       return json(400, { error: 'Invalid JSON body' });
     }
-    if (body._ts === undefined) body._ts = Date.now();
+    const ts = body._ts !== undefined ? body._ts : Date.now();
+    const data = body.data !== undefined ? body.data : body;
     try {
-      await store.set(key, JSON.stringify(body));
-      return json(200, { ok: true, _ts: body._ts });
+      await sbUpsert(key, data, ts);
+      return json(200, { ok: true, _ts: ts });
     } catch (err) {
       return json(500, { error: err.message });
     }
