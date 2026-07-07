@@ -6044,6 +6044,23 @@ const PLACEMENT_SCHEDULE = {
   ]},
 };
 
+// Tutoring schedule (day-of-week: 0=Sun, 1=Mon, ... 6=Sat)
+const TUTORING_SCHEDULE = {
+  2: [ // Tuesday
+    { student: 'Jordan', time: '5:00–6:00 PM' }
+  ],
+  3: [ // Wednesday
+    { student: 'Liesel', time: '4:00–5:00 PM' }
+  ],
+  4: [ // Thursday
+    { student: 'Jordan', time: '5:00–6:00 PM' },
+    { student: 'Blu',    time: '6:00–7:00 PM' }
+  ],
+  0: [ // Sunday
+    { student: 'Iwin',   time: '5:00–6:00 PM' }
+  ]
+};
+
 let _briefingOffset = 0;
 
 function briefingNav(dir, reset) {
@@ -6184,6 +6201,16 @@ function renderDailyBriefing() {
       plHtml += `</div><div style="font-size:13px;color:#9ca3af">No placement today 🎉</div>`;
     }
     sections.push(`<div style="${sectionStyle}">${plHtml}</div>`);
+  }
+
+  // ── Tutoring ─────────────────────────────────────────────────────────────
+  const tutoringSlots = TUTORING_SCHEDULE[viewDate.getDay()];
+  if (tutoringSlots && tutoringSlots.length > 0) {
+    let tutHtml = `<div style="${labelStyle}">👨‍🏫 Tutoring</div>`;
+    tutHtml += tutoringSlots.map(s =>
+      `<div style="${rowStyle}"><span style="color:#9ca3af;font-size:11px;min-width:80px;flex-shrink:0">${s.time}</span><span style="font-weight:500">${escHtml(s.student)}</span></div>`
+    ).join('');
+    sections.push(`<div style="${sectionStyle}">${tutHtml}</div>`);
   }
 
   // ── Nutrition ────────────────────────────────────────────────────────────
