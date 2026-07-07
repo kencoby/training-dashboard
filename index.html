@@ -8623,11 +8623,12 @@ fetchWeather();
 renderEcgQuiz();
 renderStudyStreak();
 renderDailyBriefing(); // initial render from local data; re-fires after weather/health loads
-console.log('[DASH] init render start, tasks in storage:', (localStorage.getItem('tasks_priority')||'').length);
+window.__dashLog = window.__dashLog || [];
+window.__dashLog.push('init start ts=' + (localStorage.getItem('tasks_priority')||'').length);
 renderTasks();
 renderDashTasks();
 renderShopping();
-console.log('[DASH] init render done, summary children:', document.getElementById('dash-tasks-summary')?.children?.length);
+window.__dashLog.push('init done sumChildren=' + (document.getElementById('dash-tasks-summary')?.children?.length ?? 'null'));
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function main() {
@@ -8770,11 +8771,12 @@ function applySyncUpdates(updated) {
 }
 
 (async () => {
-  console.log('[DASH] syncAll start');
+  window.__dashLog = window.__dashLog || [];
+  window.__dashLog.push('syncAll start');
   const updated = await syncAll();
-  console.log('[DASH] syncAll done, updated keys:', JSON.stringify(updated));
+  window.__dashLog.push('syncAll done keys=' + JSON.stringify(updated));
   applySyncUpdates(updated);
-  console.log('[DASH] applySyncUpdates done, summary children:', document.getElementById('dash-tasks-summary')?.children?.length);
+  window.__dashLog.push('applySync done sumChildren=' + (document.getElementById('dash-tasks-summary')?.children?.length ?? 'null'));
 })();
 
 // Re-sync whenever the tab regains focus (e.g. switching back from another
@@ -8792,10 +8794,11 @@ document.addEventListener('visibilitychange', async () => {
 // Guaranteed late render of dashboard summary cards — runs after all
 // synchronous init and the first sync cycle have had time to settle.
 setTimeout(() => {
-  console.log('[DASH] 800ms timeout fired, tasks in storage:', (localStorage.getItem('tasks_priority')||'').length);
+  window.__dashLog = window.__dashLog || [];
+  window.__dashLog.push('800ms ts=' + (localStorage.getItem('tasks_priority')||'').length);
   renderDashTasks();
   renderShopping();
-  console.log('[DASH] 800ms done, summary children:', document.getElementById('dash-tasks-summary')?.children?.length);
+  window.__dashLog.push('800ms done sumChildren=' + (document.getElementById('dash-tasks-summary')?.children?.length ?? 'null'));
 }, 800);
 </script>
 </body>
