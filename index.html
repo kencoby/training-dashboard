@@ -124,6 +124,16 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 .sub-tab-btn.active { color: #1a1a1a; border-bottom-color: #1a1a1a; }
 .sub-tab-pane { display: none; }
 .sub-tab-pane.active { display: block; }
+.note-lbl-btn,.note-filter-btn{background:none;border:1.5px solid #e5e7eb;border-radius:99px;padding:3px 10px;font-size:12px;cursor:pointer;font-family:inherit;color:#6b7280;transition:all .15s}
+.note-lbl-btn:hover,.note-filter-btn:hover{border-color:#9ca3af;color:#374151}
+.note-lbl-btn.active,.note-filter-btn.active{background:#1a1a1a;border-color:#1a1a1a;color:#fff}
+.note-card{background:#fff;border:1.5px solid #f3f4f6;border-radius:12px;padding:14px 16px;margin-bottom:10px;position:relative;transition:box-shadow .15s}
+.note-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.note-card.pinned{border-color:#fcd34d;background:#fffbeb}
+.note-actions{display:none;gap:6px;position:absolute;top:10px;right:10px}
+.note-card:hover .note-actions{display:flex}
+.note-action-btn{background:none;border:none;cursor:pointer;font-size:14px;padding:2px 4px;border-radius:6px;opacity:.6;transition:opacity .15s}
+.note-action-btn:hover{opacity:1;background:#f3f4f6}
 
 /* WHOOP-style cards */
 .whoop-card{background:#101113;border-radius:18px;padding:26px 18px 22px;display:flex;flex-direction:column;align-items:center;color:#fff}
@@ -160,6 +170,7 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
     <button class="tab-btn" data-tab="finance">💰 Finance</button>
     <button class="tab-btn" data-tab="planner">✅ Tasks</button>
     <button class="tab-btn" data-tab="shopping">🛒 Shopping</button>
+    <button class="tab-btn" data-tab="notes">📝 Notes</button>
   </nav>
   <div style="position:absolute;top:0;right:0;bottom:2px;width:32px;
     background:linear-gradient(to right,transparent,#f2f2ee);
@@ -1378,6 +1389,49 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 
 </div><!-- /tab-shopping -->
 
+<div class="tab-pane" id="tab-notes">
+
+<!-- QUICK ADD -->
+<div class="section">
+  <div style="display:flex;gap:8px;align-items:flex-start">
+    <textarea id="notes-input" rows="3" placeholder="Type a note or idea and press ⌘↵ / Ctrl↵ to save…"
+      onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){addNote();event.preventDefault()}"
+      style="flex:1;border:1.5px solid #d1d5db;border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;resize:vertical;outline:none;line-height:1.5;min-height:72px"></textarea>
+    <button onclick="addNote()"
+      style="background:#1a1a1a;color:#fff;border:none;border-radius:10px;padding:10px 16px;font-size:18px;font-weight:700;cursor:pointer;line-height:1;align-self:flex-start">+</button>
+  </div>
+  <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap" id="notes-label-btns">
+    <span style="font-size:12px;color:#9ca3af;align-self:center">Label:</span>
+    <button onclick="setNoteLabel('')"   id="notes-lbl-none"  class="note-lbl-btn active" data-lbl="">General</button>
+    <button onclick="setNoteLabel('idea')"  id="notes-lbl-idea"  class="note-lbl-btn" data-lbl="idea">💡 Idea</button>
+    <button onclick="setNoteLabel('todo')"  id="notes-lbl-todo"  class="note-lbl-btn" data-lbl="todo">☑️ To-do</button>
+    <button onclick="setNoteLabel('med')"   id="notes-lbl-med"   class="note-lbl-btn" data-lbl="med">🩺 Med</button>
+    <button onclick="setNoteLabel('training')" id="notes-lbl-training" class="note-lbl-btn" data-lbl="training">🏃 Training</button>
+  </div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="section" style="padding-top:0;padding-bottom:0">
+  <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+    <span style="font-size:12px;color:#9ca3af">Filter:</span>
+    <button onclick="setNotesFilter('')"          class="note-filter-btn active" data-filter="">All</button>
+    <button onclick="setNotesFilter('pinned')"    class="note-filter-btn" data-filter="pinned">📌 Pinned</button>
+    <button onclick="setNotesFilter('idea')"      class="note-filter-btn" data-filter="idea">💡 Idea</button>
+    <button onclick="setNotesFilter('todo')"      class="note-filter-btn" data-filter="todo">☑️ To-do</button>
+    <button onclick="setNotesFilter('med')"       class="note-filter-btn" data-filter="med">🩺 Med</button>
+    <button onclick="setNotesFilter('training')"  class="note-filter-btn" data-filter="training">🏃 Training</button>
+    <input id="notes-search" type="text" placeholder="Search…" oninput="renderNotes()"
+      style="margin-left:auto;border:1.5px solid #e5e7eb;border-radius:8px;padding:4px 10px;font-size:12px;font-family:inherit;outline:none;width:120px">
+  </div>
+</div>
+
+<!-- NOTES LIST -->
+<div class="section">
+  <div id="notes-list"></div>
+</div>
+
+</div><!-- /tab-notes -->
+
 <!-- Popover -->
 <div class="pop" id="pop"></div>
 
@@ -2034,7 +2088,8 @@ const SYNC_KEYS = [
   'ecg_quiz_log', 'finance_data', 'nutr_food_log', 'nutr_meal_plan', 'nutr_grocery', 'nutr_pantry',
   'study_activity_log', 'finance_transactions', 'finance_accounts',
   'rev_schedule_log', 'rev_passmed_done', 'tasks_priority',
-  'shopping_items'
+  'shopping_items',
+  'notes_data'
 ];
 
 function getSyncMeta() {
@@ -2254,6 +2309,109 @@ function renderShopping() {
         <span onclick="deleteShopItem('${item.id}')" style="cursor:pointer;font-size:14px;color:#d1d5db;padding:0 2px">×</span>
       </div>`).join('');
   });
+}
+
+// ── NOTES / IDEAS ───────────────────────────────────────────────
+let _currentNoteLabel = '';
+let _currentNotesFilter = '';
+
+function getNotes() { try { return JSON.parse(localStorage.getItem('notes_data')) || []; } catch { return []; } }
+function saveNotes(notes) { localStorage.setItem('notes_data', JSON.stringify(notes)); syncPush('notes_data', notes); }
+
+function setNoteLabel(lbl) {
+  _currentNoteLabel = lbl;
+  document.querySelectorAll('.note-lbl-btn').forEach(b => b.classList.toggle('active', b.dataset.lbl === lbl));
+}
+
+function setNotesFilter(f) {
+  _currentNotesFilter = f;
+  document.querySelectorAll('.note-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === f));
+  renderNotes();
+}
+
+function addNote() {
+  const inp = document.getElementById('notes-input');
+  const text = (inp?.value || '').trim();
+  if (!text) return;
+  const notes = getNotes();
+  notes.unshift({ id: 'n' + Date.now(), text, label: _currentNoteLabel, pinned: false, ts: Date.now() });
+  saveNotes(notes);
+  inp.value = '';
+  renderNotes();
+}
+
+function deleteNote(id) {
+  saveNotes(getNotes().filter(n => n.id !== id));
+  renderNotes();
+}
+
+function togglePin(id) {
+  const notes = getNotes();
+  const n = notes.find(n => n.id === id);
+  if (n) n.pinned = !n.pinned;
+  saveNotes(notes);
+  renderNotes();
+}
+
+function startEditNote(id) {
+  const notes = getNotes();
+  const n = notes.find(n => n.id === id);
+  if (!n) return;
+  const card = document.querySelector(`[data-note-id="${id}"]`);
+  if (!card) return;
+  const body = card.querySelector('.note-body');
+  body.innerHTML = `<textarea style="width:100%;border:1.5px solid #d1d5db;border-radius:8px;padding:8px;font-size:13px;font-family:inherit;resize:vertical;outline:none;min-height:60px" onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){saveEditNote('${id}',this.value);event.preventDefault()}">${escHtml(n.text)}</textarea>
+    <div style="margin-top:6px;display:flex;gap:6px;justify-content:flex-end">
+      <button onclick="saveEditNote('${id}',this.closest('.note-card').querySelector('textarea').value)"
+        style="background:#1a1a1a;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer">Save</button>
+      <button onclick="renderNotes()"
+        style="background:none;border:1.5px solid #e5e7eb;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;color:#6b7280">Cancel</button>
+    </div>`;
+}
+
+function saveEditNote(id, newText) {
+  const text = (newText || '').trim();
+  if (!text) return;
+  const notes = getNotes();
+  const n = notes.find(n => n.id === id);
+  if (n) { n.text = text; n.edited = Date.now(); }
+  saveNotes(notes);
+  renderNotes();
+}
+
+const NOTE_LABEL_MAP = { idea:'💡 Idea', todo:'☑️ To-do', med:'🩺 Med', training:'🏃 Training' };
+
+function renderNotes() {
+  const el = document.getElementById('notes-list');
+  if (!el) return;
+  let notes = getNotes();
+  const search = (document.getElementById('notes-search')?.value || '').toLowerCase();
+  const f = _currentNotesFilter;
+  if (f === 'pinned') notes = notes.filter(n => n.pinned);
+  else if (f) notes = notes.filter(n => n.label === f);
+  if (search) notes = notes.filter(n => n.text.toLowerCase().includes(search));
+  // pinned first, then by ts
+  notes.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || b.ts - a.ts);
+  if (!notes.length) {
+    el.innerHTML = `<div style="color:#bbb;font-style:italic;padding:20px 0;text-align:center">No notes yet — type one above</div>`;
+    return;
+  }
+  el.innerHTML = notes.map(n => {
+    const date = new Date(n.ts).toLocaleDateString('en-GB', { day:'numeric', month:'short', year: new Date(n.ts).getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined });
+    const lbl = n.label && NOTE_LABEL_MAP[n.label] ? `<span style="background:#f3f4f6;border-radius:99px;padding:2px 8px;font-size:11px;color:#6b7280">${NOTE_LABEL_MAP[n.label]}</span>` : '';
+    return `<div class="note-card${n.pinned ? ' pinned' : ''}" data-note-id="${n.id}">
+      <div class="note-actions">
+        <button class="note-action-btn" onclick="togglePin('${n.id}')" title="${n.pinned ? 'Unpin' : 'Pin'}">${n.pinned ? '📌' : '📍'}</button>
+        <button class="note-action-btn" onclick="startEditNote('${n.id}')" title="Edit">✏️</button>
+        <button class="note-action-btn" onclick="deleteNote('${n.id}')" title="Delete">🗑️</button>
+      </div>
+      <div class="note-body" style="font-size:14px;line-height:1.55;white-space:pre-wrap;padding-right:80px">${escHtml(n.text)}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+        ${lbl}
+        <span style="font-size:11px;color:#d1d5db;margin-left:auto">${date}${n.edited ? ' · edited' : ''}</span>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function clearCompletedTasks() {
@@ -7142,6 +7300,7 @@ function switchTab(name) {
   requestAnimationFrame(() => { pane.style.opacity = '1'; pane.classList.add('active'); });
   localStorage.setItem('active_tab', name);
   if (name === 'shopping') renderShopping();
+  if (name === 'notes') renderNotes();
   if (!initialised[name]) {
     initialised[name] = true;
     if (pendingCharts[name]) { pendingCharts[name](); delete pendingCharts[name]; }
@@ -8628,6 +8787,7 @@ renderDailyBriefing(); // initial render from local data; re-fires after weather
 renderTasks();
 renderDashTasks();
 renderShopping();
+renderNotes();
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function main() {
@@ -8756,6 +8916,7 @@ function applySyncUpdates(updated) {
   if (updated.includes('rev_schedule_log') || updated.includes('rev_passmed_done')) safe(renderRevSchedule);
   if (updated.includes('tasks_priority')) safe(renderTasks);
   if (updated.includes('shopping_items')) safe(renderShopping);
+  if (updated.includes('notes_data')) safe(renderNotes);
   if (updated.includes('nutr_food_log')) safe(() => { renderFoodLog(); renderNutrToday(); renderNutrDashboardCard(); });
   if (updated.includes('nutr_meal_plan')) safe(renderMealPlan);
   if (updated.includes('nutr_grocery')) safe(renderGrocery);
@@ -8791,6 +8952,7 @@ document.addEventListener('visibilitychange', async () => {
 setTimeout(() => {
   renderDashTasks();
   renderShopping();
+  renderNotes();
 }, 800);
 </script>
 </body>
