@@ -8623,9 +8623,11 @@ fetchWeather();
 renderEcgQuiz();
 renderStudyStreak();
 renderDailyBriefing(); // initial render from local data; re-fires after weather/health loads
+console.log('[DASH] init render start, tasks in storage:', (localStorage.getItem('tasks_priority')||'').length);
 renderTasks();
 renderDashTasks();
 renderShopping();
+console.log('[DASH] init render done, summary children:', document.getElementById('dash-tasks-summary')?.children?.length);
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function main() {
@@ -8768,8 +8770,11 @@ function applySyncUpdates(updated) {
 }
 
 (async () => {
+  console.log('[DASH] syncAll start');
   const updated = await syncAll();
+  console.log('[DASH] syncAll done, updated keys:', JSON.stringify(updated));
   applySyncUpdates(updated);
+  console.log('[DASH] applySyncUpdates done, summary children:', document.getElementById('dash-tasks-summary')?.children?.length);
 })();
 
 // Re-sync whenever the tab regains focus (e.g. switching back from another
@@ -8786,7 +8791,12 @@ document.addEventListener('visibilitychange', async () => {
 
 // Guaranteed late render of dashboard summary cards — runs after all
 // synchronous init and the first sync cycle have had time to settle.
-setTimeout(() => { renderDashTasks(); renderShopping(); }, 800);
+setTimeout(() => {
+  console.log('[DASH] 800ms timeout fired, tasks in storage:', (localStorage.getItem('tasks_priority')||'').length);
+  renderDashTasks();
+  renderShopping();
+  console.log('[DASH] 800ms done, summary children:', document.getElementById('dash-tasks-summary')?.children?.length);
+}, 800);
 </script>
 </body>
 </html>
