@@ -7076,10 +7076,10 @@ const DEFAULT_FINANCE = {
 };
 const DEFAULT_MONTH = () => ({
   income: { tutoring: 0, hca: 0, misc: 0 },
-  expenses: { rent: 0, food: 0, transport: 0, subscriptions: 0, sport: 0, clothes: 0, holidays: 0, misc: 0 },
+  expenses: { rent: 0, groceries: 0, eatingout: 0, transport: 0, shopping: 0, subscriptions: 0, savings: 0, misc: 0 },
 });
 const INCOME_LABELS = { tutoring: 'Tutoring', hca: 'HCA Shifts', misc: 'Misc' };
-const EXPENSE_LABELS = { rent: 'Rent', food: 'Food', transport: 'Transport', subscriptions: 'Subscriptions', sport: 'Sport', clothes: 'Clothes', holidays: 'Holidays', misc: 'Misc' };
+const EXPENSE_LABELS = { rent: 'Rent & Bills', groceries: 'Groceries', eatingout: 'Eating Out', transport: 'Transport', shopping: 'Shopping', subscriptions: 'Subscriptions', savings: 'Savings', misc: 'Misc' };
 const EXPENSE_COLORS = ['#3b82f6','#8b5cf6','#06b6d4','#d97706','#6b9e7a','#e05c5c','#6366f1','#9ca3af'];
 const fmtGBP = n => (+n||0).toLocaleString('en-GB', { style:'currency', currency:'GBP', maximumFractionDigits:0 });
 
@@ -7394,15 +7394,15 @@ function renderFinanceDashboardCard() {
 }
 
 // — Statements: upload, parse, categorise, budget-vs-actual, net worth —
-const TRANSFER_KEYWORDS = ['halifax','santander','monzo','starling','barclays','natwest','lloyds','hsbc','nationwide','virgin money','first direct','metro bank','tsb','transfer to','transfer from','tfr to','tfr from','own account','internal transfer','interbank','between accounts','move money','savings transfer','isa transfer','bacs transfer','online transfer'];
+const TRANSFER_KEYWORDS = ['philip cobon','santan from p cobon','halifax','santander','monzo','starling','barclays','natwest','lloyds','hsbc','nationwide','virgin money','first direct','metro bank','tsb','transfer to','transfer from','tfr to','tfr from','own account','internal transfer','interbank','between accounts','move money','savings transfer','isa transfer','bacs transfer','online transfer'];
 const FINANCE_CATEGORY_KEYWORDS = {
-  rent: ['rent', 'mortgage', 'landlord'],
-  food: ['tesco','sainsbury','asda','aldi','lidl','waitrose','morrisons','co-op','coop','grocery','supermarket','deliveroo','just eat','justeat','uber eats','ubereats','restaurant','cafe','coffee','costa','starbucks','pret','mcdonald','kfc','nando','greggs','takeaway'],
-  transport: ['uber','bolt','trainline','tfl','train','railway','national rail','petrol','fuel','shell','bp ','esso','parking','taxi','bus '],
-  subscriptions: ['netflix','spotify','amazon prime','disney','apple.com/bill','itunes','subscription','gym membership','direct debit'],
-  sport: ['gym','fitness','decathlon','sports direct','strava','peloton','parkrun','race entry','triathlon'],
-  clothes: ['asos','next retail','zara','h&m','primark','clothing','shoes','footwear'],
-  holidays: ['hotel','airbnb','booking.com','expedia','flight','airline','ryanair','easyjet','holiday'],
+  rent: ['jarguz','property trading','rent','mortgage','landlord','council tax','utilities','water rates','electricity','broadband','bt ','sky ','virgin media','phone bill','ee ','o2 ','three ','vodafone'],
+  groceries: ['tesco stores','tesco-stores','tesco pfs','sainsburys','sainsbury','asda','aldi','lidl','waitrose','morrisons','co-op group','coop','co op ','m&s simply food','marks & spencer food','iceland','farmfoods','ocado','grocery','supermarket'],
+  eatingout: ['kfc','mcdonald','tortilla','deliveroo','just eat','justeat','uber eats','ubereats','wolt','nando','greggs','burger king','subway','wagamama','wetherspoon','costa ','starbucks','pret ','susu trading','venue catering','whitez','chester tavern','noah\'s yard','pub on the pond'],
+  transport: ['trainpal','uber *trip','uber*trip','tfl','trainline','railway','national rail','national express','first west','first cymru','first bus','arriva','stagecoach','crosscountry','gwr ','avanti','thameslink','petrol','fuel','shell','bp ','esso','parking','taxi','new adventure travel'],
+  shopping: ['amznmktplace','www.amazon','amazon*','amazon ','asos','home bargains','slater','zara','h&m','primark','ebay','etsy','argos','currys','john lewis','boots ','superdrug','ikea','b&m','the range','matalan','new look','river island','nike','adidas','sharkninja'],
+  subscriptions: ['spotify','netflix','google one','google *google','apple.com/bill','itunes','youtube premium','adobe','microsoft','disney','plum ref','google*'],
+  savings: ['moneybox','trading 212','trading212','vanguard','hargreaves','nutmeg'],
 };
 
 function categorizeTransaction(description, amount) {
@@ -7522,10 +7522,16 @@ function parseCSVStatement(text) {
     const csvCat = (hasHeader && categoryCol !== -1 ? cells[categoryCol] : '').toLowerCase().trim();
     const csvType = (hasHeader && typeCol !== -1 ? cells[typeCol] : '').toLowerCase().trim();
     let preCategory = null;
-    if (csvType === 'transfer' || csvCat === 'transfer') preCategory = 'transfer';
-    else if (csvCat === 'groceries' || csvCat === 'food') preCategory = 'food';
+    if (csvType === 'transfer' || csvCat === 'transfer' || csvCat === 'general') preCategory = 'transfer';
+    else if (csvCat === 'groceries' || csvCat === 'food' || csvCat === 'supermarket') preCategory = 'groceries';
+    else if (csvCat === 'eating out' || csvCat === 'restaurants' || csvCat === 'takeaway') preCategory = 'eatingout';
     else if (csvCat === 'transport' || csvCat === 'travel') preCategory = 'transport';
-    else if (csvCat === 'shopping') preCategory = 'misc';
+    else if (csvCat === 'shopping') preCategory = 'shopping';
+    else if (csvCat === 'entertainment') preCategory = 'eatingout';
+    else if (csvCat === 'subscriptions' || csvCat === 'business') preCategory = 'subscriptions';
+    else if (csvCat === 'investments') preCategory = 'savings';
+    else if (csvCat === 'personal care' || csvCat === 'charity') preCategory = 'misc';
+    else if (csvCat === 'rent' || csvCat === 'housing') preCategory = 'rent';
     else if (csvCat === 'income') preCategory = 'income';
     txs.push({ date, description: description || '(no description)', amount, balance, _csvCat: preCategory || undefined });
   });
