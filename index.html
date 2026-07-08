@@ -193,6 +193,7 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
           <option value="critical">🔴</option>
           <option value="ondeck" selected>🟡</option>
           <option value="someday">⚫</option>
+          <option value="dashboard">🟣</option>
         </select>
         <input id="dash-task-input" type="text" placeholder="Add task…"
           onkeydown="if(event.key==='Enter')addTaskFromDash()"
@@ -1313,6 +1314,27 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 </div>
 </div>
 
+<!-- DASHBOARD IDEAS -->
+<div class="section">
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+  <div style="width:10px;height:10px;border-radius:50%;background:#6366f1;flex-shrink:0"></div>
+  <div style="flex:1">
+    <div style="font-size:15px;font-weight:700">Dashboard Ideas</div>
+    <div style="font-size:11px;color:#9ca3af">Changes & features to build</div>
+  </div>
+  <span id="tasks-count-dashboard" style="background:#ede9fe;color:#6366f1;border-radius:99px;padding:2px 9px;font-size:11px;font-weight:700;min-width:20px;text-align:center"></span>
+</div>
+<div class="card" style="padding:4px 14px 10px">
+  <div id="tasks-list-dashboard"></div>
+  <div style="display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid #f5f5f5">
+    <input id="tasks-input-dashboard" type="text" placeholder="Add a dashboard idea…"
+      onkeydown="if(event.key==='Enter')addTask('dashboard')"
+      style="flex:1;border:1.5px solid #d1d5db;border-radius:8px;padding:7px 10px;font-size:13px;outline:none;font-family:inherit">
+    <button onclick="addTask('dashboard')" style="background:#6366f1;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:16px;font-weight:700;cursor:pointer;line-height:1">+</button>
+  </div>
+</div>
+</div>
+
 <!-- CLEAR COMPLETED -->
 <div class="section" style="padding-top:0">
   <button onclick="clearCompletedTasks()"
@@ -2199,9 +2221,9 @@ function deleteTodo(id) {
 }
 
 // ── Priority Tasks ────────────────────────────────────────────────────────────
-const TASK_TIERS = ['critical', 'ondeck', 'someday'];
-const TASK_TIER_COLORS = { critical: '#dc2626', ondeck: '#d97706', someday: '#6b7280' };
-const TASK_TIER_ACCENTS = { critical: '#fca5a5', ondeck: '#fcd34d', someday: '#d1d5db' };
+const TASK_TIERS = ['critical', 'ondeck', 'someday', 'dashboard'];
+const TASK_TIER_COLORS = { critical: '#dc2626', ondeck: '#d97706', someday: '#6b7280', dashboard: '#6366f1' };
+const TASK_TIER_ACCENTS = { critical: '#fca5a5', ondeck: '#fcd34d', someday: '#d1d5db', dashboard: '#c7d2fe' };
 
 function getTasks() { try { return JSON.parse(localStorage.getItem('tasks_priority'))||[]; } catch { return []; } }
 function saveTasks(items) { localStorage.setItem('tasks_priority', JSON.stringify(items)); syncPush('tasks_priority', items); }
