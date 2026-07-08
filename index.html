@@ -7394,6 +7394,7 @@ function renderFinanceDashboardCard() {
 }
 
 // — Statements: upload, parse, categorise, budget-vs-actual, net worth —
+const TRANSFER_KEYWORDS = ['halifax','santander','monzo','starling','barclays','natwest','lloyds','hsbc','nationwide','virgin money','first direct','metro bank','tsb','transfer to','transfer from','tfr to','tfr from','own account','internal transfer','interbank','between accounts','move money','savings transfer','isa transfer','bacs transfer','online transfer'];
 const FINANCE_CATEGORY_KEYWORDS = {
   rent: ['rent', 'mortgage', 'landlord'],
   food: ['tesco','sainsbury','asda','aldi','lidl','waitrose','morrisons','co-op','coop','grocery','supermarket','deliveroo','just eat','justeat','uber eats','ubereats','restaurant','cafe','coffee','costa','starbucks','pret','mcdonald','kfc','nando','greggs','takeaway'],
@@ -7405,8 +7406,9 @@ const FINANCE_CATEGORY_KEYWORDS = {
 };
 
 function categorizeTransaction(description, amount) {
-  if (amount > 0) return 'income';
   const d = (description || '').toLowerCase();
+  if (TRANSFER_KEYWORDS.some(kw => d.includes(kw))) return 'transfer';
+  if (amount > 0) return 'income';
   for (const [cat, keywords] of Object.entries(FINANCE_CATEGORY_KEYWORDS)) {
     if (keywords.some(kw => d.includes(kw))) return cat;
   }
@@ -7443,7 +7445,10 @@ function parseStatementDate(str) {
   if (m) return `${m[1]}-${pad2(m[2])}-${pad2(m[3])}`;
   m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
   if (m) {
-    let [, day, mo, y] = m;
+    let [, a, b, y] = m;
+    // If b > 12 it must be the day (M/D/Y US format); otherwise assume D/M/Y UK
+    let day, mo;
+    if (+b > 12) { mo = a; day = b; } else { day = a; mo = b; }
     if (y.length === 2) y = (+y < 50 ? '20' : '19') + y;
     return `${y}-${pad2(mo)}-${pad2(day)}`;
   }
@@ -7480,11 +7485,13 @@ function parseCSVStatement(text) {
   const header = splitLine(lines[0]).map(h => h.toLowerCase());
   const findCol = (...names) => header.findIndex(h => names.some(n => h.includes(n)));
   const dateCol = findCol('date');
-  const descCol = findCol('description', 'narrative', 'details', 'memo', 'merchant', 'reference');
+  const descCol = findCol('description', 'narrative', 'memo', 'merchant', 'counterparty', 'reference', 'details');
   const amountCol = findCol('amount', 'value');
   const debitCol = findCol('debit', 'paid out', 'withdrawal');
   const creditCol = findCol('credit', 'paid in', 'deposit');
   const balanceCol = findCol('balance');
+  const categoryCol = findCol('category');
+  const typeCol = findCol('type');
   const hasHeader = dateCol !== -1 || descCol !== -1 || amountCol !== -1 || debitCol !== -1 || creditCol !== -1;
   const dataLines = hasHeader ? lines.slice(1) : lines;
 
@@ -7511,7 +7518,16 @@ function parseCSVStatement(text) {
     }
     if (amount === null) return;
     const balance = hasHeader && balanceCol !== -1 ? parseMoney(cells[balanceCol]) : null;
-    txs.push({ date, description: description || '(no description)', amount, balance });
+    // Use pre-supplied category/type from the CSV if available
+    const csvCat = (hasHeader && categoryCol !== -1 ? cells[categoryCol] : '').toLowerCase().trim();
+    const csvType = (hasHeader && typeCol !== -1 ? cells[typeCol] : '').toLowerCase().trim();
+    let preCategory = null;
+    if (csvType === 'transfer' || csvCat === 'transfer') preCategory = 'transfer';
+    else if (csvCat === 'groceries' || csvCat === 'food') preCategory = 'food';
+    else if (csvCat === 'transport' || csvCat === 'travel') preCategory = 'transport';
+    else if (csvCat === 'shopping') preCategory = 'misc';
+    else if (csvCat === 'income') preCategory = 'income';
+    txs.push({ date, description: description || '(no description)', amount, balance, _csvCat: preCategory || undefined });
   });
   return txs;
 }
@@ -7649,7 +7665,8 @@ async function handleStatementFiles(fileList) {
     const base = `${t.date}|${t.description}|${t.amount}|${t.account}`;
     seenThisPass[base] = (seenThisPass[base] || 0) + 1;
     t.id = simpleHash(base + '#' + seenThisPass[base]);
-    t.category = categorizeTransaction(t.description, t.amount);
+    t.category = t._csvCat || categorizeTransaction(t.description, t.amount);
+    delete t._csvCat;
   });
 
   const existing = getFinanceTransactions();
@@ -7742,7 +7759,7 @@ function buildStatementTrendsChart(txs) {
   for (let i = 7; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const key = monthKey(d);
-    const mTxs = txs.filter(t => t.date.slice(0, 7) === key);
+    const mTxs = txs.filter(t => t.date.slice(0, 7) === key && t.category !== 'transfer');
     const income = mTxs.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
     const expenses = mTxs.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
     months.push({ label: d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }), income: +income.toFixed(2), expenses: +expenses.toFixed(2) });
@@ -7859,18 +7876,21 @@ function renderTransactionList(txs) {
     setH('stmt-tx-list', `<div class="sub" style="font-style:italic;padding:8px 0">No transactions imported yet.</div>`);
     return;
   }
-  const catOptions = ['income', ...Object.keys(EXPENSE_LABELS)];
+  const catOptions = ['income', 'transfer', ...Object.keys(EXPENSE_LABELS)];
+  const catLabel = c => c === 'income' ? 'Income' : c === 'transfer' ? '↔ Transfer' : EXPENSE_LABELS[c];
   setH('stmt-tx-list', sorted.map(t => {
-    const isIncome = t.amount > 0;
-    return `<div class="row">
+    const isTransfer = t.category === 'transfer';
+    const isIncome = !isTransfer && t.amount > 0;
+    const amtColor = isTransfer ? '#9ca3af' : isIncome ? '#6b9e7a' : '#e05c5c';
+    return `<div class="row" style="${isTransfer ? 'opacity:0.6' : ''}">
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:600">${escHtml(t.description)}</div>
-        <div class="sub">${fmtDate(t.date)}${t.account ? ` · ${escHtml(t.account)}` : ''}</div>
+        <div class="sub">${fmtDate(t.date)}${t.account ? ` · ${escHtml(t.account)}` : ''}${isTransfer ? ' · <em>transfer — excluded from totals</em>' : ''}</div>
       </div>
       <select onchange="setTransactionCategory('${t.id}', this.value)" style="font-size:11px;padding:4px 6px;border:1px solid #e5e7eb;border-radius:6px;margin-right:8px">
-        ${catOptions.map(c => `<option value="${c}" ${t.category === c ? 'selected' : ''}>${c === 'income' ? 'Income' : EXPENSE_LABELS[c]}</option>`).join('')}
+        ${catOptions.map(c => `<option value="${c}" ${t.category === c ? 'selected' : ''}>${catLabel(c)}</option>`).join('')}
       </select>
-      <span style="font-size:14px;font-weight:700;min-width:80px;text-align:right;color:${isIncome ? '#6b9e7a' : '#e05c5c'}">${isIncome ? '+' : ''}${fmtGBP(t.amount)}</span>
+      <span style="font-size:14px;font-weight:700;min-width:80px;text-align:right;color:${amtColor}">${isIncome ? '+' : ''}${fmtGBP(t.amount)}</span>
       <button onclick="deleteTransaction('${t.id}')" title="Delete" style="background:none;border:none;color:#ccc;cursor:pointer;font-size:13px;margin-left:8px">🗑️</button>
     </div>`;
   }).join(''));
