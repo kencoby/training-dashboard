@@ -7421,7 +7421,7 @@ const TRANSFER_KEYWORDS = ['philip cobon','santan from p cobon','santan from phi
 const FINANCE_CATEGORY_KEYWORDS = {
   rent: ['jarguz','property trading','rent','mortgage','landlord','council tax','utilities','water rates','electricity','broadband','bt ','sky ','virgin media','phone bill','ee ','o2 ','three ','vodafone'],
   groceries: ['tesco stores','tesco-stores','tesco pfs','sainsburys','sainsbury','asda','aldi','lidl','waitrose','morrisons','co-op group','coop','co op ','m&s simply food','marks & spencer food','iceland','farmfoods','ocado','grocery','supermarket'],
-  eatingout: ['kfc','mcdonald','tortilla','deliveroo','just eat','justeat','uber eats','ubereats','wolt','nando','greggs','burger king','subway','wagamama','wetherspoon','costa ','starbucks','pret ','susu trading','venue catering','whitez','chester tavern','noah\'s yard','pub on the pond'],
+  eatingout: ['kfc','mcdonald','tortilla','deliveroo','just eat','justeat','uber eats','ubereats','wolt','nando','greggs','burger king','subway','wagamama','wetherspoon','costa ','starbucks','pret ','susu trading','venue catering','whitez','chester tavern','noah\'s yard','pub on the pond','oriental express'],
   transport: ['trainpal','uber *trip','uber*trip','tfl','trainline','railway','national rail','national express','first west','first cymru','first bus','arriva','stagecoach','crosscountry','gwr ','avanti','thameslink','petrol','fuel','shell','bp ','esso','parking','taxi','new adventure travel'],
   shopping: ['amznmktplace','www.amazon','amazon*','amazon ','asos','home bargains','slater','zara','h&m','primark','ebay','etsy','argos','currys','john lewis','boots ','superdrug','ikea','b&m','the range','matalan','new look','river island','nike','adidas','sharkninja'],
   subscriptions: ['spotify','netflix','google one','google *google','apple.com/bill','itunes','youtube premium','adobe','microsoft','disney','plum ref','google*'],
@@ -7817,7 +7817,7 @@ function renderStatements() {
   renderBudgetVsActual(monthTxs);
   buildStatementTrendsChart(txs);
   renderNetWorth();
-  renderTransactionList(txs);
+  renderTransactionList(monthTxs);
 }
 
 function renderCategoryBreakdown(monthTxs) {
@@ -8001,7 +8001,7 @@ function renderTransactionList(txs) {
   const pillLabel = c => c === 'all' ? 'All' : catLabel(c);
   const pillsHtml = `<div style="margin-bottom:12px;line-height:2">${allCats.map(c => `<span style="${pillStyle(c)}" onclick="setTxFilter('${c}')">${pillLabel(c)}</span>`).join('')}</div>`;
 
-  const filtered = _txFilter === 'all' ? allSorted : allSorted.filter(t => t.category === _txFilter);
+  const filtered = _txFilter === 'all' ? allSorted.filter(t => t.category !== 'transfer') : allSorted.filter(t => t.category === _txFilter);
   set('stmt-tx-count', `${filtered.length}${_txFilter !== 'all' ? ` ${pillLabel(_txFilter)}` : ''} of ${txs.length} total`);
 
   if (!allSorted.length) {
