@@ -7692,7 +7692,8 @@ async function syncGoogleSheet() {
   localStorage.setItem('gsheet_auto', document.getElementById('gsheet-auto')?.checked ? '1' : '0');
   statusEl.textContent = 'Syncing…';
   try {
-    const resp = await fetch(csvUrl);
+    const proxyUrl = '/sheets-proxy?url=' + encodeURIComponent(csvUrl);
+    const resp = await fetch(proxyUrl);
     if (!resp.ok) throw new Error(`Server returned ${resp.status} — is the sheet published to web?`);
     const text = await resp.text();
     _financeUSDateFmt = document.getElementById('stmt-us-dates')?.checked || false;
