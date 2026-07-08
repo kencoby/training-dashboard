@@ -3591,7 +3591,7 @@ const REV_PM_TARGET   = 25;
 function getRevTopicForDate(d) {
   const day = d.getDay();
   if (day === 0 || day === 6) return 'All Topics';
-  const start = new Date(REV_START); start.setHours(0,0,0,0);
+  const start = new Date('2026-07-08T00:00:00'); // topics start from today
   const target = new Date(d); target.setHours(0,0,0,0);
   let wdCount = 0;
   const cur = new Date(start);
