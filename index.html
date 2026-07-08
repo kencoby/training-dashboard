@@ -7674,11 +7674,18 @@ function updateAccountBalancesFromTransactions(rows) {
 }
 
 function gSheetCsvUrl(rawUrl) {
-  const m = rawUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-  if (!m) return null;
-  const id = m[1];
   const gid = (rawUrl.match(/[#&?]gid=(\d+)/) || [])[1] || '0';
-  return `https://docs.google.com/spreadsheets/d/${id}/pub?output=csv&gid=${gid}`;
+  // Published-to-web URL: /spreadsheets/d/e/PUBID/pub...
+  const pubMatch = rawUrl.match(/\/spreadsheets\/d\/e\/([a-zA-Z0-9-_]+)\//);
+  if (pubMatch) {
+    return `https://docs.google.com/spreadsheets/d/e/${pubMatch[1]}/pub?output=csv&gid=${gid}`;
+  }
+  // Regular sheet URL: /spreadsheets/d/SHEETID/
+  const idMatch = rawUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if (idMatch) {
+    return `https://docs.google.com/spreadsheets/d/${idMatch[1]}/pub?output=csv&gid=${gid}`;
+  }
+  return null;
 }
 
 async function syncGoogleSheet() {
