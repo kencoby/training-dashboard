@@ -7523,6 +7523,7 @@ function parseCSVStatement(text) {
   const typeCol = findCol('type');
   const addlDetailsCol = findCol('additional details');
   const merchantNameCol = header.findIndex(h => h === 'merchant' || h === 'merchant name');
+  const accountCol = findCol('account');
   const hasHeader = dateCol !== -1 || descCol !== -1 || amountCol !== -1 || debitCol !== -1 || creditCol !== -1;
   const dataLines = hasHeader ? lines.slice(1) : lines;
 
@@ -7568,6 +7569,7 @@ function parseCSVStatement(text) {
     else if (csvCat === 'income') preCategory = 'income';
     txs.push({
       date, description: description || '(no description)', amount, balance,
+      account: (hasHeader && accountCol !== -1 ? cells[accountCol] : '') || undefined,
       _csvCat: preCategory || undefined,
       _txType: (hasHeader && typeCol !== -1 ? cells[typeCol] : '') || undefined,
       _details: (hasHeader && addlDetailsCol !== -1 ? cells[addlDetailsCol] : '') || undefined,
