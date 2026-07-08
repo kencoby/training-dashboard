@@ -7235,42 +7235,54 @@ function changeFinanceMonth(delta) {
   renderFinanceIncomeExpenses();
 }
 function renderFinanceIncomeExpenses() {
-  const fin = getFinance();
   const key = monthKey(financeViewDate);
-  const m = getMonthEntry(fin, key);
+  set('fin-month-label', financeViewDate.toLocaleDateString('en-GB', {month:'long', year:'numeric'}));
 
-  set('fin-month-label', financeViewDate.toLocaleDateString('en-GB',{month:'long',year:'numeric'}));
+  const txs = getFinanceTransactions();
+  const monthTxs = txs.filter(t => t.date.slice(0,7) === key && t.category !== 'transfer');
 
-  const fieldHtml = (group, cat, label, val) => `
-    <div class="row">
-      <span style="flex:1;font-size:13px">${label}</span>
-      <input type="number" min="0" step="0.01" value="${val||''}" placeholder="0"
-        data-fin="${group}-${cat}"
-        style="width:100px;padding:7px 8px;border:1px solid #ddd;border-radius:6px;font-size:16px;text-align:right"
-        oninput="updateFinanceTotals()" onblur="saveFinanceField('${group}','${cat}',this.value)">
-    </div>`;
+  // Income: all positive amounts
+  const incomeTxs = monthTxs.filter(t => t.amount > 0);
+  const incomeTotal = incomeTxs.reduce((s,t) => s + t.amount, 0);
 
-  setH('fin-income-fields', Object.entries(INCOME_LABELS).map(([cat,label])=>fieldHtml('income',cat,label,m.income[cat]))
-    .join('') + `<div class="row" style="font-weight:700"><span style="flex:1;font-size:13px">Total</span><span id="fin-income-total" style="font-size:14px">£0</span></div>`);
+  // Group income by description for display
+  const incomeGroups = {};
+  incomeTxs.forEach(t => { incomeGroups[t.description] = (incomeGroups[t.description] || 0) + t.amount; });
+  const incomeRows = Object.entries(incomeGroups)
+    .sort((a,b) => b[1]-a[1])
+    .map(([desc,amt]) => `<div class="row"><span style="flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px" title="${escHtml(desc)}">${escHtml(desc)}</span><span style="font-size:14px;font-weight:600;color:#6b9e7a">${fmtGBP(amt)}</span></div>`)
+    .join('');
 
-  setH('fin-expense-fields', Object.entries(EXPENSE_LABELS).map(([cat,label])=>fieldHtml('expenses',cat,label,m.expenses[cat]))
-    .join('') + `<div class="row" style="font-weight:700"><span style="flex:1;font-size:13px">Total</span><span id="fin-expense-total" style="font-size:14px">£0</span></div>`);
-
-  updateFinanceTotals();
-  buildExpenseDonut(m);
-}
-function updateFinanceTotals() {
-  let incomeTotal=0, expenseTotal=0;
-  Object.keys(INCOME_LABELS).forEach(cat=>{
-    const el = document.querySelector(`[data-fin="income-${cat}"]`);
-    incomeTotal += el ? (+el.value||0) : 0;
+  // Expenses: negative amounts by category
+  const expenseTxs = monthTxs.filter(t => t.amount < 0);
+  const byCategory = {};
+  Object.keys(EXPENSE_LABELS).forEach(cat => {
+    byCategory[cat] = expenseTxs.filter(t => t.category === cat).reduce((s,t) => s + Math.abs(t.amount), 0);
   });
-  Object.keys(EXPENSE_LABELS).forEach(cat=>{
-    const el = document.querySelector(`[data-fin="expenses-${cat}"]`);
-    expenseTotal += el ? (+el.value||0) : 0;
-  });
-  set('fin-income-total', fmtGBP(incomeTotal));
-  set('fin-expense-total', fmtGBP(expenseTotal));
+  const expenseTotal = Object.values(byCategory).reduce((s,v) => s+v, 0);
+  const net = incomeTotal - expenseTotal;
+
+  setH('fin-income-fields',
+    (incomeRows || `<div class="sub" style="font-style:italic;padding:8px 0">No income for this month.</div>`) +
+    `<div class="row" style="font-weight:700;border-top:1px solid #eee;margin-top:6px;padding-top:6px">
+      <span style="flex:1;font-size:13px">Total</span>
+      <span id="fin-income-total" style="font-size:14px;color:#6b9e7a">${fmtGBP(incomeTotal)}</span>
+    </div>`);
+
+  setH('fin-expense-fields',
+    Object.entries(EXPENSE_LABELS).map(([cat,label]) =>
+      `<div class="row"><span style="flex:1;font-size:13px">${label}</span><span style="font-size:14px;font-weight:600;color:#e05c5c">${fmtGBP(byCategory[cat])}</span></div>`
+    ).join('') +
+    `<div class="row" style="font-weight:700;border-top:1px solid #eee;margin-top:6px;padding-top:6px">
+      <span style="flex:1;font-size:13px">Total Expenses</span>
+      <span id="fin-expense-total" style="font-size:14px;color:#e05c5c">${fmtGBP(expenseTotal)}</span>
+    </div>
+    <div class="row" style="font-weight:700">
+      <span style="flex:1;font-size:13px">Net</span>
+      <span style="font-size:14px;color:${net>=0?'#6b9e7a':'#e05c5c'}">${fmtGBP(net)}</span>
+    </div>`);
+
+  buildExpenseDonut(byCategory);
 }
 function saveFinanceField(group, cat, value) {
   const fin = getFinance();
@@ -7278,17 +7290,17 @@ function saveFinanceField(group, cat, value) {
   if (!fin.monthly[key]) fin.monthly[key] = DEFAULT_MONTH();
   fin.monthly[key][group][cat] = +value || 0;
   saveFinance(fin);
-  buildExpenseDonut(getMonthEntry(fin, key));
+  renderFinanceIncomeExpenses();
   if (key === monthKey(new Date())) {
     renderFinanceDashboardCard();
     if (initialised.finance) renderFinanceOverview();
   }
 }
-function buildExpenseDonut(m) {
+function buildExpenseDonut(byCategory) {
   const canvas = document.getElementById('expense-donut');
   if (!canvas) return;
   const cats = Object.keys(EXPENSE_LABELS);
-  const data = cats.map(c=>+m.expenses[c]||0);
+  const data = cats.map(c => byCategory[c] || 0);
   if (_expenseDonut) {
     _expenseDonut.data.datasets[0].data = data;
     _expenseDonut.update();
