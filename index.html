@@ -780,7 +780,7 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 <!-- RUN PACE TREND -->
 <div class="section">
 <div class="card">
-  <div class="lbl">Run Pace Trend <button class="info-i" data-t="activity-intensity">ⓘ</button></div>
+  <div class="lbl">Run Distance Trend</div>
   <div class="cht"><div class="skeleton" id="pace-chart-skel" style="position:absolute;inset:0"></div><canvas id="pace-chart"></canvas></div>
 </div>
 </div>
@@ -831,9 +831,9 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 <div id="swim-content"></div>
 </div>
 
-<!-- PACE PER 100M -->
+<!-- SWIM DISTANCE TREND -->
 <div class="section">
-<h2>Pace per 100m</h2>
+<h2>Distance per Session</h2>
 <div class="card">
   <div class="cht"><div class="skeleton" id="swim-pace-chart-skel" style="position:absolute;inset:0"></div><canvas id="swim-pace-chart"></canvas></div>
   <div class="sub" id="swim-pace-note"></div>
@@ -2101,20 +2101,19 @@ function buildDonut(acts) {
 
 function buildPaceChart(acts) {
   rmSkel('pace-chart');
-  const runs=acts.filter(a=>a.sport_type==='Run'&&a.summary.avg_speed>0).slice(0,12).reverse();
+  const runs=acts.filter(a=>a.sport_type==='Run'&&a.summary.distance>0).slice(0,16).reverse();
   new Chart(document.getElementById('pace-chart'),{
-    type:'line',
+    type:'bar',
     data:{labels:runs.map(a=>fmtDate(a.start_local)),datasets:[{
-      label:'Pace (min/km)',
-      data:runs.map(a=>+(1000/(a.summary.avg_speed*60)).toFixed(2)),
-      borderColor:'#3b82f6',backgroundColor:'#bfdbfe44',borderWidth:2,
-      pointRadius:4,pointBackgroundColor:'#3b82f6',fill:true,tension:0.3
+      label:'Distance (km)',
+      data:runs.map(a=>+(a.summary.distance/1000).toFixed(2)),
+      backgroundColor:'#3b82f6',borderRadius:4
     }]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false}},
-      scales:{y:{reverse:true,beginAtZero:false,grid:{color:'#f3f4f6'},
-        ticks:{callback:v=>{const m=Math.floor(v),s=Math.round((v-m)*60);return `${m}:${String(s).padStart(2,'0')}`;},font:{size:10}}},
-        x:{grid:{display:false},ticks:{maxTicksLimit:6,font:{size:10}}}}}
+      scales:{y:{beginAtZero:true,grid:{color:'#f3f4f6'},
+        ticks:{callback:v=>`${v}km`,font:{size:10}}},
+        x:{grid:{display:false},ticks:{maxTicksLimit:8,font:{size:10}}}}}
   });
 }
 
@@ -4900,7 +4899,7 @@ async function renderS6(acts, tokens) {
 // ── §7 Personal Bests ────────────────────────────────────────────────────────
 // TODO: make editable
 const PBS = [
-  { label: '5km', current: '19:56', goal: '19:00', baseline: '25:00', unit: 'time' },
+  { label: '5km', current: '19:26', goal: '19:00', baseline: '25:00', unit: 'time' },
   { label: '10km', current: '43:46', goal: '42:00', baseline: '55:00', unit: 'time' },
   { label: 'Half Marathon', current: '1:35:14', goal: '1:30:00', baseline: '1:50:00', unit: 'time' },
 ];
@@ -6143,30 +6142,29 @@ function renderSwim(acts) {
 // ── Swim Pace Tracker ────────────────────────────────────────────────────────
 function buildSwimPace(acts) {
   rmSkel('swim-pace-chart');
-  const swims = acts.filter(a=>a.sport_type==='Swim' && a.summary.distance>0).slice(0,12).reverse();
+  const swims = acts.filter(a=>a.sport_type==='Swim' && a.summary.distance>0).slice(0,16).reverse();
   const chtEl = document.getElementById('swim-pace-chart').closest('.cht');
-  if (swims.length < 3) {
+  if (swims.length < 2) {
     if (chtEl) chtEl.style.display = 'none';
-    setH('swim-pace-note', 'Log more swims to see your pace trend.');
+    setH('swim-pace-note', 'Log more swims to see your distance trend.');
     return;
   }
   new Chart(document.getElementById('swim-pace-chart'), {
-    type: 'line',
+    type: 'bar',
     data: {
       labels: swims.map(a=>fmtDate(a.start_local)),
       datasets: [{
-        label: 'Pace /100m',
-        data: swims.map(a=>(a.summary.moving_time/a.summary.distance)*100),
-        borderColor:'#06b6d4', backgroundColor:'#06b6d444', borderWidth:2,
-        pointRadius:4, pointBackgroundColor:'#06b6d4', fill:true, tension:0.3
+        label: 'Distance (m)',
+        data: swims.map(a=>Math.round(a.summary.distance)),
+        backgroundColor:'#06b6d4', borderRadius:4
       }]
     },
     options: {
       responsive:true, maintainAspectRatio:false,
       plugins:{legend:{display:false}},
       scales:{
-        y:{reverse:true, beginAtZero:false, grid:{color:'#f3f4f6'}, ticks:{callback:v=>fmtMMSS(v)+'/100m', font:{size:10}}},
-        x:{grid:{display:false}, ticks:{maxTicksLimit:6,font:{size:10}}}
+        y:{beginAtZero:true, grid:{color:'#f3f4f6'}, ticks:{callback:v=>`${v}m`, font:{size:10}}},
+        x:{grid:{display:false}, ticks:{maxTicksLimit:8,font:{size:10}}}
       }
     }
   });
@@ -6174,19 +6172,18 @@ function buildSwimPace(acts) {
 
 // ── §10 Cycling ──────────────────────────────────────────────────────────────
 function buildBikeSpeed(acts) {
-  const rides=acts.filter(a=>a.sport_type==='Ride'&&a.summary.avg_speed>0).slice(0,12).reverse();
+  const rides=acts.filter(a=>a.sport_type==='Ride'&&a.summary.distance>0).slice(0,16).reverse();
   new Chart(document.getElementById('bike-speed'),{
-    type:'line',
+    type:'bar',
     data:{labels:rides.map(a=>fmtDate(a.start_local)),datasets:[{
-      label:'Avg speed (km/h)',
-      data:rides.map(a=>+(a.summary.avg_speed*3.6).toFixed(1)),
-      borderColor:'#8b5cf6',backgroundColor:'#8b5cf633',borderWidth:2,
-      pointRadius:4,pointBackgroundColor:'#8b5cf6',fill:true,tension:.3
+      label:'Distance (km)',
+      data:rides.map(a=>+(a.summary.distance/1000).toFixed(1)),
+      backgroundColor:'#8b5cf6',borderRadius:4
     }]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false}},
-      scales:{y:{beginAtZero:false,grid:{color:'#f3f4f6'},ticks:{font:{size:10}}},
-              x:{grid:{display:false},ticks:{maxTicksLimit:6,font:{size:10}}}}}
+      scales:{y:{beginAtZero:true,grid:{color:'#f3f4f6'},ticks:{callback:v=>`${v}km`,font:{size:10}}},
+              x:{grid:{display:false},ticks:{maxTicksLimit:8,font:{size:10}}}}}
   });
 }
 
@@ -6211,7 +6208,7 @@ function renderBike(acts) {
       <div class="card"><div class="lbl">Longest Ride</div><div class="big">${fmtKm(longest)}</div><div class="sub">km</div></div>
     </div>
     <div class="card" style="margin-bottom:12px">
-      <div class="lbl">Avg Speed Trend — Last 12 Rides</div>
+      <div class="lbl">Distance Trend — Last 16 Rides</div>
       <div class="cht"><canvas id="bike-speed"></canvas></div>
     </div>
     <div class="card">
