@@ -1175,7 +1175,10 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
     My bank shows payments/outgoings as <strong>positive</strong> numbers (flip signs on import)
   </label>
   <input type="file" id="stmt-file-input" accept=".csv,.pdf" multiple onchange="handleStatementFiles(this.files)" style="display:none">
-  <button onclick="document.getElementById('stmt-file-input').click()" style="background:#1a1a1a;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer">📤 Choose statement file(s)</button>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    <button onclick="document.getElementById('stmt-file-input').click()" style="background:#1a1a1a;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer">📤 Choose statement file(s)</button>
+    <button onclick="clearAllFinanceData()" style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer">🗑 Clear all data</button>
+  </div>
   <div id="stmt-upload-status" class="sub" style="margin-top:10px"></div>
 </div>
 </div>
@@ -7592,6 +7595,16 @@ function parseStatementTextLines(text) {
     txs.push({ date, description: description || '(no description)', amount, balance });
   });
   return txs;
+}
+
+function clearAllFinanceData() {
+  if (!confirm('Delete all imported transactions and account data? This cannot be undone.')) return;
+  localStorage.removeItem('finance_transactions');
+  localStorage.removeItem('finance_accounts');
+  syncPush('finance_transactions', []);
+  syncPush('finance_accounts', {});
+  renderStatements();
+  document.getElementById('stmt-upload-status').textContent = 'All finance data cleared.';
 }
 
 function getFinanceTransactions() {
