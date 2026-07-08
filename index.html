@@ -2297,7 +2297,9 @@ function addShopItem(tier) {
   const text = (input?.value || '').trim();
   if (!text) return;
   const items = getShoppingItems();
-  items.push({ id: 'sh' + Date.now(), text, tier, bought: false, createdAt: new Date().toISOString() });
+  const newItem = { id: 'sh' + Date.now(), text, tier, bought: false, createdAt: new Date().toISOString() };
+  if (tier === 'groceries') newItem.subitems = [];
+  items.push(newItem);
   saveShoppingItems(items);
   if (input) input.value = '';
   renderShopping();
@@ -2329,6 +2331,48 @@ function moveShopItem(id, dir) {
 function clearBoughtItems() {
   saveShoppingItems(getShoppingItems().filter(i => !i.bought));
   renderShopping();
+}
+
+function toggleGrocerySubitemPanel(itemId) {
+  const panel = document.getElementById(`groc-panel-${itemId}`);
+  if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function addGrocerySubitem(itemId) {
+  const input = document.getElementById(`groc-input-${itemId}`);
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+  const items = getShoppingItems();
+  const item = items.find(i => i.id === itemId);
+  if (!item) return;
+  if (!item.subitems) item.subitems = [];
+  item.subitems.push({ id: 'gs' + Date.now(), text, done: false });
+  saveShoppingItems(items);
+  input.value = '';
+  renderShopping();
+  setTimeout(() => { const p = document.getElementById(`groc-panel-${itemId}`); if (p) p.style.display = 'block'; }, 0);
+}
+
+function toggleGrocerySubitem(itemId, subId) {
+  const items = getShoppingItems();
+  const item = items.find(i => i.id === itemId);
+  if (!item || !item.subitems) return;
+  const sub = item.subitems.find(s => s.id === subId);
+  if (sub) sub.done = !sub.done;
+  saveShoppingItems(items);
+  renderShopping();
+  setTimeout(() => { const p = document.getElementById(`groc-panel-${itemId}`); if (p) p.style.display = 'block'; }, 0);
+}
+
+function deleteGrocerySubitem(itemId, subId) {
+  const items = getShoppingItems();
+  const item = items.find(i => i.id === itemId);
+  if (!item) return;
+  item.subitems = (item.subitems || []).filter(s => s.id !== subId);
+  saveShoppingItems(items);
+  renderShopping();
+  setTimeout(() => { const p = document.getElementById(`groc-panel-${itemId}`); if (p) p.style.display = 'block'; }, 0);
 }
 
 function renderShopping() {
@@ -2363,15 +2407,43 @@ function renderShopping() {
       return;
     }
     const color = SHOP_TIER_COLORS[tier];
-    listEl.innerHTML = tierItems.map((item, i) => `
-      <div style="display:flex;align-items:center;gap:8px;padding:7px 0;${i < tierItems.length - 1 ? 'border-bottom:1px solid #f5f5f5' : ''}">
-        <input type="checkbox" ${item.bought ? 'checked' : ''} onclick="toggleShopItem('${item.id}')"
-          style="width:15px;height:15px;cursor:pointer;flex-shrink:0;accent-color:${color}">
-        <span style="flex:1;font-size:13px;${item.bought ? 'text-decoration:line-through;color:#bbb' : ''}">${escHtml(item.text)}</span>
-        <span onclick="moveShopItem('${item.id}',-1)" style="cursor:pointer;font-size:11px;color:#bbb;padding:0 3px" title="Move up">↑</span>
-        <span onclick="moveShopItem('${item.id}',1)" style="cursor:pointer;font-size:11px;color:#bbb;padding:0 3px" title="Move down">↓</span>
-        <span onclick="deleteShopItem('${item.id}')" style="cursor:pointer;font-size:14px;color:#d1d5db;padding:0 2px">×</span>
-      </div>`).join('');
+    const isGroc = tier === 'groceries';
+    listEl.innerHTML = tierItems.map((item, i) => {
+      const subs = isGroc ? (item.subitems || []) : [];
+      const doneSubs = subs.filter(s => s.done).length;
+      const subBadge = subs.length ? `<span style="font-size:10px;color:${doneSubs===subs.length?'#16a34a':'#9ca3af'};font-weight:600;margin-right:2px">${doneSubs}/${subs.length}</span>` : '';
+      const subRows = subs.map(s => `
+        <div style="display:flex;align-items:center;gap:6px;padding:3px 0;${s.done?'opacity:0.45':''}">
+          <input type="checkbox" ${s.done?'checked':''} onclick="toggleGrocerySubitem('${item.id}','${s.id}')"
+            style="width:13px;height:13px;flex-shrink:0;cursor:pointer;accent-color:${color}">
+          <span style="flex:1;font-size:12px;${s.done?'text-decoration:line-through;color:#bbb':''}">${escHtml(s.text)}</span>
+          <button onclick="deleteGrocerySubitem('${item.id}','${s.id}')" style="background:none;border:none;cursor:pointer;color:#e5e7eb;font-size:11px;padding:1px 3px;line-height:1">✕</button>
+        </div>`).join('');
+      const subPanel = isGroc ? `
+        <div id="groc-panel-${item.id}" style="display:none;padding:2px 0 8px 28px">
+          ${subRows}
+          <div style="display:flex;gap:4px;margin-top:${subs.length?'6':'0'}px">
+            <input id="groc-input-${item.id}" type="text" placeholder="Add item…"
+              onkeydown="if(event.key==='Enter'){addGrocerySubitem('${item.id}');event.preventDefault()}"
+              style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:4px 8px;font-size:12px;outline:none;font-family:inherit;color:#374151">
+            <button onclick="addGrocerySubitem('${item.id}')" style="background:#16a34a;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;font-weight:600">+</button>
+          </div>
+        </div>` : '';
+      return `
+      <div style="${i < tierItems.length - 1 ? 'border-bottom:1px solid #f5f5f5' : ''}">
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 0">
+          <input type="checkbox" ${item.bought ? 'checked' : ''} onclick="toggleShopItem('${item.id}')"
+            style="width:15px;height:15px;cursor:pointer;flex-shrink:0;accent-color:${color}">
+          <span style="flex:1;font-size:13px;${item.bought ? 'text-decoration:line-through;color:#bbb' : ''}">${escHtml(item.text)}</span>
+          ${isGroc ? subBadge : ''}
+          <span onclick="moveShopItem('${item.id}',-1)" style="cursor:pointer;font-size:11px;color:#bbb;padding:0 3px" title="Move up">↑</span>
+          <span onclick="moveShopItem('${item.id}',1)" style="cursor:pointer;font-size:11px;color:#bbb;padding:0 3px" title="Move down">↓</span>
+          <span onclick="deleteShopItem('${item.id}')" style="cursor:pointer;font-size:14px;color:#d1d5db;padding:0 2px">×</span>
+          ${isGroc ? `<span onclick="toggleGrocerySubitemPanel('${item.id}')" title="Sub-items" style="cursor:pointer;font-size:14px;color:#9ca3af;padding:0 2px">${subs.length ? '⌄' : '⊕'}</span>` : ''}
+        </div>
+        ${subPanel}
+      </div>`;
+    }).join('');
   });
 }
 
