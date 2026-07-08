@@ -3599,7 +3599,7 @@ function getRevTopicForDate(d) {
     if (cur.getDay() !== 0 && cur.getDay() !== 6) wdCount++;
     cur.setDate(cur.getDate() + 1);
   }
-  return UKMLA_DAILY_TOPICS[Math.floor(wdCount / 2) % UKMLA_DAILY_TOPICS.length];
+  return UKMLA_DAILY_TOPICS[wdCount % UKMLA_DAILY_TOPICS.length];
 }
 
 function getRevLog() { try { return JSON.parse(localStorage.getItem('rev_schedule_log'))||{}; } catch { return {}; } }
