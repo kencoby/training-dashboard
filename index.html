@@ -7536,7 +7536,8 @@ function parseCSVStatement(text) {
     const csvCat = (hasHeader && categoryCol !== -1 ? cells[categoryCol] : '').toLowerCase().trim();
     const csvType = (hasHeader && typeCol !== -1 ? cells[typeCol] : '').toLowerCase().trim();
     let preCategory = null;
-    if (csvType === 'transfer' || csvCat === 'transfer') preCategory = 'transfer';
+    // Use category (not type) to detect transfers — Emma marks many normal bank payments as type=Transfer
+    if (csvCat === 'transfer') preCategory = 'transfer';
     else if (csvCat === 'groceries' || csvCat === 'food' || csvCat === 'supermarket') preCategory = 'groceries';
     else if (csvCat === 'eating out' || csvCat === 'restaurants' || csvCat === 'takeaway') preCategory = 'eatingout';
     else if (csvCat === 'transport' || csvCat === 'travel') preCategory = 'transport';
