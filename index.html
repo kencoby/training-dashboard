@@ -7256,8 +7256,11 @@ function renderFinanceIncomeExpenses() {
   // Expenses: only transactions categorised as one of the expense categories
   const expenseTxs = monthTxs.filter(t => t.category !== 'income');
   const byCategory = {};
+  const txsByCategory = {};
   Object.keys(EXPENSE_LABELS).forEach(cat => {
-    byCategory[cat] = expenseTxs.filter(t => t.category === cat).reduce((s,t) => s + Math.abs(t.amount), 0);
+    const catTxs = expenseTxs.filter(t => t.category === cat).sort((a,b) => b.date.localeCompare(a.date));
+    byCategory[cat] = catTxs.reduce((s,t) => s + Math.abs(t.amount), 0);
+    txsByCategory[cat] = catTxs;
   });
   const expenseTotal = Object.values(byCategory).reduce((s,v) => s+v, 0);
   const net = incomeTotal - expenseTotal;
@@ -7270,9 +7273,23 @@ function renderFinanceIncomeExpenses() {
     </div>`);
 
   setH('fin-expense-fields',
-    Object.entries(EXPENSE_LABELS).map(([cat,label]) =>
-      `<div class="row"><span style="flex:1;font-size:13px">${label}</span><span style="font-size:14px;font-weight:600;color:#e05c5c">${fmtGBP(byCategory[cat])}</span></div>`
-    ).join('') +
+    Object.entries(EXPENSE_LABELS).map(([cat,label]) => {
+      const txList = txsByCategory[cat];
+      const hasItems = txList.length > 0;
+      const subRows = txList.map(t =>
+        `<div class="row" style="padding:5px 0 5px 12px;border-left:2px solid #f3f4f6;margin-left:4px">
+          <span class="sub" style="flex:1;font-size:12px">${fmtDate(t.date)} · ${escHtml(t.description)}</span>
+          <span style="font-size:12px;font-weight:600;color:#e05c5c">${fmtGBP(Math.abs(t.amount))}</span>
+        </div>`).join('');
+      return `
+        <div onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.querySelector('.fin-chevron').style.transform=this.nextElementSibling.style.display==='block'?'rotate(90deg)':'';"
+          class="row" style="cursor:${hasItems?'pointer':'default'};user-select:none">
+          <span style="flex:1;font-size:13px">${label}</span>
+          <span style="font-size:14px;font-weight:600;color:#e05c5c;margin-right:${hasItems?'8':'0'}px">${fmtGBP(byCategory[cat])}</span>
+          ${hasItems ? `<span class="fin-chevron" style="font-size:11px;color:#aaa;transition:transform .2s;display:inline-block">▶</span>` : ''}
+        </div>
+        <div style="display:none">${subRows}</div>`;
+    }).join('') +
     `<div class="row" style="font-weight:700;border-top:1px solid #eee;margin-top:6px;padding-top:6px">
       <span style="flex:1;font-size:13px">Total Expenses</span>
       <span id="fin-expense-total" style="font-size:14px;color:#e05c5c">${fmtGBP(expenseTotal)}</span>
