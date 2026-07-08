@@ -67,6 +67,11 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 .tab-nav{position:sticky;top:52px;background:#f2f2ee;z-index:99;display:flex;gap:4px;border-bottom:2px solid #e5e7eb;margin-bottom:24px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
 .tab-nav::-webkit-scrollbar{display:none}
 .tab-btn{display:flex;align-items:center;gap:6px;flex-shrink:0}
+@media(max-width:640px){
+  .tab-nav{overflow-x:visible;flex-wrap:wrap;top:44px;gap:2px;border-bottom:none;padding-bottom:2px}
+  .tab-btn{font-size:11px;padding:5px 7px;flex:1 0 18%;justify-content:center;border-bottom:2px solid transparent;white-space:nowrap}
+  .tab-btn.active{border-bottom-color:#1a1a1a}
+}
 .tab-pane{opacity:0;transition:opacity .15s ease}
 .tab-pane.active{opacity:1}
 .tab-badge{display:inline-flex;align-items:center;padding:1px 7px;border-radius:99px;font-size:10px;font-weight:700}
@@ -2307,6 +2312,7 @@ function toggleTask(id) {
 }
 
 function deleteTask(id) {
+  if (!confirm('Delete this task?')) return;
   saveTasks(getTasks().filter(t => t.id !== id));
   renderTasks();
 }
@@ -2630,6 +2636,7 @@ function toggleSubtask(taskId, subtaskId) {
 }
 
 function deleteSubtask(taskId, subtaskId) {
+  if (!confirm('Delete this subtask?')) return;
   const items = getTasks();
   const task = items.find(t => t.id === taskId);
   if (!task) return;
@@ -2763,6 +2770,7 @@ function renderTasks() {
 }
 
 let _dragTaskId = null;
+let _touchDragId = null, _touchDragEl = null, _touchClone = null;
 
 function initTaskDragDrop(listEl) {
   listEl.querySelectorAll('[data-id]').forEach(row => {
@@ -2800,6 +2808,47 @@ function initTaskDragDrop(listEl) {
       if (_dragTaskId && _dragTaskId !== row.dataset.id) {
         reorderTask(_dragTaskId, row.dataset.id, row.dataset.priority);
       }
+    });
+
+    // Touch drag-and-drop for mobile
+    row.addEventListener('touchstart', e => {
+      if (!e.target.closest('.drag-handle')) return;
+      e.preventDefault();
+      _touchDragId = row.dataset.id;
+      _touchDragEl = row;
+      const t = e.touches[0];
+      const rect = row.getBoundingClientRect();
+      _touchClone = row.cloneNode(true);
+      _touchClone.style.cssText = `position:fixed;z-index:9999;left:${rect.left}px;top:${t.clientY - 20}px;width:${rect.width}px;opacity:0.85;pointer-events:none;background:#fff;border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,0.18)`;
+      document.body.appendChild(_touchClone);
+      row.style.opacity = '0.3';
+    }, { passive: false });
+
+    row.addEventListener('touchmove', e => {
+      if (!_touchDragId || _touchDragEl !== row) return;
+      e.preventDefault();
+      const t = e.touches[0];
+      if (_touchClone) _touchClone.style.top = (t.clientY - 20) + 'px';
+      if (_touchClone) _touchClone.style.display = 'none';
+      const under = document.elementFromPoint(t.clientX, t.clientY);
+      if (_touchClone) _touchClone.style.display = '';
+      const targetRow = under && under.closest('[data-id]');
+      listEl.querySelectorAll('[data-id]').forEach(r => { r.style.background = ''; r.style.borderTop = ''; });
+      if (targetRow && targetRow !== row) targetRow.style.borderTop = '2px solid #6b9e7a';
+    }, { passive: false });
+
+    row.addEventListener('touchend', e => {
+      if (!_touchDragId || _touchDragEl !== row) return;
+      const t = e.changedTouches[0];
+      if (_touchClone) { _touchClone.remove(); _touchClone = null; }
+      row.style.opacity = '';
+      listEl.querySelectorAll('[data-id]').forEach(r => { r.style.background = ''; r.style.borderTop = ''; });
+      const under = document.elementFromPoint(t.clientX, t.clientY);
+      const targetRow = under && under.closest('[data-id]');
+      if (targetRow && targetRow.dataset.id !== _touchDragId) {
+        reorderTask(_touchDragId, targetRow.dataset.id, targetRow.dataset.priority);
+      }
+      _touchDragId = null; _touchDragEl = null;
     });
   });
 }
