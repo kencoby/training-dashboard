@@ -1170,9 +1170,13 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 <h2>Upload Bank Statement</h2>
 <div class="card">
   <div class="sub" style="margin-bottom:10px">CSV exports parse most reliably. PDF statements are read best-effort — layouts vary a lot between banks, so check the imported list afterwards.</div>
-  <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#555;margin-bottom:12px;cursor:pointer">
+  <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#555;margin-bottom:8px;cursor:pointer">
     <input type="checkbox" id="stmt-flip-signs" style="width:15px;height:15px;cursor:pointer">
     My bank shows payments/outgoings as <strong>positive</strong> numbers (flip signs on import)
+  </label>
+  <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#555;margin-bottom:12px;cursor:pointer">
+    <input type="checkbox" id="stmt-us-dates" style="width:15px;height:15px;cursor:pointer">
+    Dates are in <strong>M/D/YYYY</strong> format (Emma, US exports)
   </label>
   <input type="file" id="stmt-file-input" accept=".csv,.pdf" multiple onchange="handleStatementFiles(this.files)" style="display:none">
   <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
@@ -7397,7 +7401,8 @@ function renderFinanceDashboardCard() {
 }
 
 // — Statements: upload, parse, categorise, budget-vs-actual, net worth —
-const TRANSFER_KEYWORDS = ['philip cobon','santan from p cobon','halifax','santander','monzo','starling','barclays','natwest','lloyds','hsbc','nationwide','virgin money','first direct','metro bank','tsb','transfer to','transfer from','tfr to','tfr from','own account','internal transfer','interbank','between accounts','move money','savings transfer','isa transfer','bacs transfer','online transfer'];
+// Only flag transfers between Philip's own Halifax & Santander accounts
+const TRANSFER_KEYWORDS = ['philip cobon','santan from p cobon','santan from philip','p cobon halifax','p cobon santan'];
 const FINANCE_CATEGORY_KEYWORDS = {
   rent: ['jarguz','property trading','rent','mortgage','landlord','council tax','utilities','water rates','electricity','broadband','bt ','sky ','virgin media','phone bill','ee ','o2 ','three ','vodafone'],
   groceries: ['tesco stores','tesco-stores','tesco pfs','sainsburys','sainsbury','asda','aldi','lidl','waitrose','morrisons','co-op group','coop','co op ','m&s simply food','marks & spencer food','iceland','farmfoods','ocado','grocery','supermarket'],
@@ -7441,6 +7446,8 @@ function parseMoney(str) {
   return v;
 }
 
+let _financeUSDateFmt = false; // set from checkbox before parsing
+
 function parseStatementDate(str) {
   if (!str) return null;
   const s = String(str).trim();
@@ -7449,9 +7456,13 @@ function parseStatementDate(str) {
   m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
   if (m) {
     let [, a, b, y] = m;
-    // If b > 12 it must be the day (M/D/Y US format); otherwise assume D/M/Y UK
+    // If b > 12 it must be the day (M/D/Y US); if a > 12 it must be the day (D/M/Y UK)
+    // Otherwise use the checkbox flag to disambiguate
     let day, mo;
-    if (+b > 12) { mo = a; day = b; } else { day = a; mo = b; }
+    if (+b > 12) { mo = a; day = b; }        // unambiguously M/D/Y
+    else if (+a > 12) { day = a; mo = b; }   // unambiguously D/M/Y
+    else if (_financeUSDateFmt) { mo = a; day = b; }  // user says M/D
+    else { day = a; mo = b; }                // default D/M/Y (UK)
     if (y.length === 2) y = (+y < 50 ? '20' : '19') + y;
     return `${y}-${pad2(mo)}-${pad2(day)}`;
   }
@@ -7525,7 +7536,7 @@ function parseCSVStatement(text) {
     const csvCat = (hasHeader && categoryCol !== -1 ? cells[categoryCol] : '').toLowerCase().trim();
     const csvType = (hasHeader && typeCol !== -1 ? cells[typeCol] : '').toLowerCase().trim();
     let preCategory = null;
-    if (csvType === 'transfer' || csvCat === 'transfer' || csvCat === 'general') preCategory = 'transfer';
+    if (csvType === 'transfer' || csvCat === 'transfer') preCategory = 'transfer';
     else if (csvCat === 'groceries' || csvCat === 'food' || csvCat === 'supermarket') preCategory = 'groceries';
     else if (csvCat === 'eating out' || csvCat === 'restaurants' || csvCat === 'takeaway') preCategory = 'eatingout';
     else if (csvCat === 'transport' || csvCat === 'travel') preCategory = 'transport';
@@ -7647,6 +7658,7 @@ function updateAccountBalancesFromTransactions(rows) {
 async function handleStatementFiles(fileList) {
   const files = Array.from(fileList || []);
   if (!files.length) return;
+  _financeUSDateFmt = document.getElementById('stmt-us-dates')?.checked || false;
   if (typeof pdfjsLib !== 'undefined' && pdfjsLib.GlobalWorkerOptions) {
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   }
