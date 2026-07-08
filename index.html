@@ -7677,12 +7677,12 @@ function gSheetCsvUrl(rawUrl) {
   // Published-to-web URL: /spreadsheets/d/e/PUBID/pub...
   const pubMatch = rawUrl.match(/\/spreadsheets\/d\/e\/([a-zA-Z0-9-_]+)\//);
   if (pubMatch) {
-    return `https://docs.google.com/spreadsheets/d/e/${pubMatch[1]}/pub?output=csv&gid=${gid}`;
+    return `https://docs.google.com/spreadsheets/d/e/${pubMatch[1]}/pub?output=csv&gid=${gid}&single=true`;
   }
   // Regular sheet URL: /spreadsheets/d/SHEETID/
   const idMatch = rawUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
   if (idMatch) {
-    return `https://docs.google.com/spreadsheets/d/${idMatch[1]}/pub?output=csv&gid=${gid}`;
+    return `https://docs.google.com/spreadsheets/d/${idMatch[1]}/pub?output=csv&gid=${gid}&single=true`;
   }
   return null;
 }
@@ -7704,7 +7704,11 @@ async function syncGoogleSheet() {
     const text = await resp.text();
     _financeUSDateFmt = document.getElementById('stmt-us-dates')?.checked || false;
     const rows = parseCSVStatement(text);
-    if (!rows.length) throw new Error('No transactions found — check the sheet has a header row and data');
+    if (!rows.length) {
+      const firstLines = text.trim().split('\n').slice(0, 3).map(l => l.slice(0, 120)).join('\n');
+      setH('gsheet-status', `<span style="color:#e05c5c">❌ No transactions parsed.</span><br><span style="font-size:11px;color:#888">First rows received:<br><pre style="font-size:10px;overflow:auto;background:#f5f5f5;padding:6px;border-radius:4px;white-space:pre-wrap">${escHtml(firstLines)}</pre></span>`);
+      return;
+    }
     const flipSigns = document.getElementById('stmt-flip-signs')?.checked;
     rows.forEach(r => { r.account = r.account || 'Google Sheet'; if (flipSigns) r.amount = -r.amount; });
     finaliseImport(rows, [], 'gsheet-status');
