@@ -1169,6 +1169,21 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 <div class="section">
 <h2>Upload Bank Statement</h2>
 <div class="card">
+  <div style="font-weight:700;font-size:14px;margin-bottom:8px">🔗 Google Sheets sync</div>
+  <div class="sub" style="margin-bottom:10px">Paste your sheet URL below. The sheet must be <strong>published to web</strong> first: in Google Sheets go to <em>File → Share → Publish to web → choose CSV → Publish</em>.</div>
+  <div style="display:flex;gap:8px;margin-bottom:8px">
+    <input type="text" id="gsheet-url" placeholder="https://docs.google.com/spreadsheets/d/…" style="flex:1;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;min-width:0">
+    <button onclick="syncGoogleSheet()" style="background:#1a1a1a;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">↻ Sync now</button>
+  </div>
+  <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#555;cursor:pointer">
+    <input type="checkbox" id="gsheet-auto" style="width:15px;height:15px;cursor:pointer">
+    Auto-sync every time the Finance tab loads
+  </label>
+  <div id="gsheet-last-sync" class="sub" style="margin-top:4px;font-size:11px;color:#aaa"></div>
+  <div id="gsheet-status" class="sub" style="margin-top:6px"></div>
+</div>
+
+<div class="card">
   <div class="sub" style="margin-bottom:10px">CSV exports parse most reliably. PDF statements are read best-effort — layouts vary a lot between banks, so check the imported list afterwards.</div>
   <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#555;margin-bottom:8px;cursor:pointer">
     <input type="checkbox" id="stmt-flip-signs" style="width:15px;height:15px;cursor:pointer">
@@ -7083,11 +7098,11 @@ const DEFAULT_FINANCE = {
 };
 const DEFAULT_MONTH = () => ({
   income: { tutoring: 0, hca: 0, misc: 0 },
-  expenses: { rent: 0, groceries: 0, eatingout: 0, transport: 0, shopping: 0, subscriptions: 0, savings: 0, misc: 0 },
+  expenses: { rent: 0, groceries: 0, eatingout: 0, transport: 0, shopping: 0, subscriptions: 0, savings: 0, leisure: 0, misc: 0 },
 });
 const INCOME_LABELS = { tutoring: 'Tutoring', hca: 'HCA Shifts', misc: 'Misc' };
-const EXPENSE_LABELS = { rent: 'Rent & Bills', groceries: 'Groceries', eatingout: 'Eating Out', transport: 'Transport', shopping: 'Shopping', subscriptions: 'Subscriptions', savings: 'Savings', misc: 'Misc' };
-const EXPENSE_COLORS = ['#3b82f6','#8b5cf6','#06b6d4','#d97706','#6b9e7a','#e05c5c','#6366f1','#9ca3af'];
+const EXPENSE_LABELS = { rent: 'Rent & Bills', groceries: 'Groceries', eatingout: 'Eating Out', transport: 'Transport', shopping: 'Shopping', subscriptions: 'Subscriptions', savings: 'Savings', leisure: 'Leisure', misc: 'Misc' };
+const EXPENSE_COLORS = ['#3b82f6','#8b5cf6','#06b6d4','#d97706','#6b9e7a','#e05c5c','#6366f1','#f59e0b','#9ca3af'];
 const fmtGBP = n => (+n||0).toLocaleString('en-GB', { style:'currency', currency:'GBP', maximumFractionDigits:0 });
 
 function getFinance() {
@@ -7411,6 +7426,7 @@ const FINANCE_CATEGORY_KEYWORDS = {
   shopping: ['amznmktplace','www.amazon','amazon*','amazon ','asos','home bargains','slater','zara','h&m','primark','ebay','etsy','argos','currys','john lewis','boots ','superdrug','ikea','b&m','the range','matalan','new look','river island','nike','adidas','sharkninja'],
   subscriptions: ['spotify','netflix','google one','google *google','apple.com/bill','itunes','youtube premium','adobe','microsoft','disney','plum ref','google*'],
   savings: ['moneybox','trading 212','trading212','vanguard','hargreaves','nutmeg'],
+  leisure: ['odeon','cineworld','vue cinema','cinema','bowling','topgolf','minigolf','laser','escape room','trampoline','go ape','aquarium','museum','theatre','concert','ticketmaster','eventbrite','skiddle','see tickets','paintball','karting','climbing','gym','leisure centre','swimming pool','spa ','sauna','massage','beauty','nails ','barbershop','barber','hairdress','salon'],
 };
 
 function categorizeTransaction(description, amount) {
@@ -7542,10 +7558,11 @@ function parseCSVStatement(text) {
     else if (csvCat === 'eating out' || csvCat === 'restaurants' || csvCat === 'takeaway') preCategory = 'eatingout';
     else if (csvCat === 'transport' || csvCat === 'travel') preCategory = 'transport';
     else if (csvCat === 'shopping') preCategory = 'shopping';
-    else if (csvCat === 'entertainment') preCategory = 'eatingout';
+    else if (csvCat === 'entertainment') preCategory = 'leisure';
     else if (csvCat === 'subscriptions' || csvCat === 'business') preCategory = 'subscriptions';
     else if (csvCat === 'investments') preCategory = 'savings';
-    else if (csvCat === 'personal care' || csvCat === 'charity') preCategory = 'misc';
+    else if (csvCat === 'leisure' || csvCat === 'entertainment' || csvCat === 'personal care' || csvCat === 'sport & fitness') preCategory = 'leisure';
+    else if (csvCat === 'charity') preCategory = 'misc';
     else if (csvCat === 'rent' || csvCat === 'housing') preCategory = 'rent';
     else if (csvCat === 'income') preCategory = 'income';
     txs.push({ date, description: description || '(no description)', amount, balance, _csvCat: preCategory || undefined });
@@ -7656,6 +7673,55 @@ function updateAccountBalancesFromTransactions(rows) {
   saveFinanceAccounts(accounts);
 }
 
+function gSheetCsvUrl(rawUrl) {
+  const m = rawUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if (!m) return null;
+  const id = m[1];
+  const gid = (rawUrl.match(/[#&?]gid=(\d+)/) || [])[1] || '0';
+  return `https://docs.google.com/spreadsheets/d/${id}/pub?output=csv&gid=${gid}`;
+}
+
+async function syncGoogleSheet() {
+  const urlEl = document.getElementById('gsheet-url');
+  const statusEl = document.getElementById('gsheet-status');
+  const url = (urlEl?.value || '').trim();
+  if (!url) { statusEl.textContent = 'Paste your Google Sheet URL first.'; return; }
+  const csvUrl = gSheetCsvUrl(url);
+  if (!csvUrl) { statusEl.textContent = 'That doesn\'t look like a Google Sheets URL.'; return; }
+  localStorage.setItem('gsheet_url', url);
+  localStorage.setItem('gsheet_auto', document.getElementById('gsheet-auto')?.checked ? '1' : '0');
+  statusEl.textContent = 'Syncing…';
+  try {
+    const resp = await fetch(csvUrl);
+    if (!resp.ok) throw new Error(`Server returned ${resp.status} — is the sheet published to web?`);
+    const text = await resp.text();
+    _financeUSDateFmt = document.getElementById('stmt-us-dates')?.checked || false;
+    const rows = parseCSVStatement(text);
+    if (!rows.length) throw new Error('No transactions found — check the sheet has a header row and data');
+    const flipSigns = document.getElementById('stmt-flip-signs')?.checked;
+    rows.forEach(r => { r.account = r.account || 'Google Sheet'; if (flipSigns) r.amount = -r.amount; });
+    finaliseImport(rows, [], 'gsheet-status');
+    localStorage.setItem('gsheet_last_sync', new Date().toISOString());
+    const lastEl = document.getElementById('gsheet-last-sync');
+    if (lastEl) lastEl.textContent = 'Last synced: just now';
+  } catch (e) {
+    setH('gsheet-status', `<span style="color:#e05c5c">❌ ${escHtml(e.message)}</span>`);
+  }
+}
+
+function initGSheetUI() {
+  const saved = localStorage.getItem('gsheet_url') || '';
+  const auto = localStorage.getItem('gsheet_auto') === '1';
+  const lastSync = localStorage.getItem('gsheet_last_sync');
+  const urlEl = document.getElementById('gsheet-url');
+  const autoEl = document.getElementById('gsheet-auto');
+  if (urlEl) urlEl.value = saved;
+  if (autoEl) autoEl.checked = auto;
+  const lastEl = document.getElementById('gsheet-last-sync');
+  if (lastEl && lastSync) lastEl.textContent = 'Last synced: ' + new Date(lastSync).toLocaleString('en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+  if (auto && saved) syncGoogleSheet();
+}
+
 async function handleStatementFiles(fileList) {
   const files = Array.from(fileList || []);
   if (!files.length) return;
@@ -7691,7 +7757,17 @@ async function handleStatementFiles(fileList) {
     setH('stmt-upload-status', `<div style="color:#e05c5c">Couldn't read any transactions.${errors.length ? '<br>' + errors.map(escHtml).join('<br>') : ''} CSV exports parse most reliably — try that if your bank offers one.</div>`);
     return;
   }
+  finaliseImport(allParsed, errors, 'stmt-upload-status');
+  const input = document.getElementById('stmt-file-input');
+  if (input) input.value = '';
+}
 
+function finaliseImport(allParsed, errors, statusElId) {
+  errors = errors || [];
+  if (!allParsed.length) {
+    setH(statusElId, `<div style="color:#e05c5c">No transactions found.${errors.length ? '<br>' + errors.map(escHtml).join('<br>') : ''}</div>`);
+    return { added: 0, skipped: 0 };
+  }
   const seenThisPass = {};
   allParsed.forEach(t => {
     const base = `${t.date}|${t.description}|${t.amount}|${t.account}`;
@@ -7700,20 +7776,16 @@ async function handleStatementFiles(fileList) {
     t.category = t._csvCat || categorizeTransaction(t.description, t.amount);
     delete t._csvCat;
   });
-
   const existing = getFinanceTransactions();
   const existingIds = new Set(existing.map(t => t.id));
   const newOnes = allParsed.filter(t => !existingIds.has(t.id));
   const merged = existing.concat(newOnes).sort((a, b) => a.date.localeCompare(b.date));
   saveFinanceTransactions(merged);
   updateAccountBalancesFromTransactions(allParsed);
-
   const skipped = allParsed.length - newOnes.length;
-  setH('stmt-upload-status', `<div style="color:#6b9e7a">✓ Imported ${newOnes.length} new transaction${newOnes.length === 1 ? '' : 's'}${skipped ? ` (${skipped} already imported, skipped)` : ''}.</div>${errors.length ? `<div style="color:#d97706;margin-top:4px">${errors.map(escHtml).join('<br>')}</div>` : ''}`);
-
+  setH(statusElId, `<div style="color:#6b9e7a">✓ Imported ${newOnes.length} new transaction${newOnes.length === 1 ? '' : 's'}${skipped ? ` (${skipped} already imported, skipped)` : ''}.</div>${errors.length ? `<div style="color:#d97706;margin-top:4px">${errors.map(escHtml).join('<br>')}</div>` : ''}`);
   renderStatements();
-  const input = document.getElementById('stmt-file-input');
-  if (input) input.value = '';
+  return { added: newOnes.length, skipped };
 }
 
 let statementViewDate = (() => { const d = new Date(); d.setDate(1); d.setHours(0,0,0,0); return d; })();
@@ -7964,7 +8036,7 @@ function deleteTransaction(id) {
 function initFinanceOverview() { renderFinanceOverview(); }
 function initFinanceIncome() { renderFinanceIncomeExpenses(); }
 function initFinanceInvestments() { renderInvestments(); }
-function initFinanceStatements() { renderStatements(); }
+function initFinanceStatements() { renderStatements(); initGSheetUI(); }
 
 renderFinanceDashboardCard();
 
