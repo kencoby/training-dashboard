@@ -1347,6 +1347,26 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 
 <div class="tab-pane" id="tab-shopping">
 
+<!-- GROCERIES -->
+<div class="section">
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+  <div style="font-size:20px">🛒</div>
+  <div style="flex:1">
+    <div style="font-size:15px;font-weight:700">Groceries</div>
+    <div style="font-size:11px;color:#9ca3af">Food & household essentials</div>
+  </div>
+  <span id="shop-count-groceries" style="background:#dcfce7;color:#16a34a;border-radius:99px;padding:2px 9px;font-size:11px;font-weight:700;min-width:20px;text-align:center"></span>
+</div>
+<div class="card" style="padding:4px 14px 10px">
+  <div id="shop-list-groceries"></div>
+  <div style="display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid #f5f5f5">
+    <input id="shop-input-groceries" type="text" placeholder="Add grocery item…"
+      onkeydown="if(event.key==='Enter')addShopItem('groceries')"
+      style="flex:1;border:1.5px solid #86efac;border-radius:8px;padding:7px 10px;font-size:13px;outline:none;font-family:inherit">
+    <button onclick="addShopItem('groceries')" style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:16px;font-weight:700;cursor:pointer;line-height:1">+</button>
+  </div>
+</div>
+</div>
 
 <!-- BUY NOW -->
 <div class="section">
@@ -2266,8 +2286,8 @@ function moveTask(id, dir) {
 }
 
 // ── Shopping ─────────────────────────────────────────────────────────────────
-const SHOP_TIERS = ['buynow', 'soon', 'wishlist'];
-const SHOP_TIER_COLORS = { buynow: '#dc2626', soon: '#d97706', wishlist: '#6b7280' };
+const SHOP_TIERS = ['groceries', 'buynow', 'soon', 'wishlist'];
+const SHOP_TIER_COLORS = { groceries: '#16a34a', buynow: '#dc2626', soon: '#d97706', wishlist: '#6b7280' };
 
 function getShoppingItems() { try { return JSON.parse(localStorage.getItem('shopping_items')) || []; } catch { return []; } }
 function saveShoppingItems(items) { localStorage.setItem('shopping_items', JSON.stringify(items)); syncPush('shopping_items', items); }
@@ -2316,13 +2336,15 @@ function renderShopping() {
   // Dashboard summary card
   const sumEl = document.getElementById('dash-shopping-summary');
   if (sumEl) {
-    const now = all.filter(i => !i.bought && i.tier === 'buynow').length;
+    const groc = all.filter(i => !i.bought && i.tier === 'groceries').length;
+    const now  = all.filter(i => !i.bought && i.tier === 'buynow').length;
     const soon = all.filter(i => !i.bought && i.tier === 'soon').length;
     const wish = all.filter(i => !i.bought && i.tier === 'wishlist').length;
     if (!all.length) {
       sumEl.innerHTML = `<span style="color:#bbb;font-style:italic">No items yet</span>`;
     } else {
       const parts = [];
+      if (groc) parts.push(`<span style="color:#16a34a;font-weight:600">${groc} groceries</span>`);
       if (now)  parts.push(`<span style="color:#dc2626;font-weight:600">${now} buy now</span>`);
       if (soon) parts.push(`<span style="color:#d97706">${soon} soon</span>`);
       if (wish) parts.push(`<span style="color:#6b7280">${wish} wishlist</span>`);
