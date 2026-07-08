@@ -7901,16 +7901,33 @@ function buildNetWorthChart(accounts) {
   });
 }
 
+let _txFilter = 'all';
+function setTxFilter(cat) { _txFilter = cat; renderStatements(); }
+
 function renderTransactionList(txs) {
-  const sorted = txs.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 100);
-  set('stmt-tx-count', `${txs.length} total`);
-  if (!sorted.length) {
+  const allSorted = txs.slice().sort((a, b) => b.date.localeCompare(a.date));
+  const catOptions = ['income', 'transfer', ...Object.keys(EXPENSE_LABELS)];
+  const catLabel = c => c === 'income' ? 'Income' : c === 'transfer' ? '↔ Transfer' : EXPENSE_LABELS[c];
+
+  // Filter pills
+  const allCats = ['all', ...catOptions];
+  const pillStyle = (c) => {
+    const active = _txFilter === c;
+    return `display:inline-block;padding:4px 11px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;margin:0 3px 4px 0;border:1px solid ${active ? '#1a1a1a' : '#e5e7eb'};background:${active ? '#1a1a1a' : '#fff'};color:${active ? '#fff' : '#666'}`;
+  };
+  const pillLabel = c => c === 'all' ? 'All' : catLabel(c);
+  const pillsHtml = `<div style="margin-bottom:12px;line-height:2">${allCats.map(c => `<span style="${pillStyle(c)}" onclick="setTxFilter('${c}')">${pillLabel(c)}</span>`).join('')}</div>`;
+
+  const filtered = _txFilter === 'all' ? allSorted : allSorted.filter(t => t.category === _txFilter);
+  set('stmt-tx-count', `${filtered.length}${_txFilter !== 'all' ? ` ${pillLabel(_txFilter)}` : ''} of ${txs.length} total`);
+
+  if (!allSorted.length) {
     setH('stmt-tx-list', `<div class="sub" style="font-style:italic;padding:8px 0">No transactions imported yet.</div>`);
     return;
   }
-  const catOptions = ['income', 'transfer', ...Object.keys(EXPENSE_LABELS)];
-  const catLabel = c => c === 'income' ? 'Income' : c === 'transfer' ? '↔ Transfer' : EXPENSE_LABELS[c];
-  setH('stmt-tx-list', sorted.map(t => {
+
+  const shown = filtered.slice(0, 150);
+  setH('stmt-tx-list', pillsHtml + (shown.length ? shown.map(t => {
     const isTransfer = t.category === 'transfer';
     const isIncome = !isTransfer && t.amount > 0;
     const amtColor = isTransfer ? '#9ca3af' : isIncome ? '#6b9e7a' : '#e05c5c';
@@ -7925,7 +7942,7 @@ function renderTransactionList(txs) {
       <span style="font-size:14px;font-weight:700;min-width:80px;text-align:right;color:${amtColor}">${isIncome ? '+' : ''}${fmtGBP(t.amount)}</span>
       <button onclick="deleteTransaction('${t.id}')" title="Delete" style="background:none;border:none;color:#ccc;cursor:pointer;font-size:13px;margin-left:8px">🗑️</button>
     </div>`;
-  }).join(''));
+  }).join('') : `<div class="sub" style="font-style:italic;padding:8px 0">No ${pillLabel(_txFilter)} transactions.</div>`));
 }
 
 function setTransactionCategory(id, category) {
