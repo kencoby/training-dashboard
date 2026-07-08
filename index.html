@@ -7490,8 +7490,7 @@ function parseStatementDate(str) {
     let y = m[3]; if (y.length === 2) y = (+y < 50 ? '20' : '19') + y;
     return `${y}-${pad2(mo)}-${pad2(m[1])}`;
   }
-  const dt = new Date(s);
-  if (!isNaN(dt.getTime())) return dt.toLocaleDateString('en-CA');
+  // Don't fall back to new Date() — too browser-dependent and causes Jan 1 phantom dates
   return null;
 }
 
