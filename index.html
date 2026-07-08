@@ -1960,11 +1960,6 @@ function getWarns(acts, acwr) {
   if (acwr.ratio<0.8&&acwr.chronic>0) out.push({t:'info',m:'Detraining risk — ACWR below 0.8. Start rebuilding volume gradually.'});
   const h3 = acts.filter(a=>(now-new Date(a.start_local))<3*864e5&&intensity(a)==='hard').length;
   if (h3>=2) out.push({t:'caution',m:'Hard day clustering — 2+ hard sessions in the last 3 days. Recovery needed.'});
-  const r10 = acts.slice(0,10);
-  if (r10.length>=5) {
-    const ep = r10.filter(a=>intensity(a)==='easy').length/r10.length;
-    if (ep<0.7) out.push({t:'caution',m:`Low easy volume — only ${Math.round(ep*100)}% of recent sessions are easy. Target ≥70%.`});
-  }
   return out;
 }
 
@@ -2910,16 +2905,7 @@ function renderWakeTimes() {
     const t = new Date(sleepData.sleepStart);
     if (!isNaN(t)) { bedHH = t.getHours(); bedMM = t.getMinutes(); }
   }
-  if (bedHH === null) {
-    el.innerHTML = `<div style="padding:8px 0;border-top:1px solid #f5f5f5">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:#9ca3af;font-weight:700;margin-bottom:5px">⏰ Wake calculator</div>
-      <div style="display:flex;gap:6px;align-items:center">
-        <span style="font-size:12px;color:#9ca3af">Bedtime:</span>
-        <input type="time" id="bedtime-input" style="border:1px solid #e5e7eb;border-radius:6px;padding:3px 6px;font-size:12px;font-family:inherit" onchange="saveBedtime(this.value)">
-      </div>
-    </div>`;
-    return;
-  }
+  if (bedHH === null) { el.innerHTML = ''; return; }
   const times = computeWakeTimes(bedHH, bedMM);
   const bedStr = `${String(bedHH).padStart(2,'0')}:${String(bedMM).padStart(2,'0')}`;
   el.innerHTML = `<div style="padding:8px 0;border-top:1px solid #f5f5f5">
@@ -3575,22 +3561,46 @@ renderUkmlaTracker();
 const REV_START = new Date('2026-07-06T00:00:00');
 const REV_EXAM  = new Date('2026-08-31T00:00:00');
 
-const REV_PHASES = [
-  { name: 'Weekend Revision — All Topics', color: '#6b9e7a', weeks: [
-    { topic: 'All Topics', anki: 100, pm: 25 },
-    { topic: 'All Topics', anki: 100, pm: 25 },
-    { topic: 'All Topics', anki: 100, pm: 25 },
-    { topic: 'All Topics', anki: 100, pm: 25 },
-    { topic: 'All Topics', anki: 100, pm: 25 },
-    { topic: 'All Topics', anki: 100, pm: 25 },
-    { topic: 'All Topics', anki: 100, pm: 25 },
-    { topic: 'All Topics', anki: 100, pm: 25 },
-  ]},
+// UKMLA daily topics — each weekday gets a focused system; weekends = All Topics
+const UKMLA_DAILY_TOPICS = [
+  'Cardiovascular',
+  'Respiratory',
+  'Neurology',
+  'Gastroenterology',
+  'Hepatology & Biliary',
+  'Endocrinology & Diabetes',
+  'Renal & Urology',
+  'Musculoskeletal & Orthopaedics',
+  'Rheumatology',
+  'Dermatology',
+  'Haematology',
+  'Oncology',
+  'Infectious Diseases',
+  'Psychiatry & Mental Health',
+  'Ophthalmology & ENT',
+  'Obstetrics',
+  'Gynaecology',
+  'Paediatrics',
+  'Surgery & Emergency Medicine',
+  'Pharmacology & Ethics',
 ];
+const REV_ANKI_TARGET = 100;
+const REV_PM_TARGET   = 25;
 
-// Flat array of 26 week objects with back-ref to phase
-const _revWeeks = [];
-REV_PHASES.forEach(ph => ph.weeks.forEach(w => _revWeeks.push({ ...w, phase: ph, weekIdx: _revWeeks.length })));
+// Returns topic for a given date — 'All Topics' on weekends, system topic on weekdays
+function getRevTopicForDate(d) {
+  const day = d.getDay();
+  if (day === 0 || day === 6) return 'All Topics';
+  const start = new Date(REV_START); start.setHours(0,0,0,0);
+  const target = new Date(d); target.setHours(0,0,0,0);
+  let wdCount = 0;
+  const cur = new Date(start);
+  while (cur < target) {
+    if (cur.getDay() !== 0 && cur.getDay() !== 6) wdCount++;
+    cur.setDate(cur.getDate() + 1);
+  }
+  return UKMLA_DAILY_TOPICS[Math.floor(wdCount / 2) % UKMLA_DAILY_TOPICS.length];
+}
 
 function getRevLog() { try { return JSON.parse(localStorage.getItem('rev_schedule_log'))||{}; } catch { return {}; } }
 function saveRevLog(log) { localStorage.setItem('rev_schedule_log', JSON.stringify(log)); syncPush('rev_schedule_log', log); }
@@ -3603,7 +3613,7 @@ function revTodayKey() { return revDateKey(new Date()); }
 function revCurrentWeekIdx() {
   const now = new Date(); now.setHours(0,0,0,0);
   const diff = Math.floor((now - REV_START) / 86400000);
-  return Math.min(Math.max(0, Math.floor(diff / 7)), _revWeeks.length - 1);
+  return Math.min(Math.max(0, Math.floor(diff / 7)), 7);
 }
 
 function logRevToday() {
@@ -3662,27 +3672,27 @@ function renderRevWeekCard() {
     return;
   }
 
-  const wi    = revCurrentWeekIdx();
-  const week  = _revWeeks[wi];
-  const phase = week.phase;
-  const log   = getRevLog();
+  const wi  = revCurrentWeekIdx();
+  const log = getRevLog();
+  const isWeekend = now.getDay() === 0 || now.getDay() === 6;
+  const todayTopic = getRevTopicForDate(now);
   const startOfWeek = new Date(REV_START.getTime() + wi * 7 * 86400000);
   let weekAnki = 0, weekPm = 0;
   for (let i = 0; i < 7; i++) {
     const d = new Date(startOfWeek.getTime() + i * 86400000);
     const e = log[revDateKey(d)]; if (e) { weekAnki += e.anki||0; weekPm += e.pm||0; }
   }
-  const ankiTarget = week.anki * 7;
-  const pmTarget   = week.pm   * 7;
-  const ankiPct    = Math.min(100, Math.round(weekAnki / ankiTarget * 100));
-  const pmPct      = Math.min(100, Math.round(weekPm   / pmTarget   * 100));
+  const weekAnkiTarget = REV_ANKI_TARGET * 7;
+  const weekPmTarget   = REV_PM_TARGET   * 7;
+  const ankiPct = Math.min(100, Math.round(weekAnki / weekAnkiTarget * 100));
+  const pmPct   = Math.min(100, Math.round(weekPm   / weekPmTarget   * 100));
 
   el.innerHTML = `
     <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
       <div>
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.07em;color:${phase.color};font-weight:700">${phase.name}</div>
-        <div style="font-size:18px;font-weight:700;margin-top:3px">${week.topic}</div>
-        <div style="font-size:12px;color:#9ca3af;margin-top:2px">Week ${wi+1} of ${_revWeeks.length}</div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.07em;color:#6b9e7a;font-weight:700">${isWeekend ? 'Weekend — General Review' : "Today's Topic"}</div>
+        <div style="font-size:18px;font-weight:700;margin-top:3px">${todayTopic}</div>
+        <div style="font-size:12px;color:#9ca3af;margin-top:2px">Week ${wi+1} of 8</div>
       </div>
       <div style="text-align:right;flex-shrink:0">
         <div style="font-size:30px;font-weight:800;color:${daysToExam<=14?'#ef4444':daysToExam<=60?'#f59e0b':'#374151'};line-height:1">${daysToExam}</div>
@@ -3691,7 +3701,7 @@ function renderRevWeekCard() {
     </div>
     <div style="margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-        <span>🃏 Anki this week</span><span style="font-weight:600">${weekAnki} / ${ankiTarget}</span>
+        <span>🃏 Anki this week</span><span style="font-weight:600">${weekAnki} / ${weekAnkiTarget}</span>
       </div>
       <div style="background:#f3f4f6;border-radius:99px;height:7px;overflow:hidden">
         <div style="background:#6b9e7a;height:100%;width:${ankiPct}%;transition:width .3s"></div>
@@ -3699,15 +3709,15 @@ function renderRevWeekCard() {
     </div>
     <div style="margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-        <span>📝 PassMed this week</span><span style="font-weight:600">${weekPm} / ${pmTarget}</span>
+        <span>📝 PassMed this week</span><span style="font-weight:600">${weekPm} / ${weekPmTarget}</span>
       </div>
       <div style="background:#f3f4f6;border-radius:99px;height:7px;overflow:hidden">
         <div style="background:#3b82f6;height:100%;width:${pmPct}%;transition:width .3s"></div>
       </div>
     </div>
     <div style="display:flex;gap:8px;padding-top:12px;border-top:1px solid #f3f4f6;font-size:11px;color:#6b7280">
-      <div style="flex:1"><span style="font-weight:600">📅 Weekdays</span><br>${week.anki} Ankis · ${week.pm} PassMed Qs · 30 min content</div>
-      <div style="flex:1"><span style="font-weight:600">🗓️ Weekend</span><br>${week.anki*2} Ankis · ${week.pm*2} PassMed Qs · deep dive</div>
+      <div style="flex:1"><span style="font-weight:600">📅 Daily target</span><br>${REV_ANKI_TARGET} Ankis · ${REV_PM_TARGET} PassMed Qs</div>
+      <div style="flex:1"><span style="font-weight:600">🗓️ Weekend</span><br>All Topics · ${REV_ANKI_TARGET} Ankis · ${REV_PM_TARGET} PassMed Qs</div>
     </div>`;
 }
 
@@ -3738,40 +3748,40 @@ function renderRevPhases() {
   if (!el) return;
   const wi  = revCurrentWeekIdx();
   const log = getRevLog();
-  let offset = 0;
+  const todayKey = revDateKey(new Date());
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
-  el.innerHTML = REV_PHASES.map((ph, pi) => {
-    const phStart = offset;
-    const isCurrentPhase = wi >= phStart && wi < phStart + ph.weeks.length;
+  el.innerHTML = Array.from({length: 8}, (_, wIdx) => {
+    const weekStart = new Date(REV_START.getTime() + wIdx * 7 * 86400000);
+    const dateStr = `${weekStart.getDate()} ${MONTHS[weekStart.getMonth()]}`;
+    const isCurrent = wIdx === wi;
+    let wAnki = 0, wPm = 0;
+    for (let d = 0; d < 7; d++) {
+      const dd = new Date(weekStart.getTime() + d * 86400000);
+      const e = log[revDateKey(dd)]; if (e) { wAnki += e.anki||0; wPm += e.pm||0; }
+    }
 
-    const weekRows = ph.weeks.map((w, i) => {
-      const wIdx = phStart + i;
-      const weekStart = new Date(REV_START.getTime() + wIdx * 7 * 86400000);
-      const dateStr = `${weekStart.getDate()} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][weekStart.getMonth()]}`;
-      const isCurrent = wIdx === wi;
-      let wAnki = 0, wPm = 0;
-      for (let d = 0; d < 7; d++) {
-        const dd = new Date(weekStart.getTime() + d * 86400000);
-        const e = log[revDateKey(dd)]; if (e) { wAnki += e.anki||0; wPm += e.pm||0; }
-      }
-      const done = wAnki >= w.anki * 5 && wPm >= w.pm * 5;
-      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f9fafb;${isCurrent?'background:#f0fdf4;margin:0 -12px;padding-left:12px;padding-right:12px;':''}">
-        <div style="width:22px;height:22px;border-radius:50%;flex-shrink:0;background:${done?ph.color:isCurrent?ph.color+'33':'#f3f4f6'};border:2px solid ${done||isCurrent?ph.color:'#e5e7eb'};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:${done?'#fff':isCurrent?ph.color:'#9ca3af'}">${done?'✓':wIdx+1}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:${isCurrent?'700':'400'};color:${isCurrent?'#111':'#374151'}">${w.topic}${isCurrent?' ◀ this week':''}</div>
-          <div style="font-size:11px;color:#9ca3af">${dateStr} · ${w.anki}/day Anki · ${w.pm}/day PassMed</div>
-        </div>
-        ${wAnki||wPm?`<div style="font-size:11px;color:#6b9e7a;text-align:right;flex-shrink:0">🃏 ${wAnki}<br>📝 ${wPm}</div>`:''}
+    const dayRows = Array.from({length: 7}, (_, di) => {
+      const dd = new Date(weekStart.getTime() + di * 86400000);
+      const dKey = revDateKey(dd);
+      const isToday = dKey === todayKey;
+      const isWkend = dd.getDay() === 0 || dd.getDay() === 6;
+      const topic = getRevTopicForDate(dd);
+      const e = log[dKey];
+      return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f9fafb;${isToday?'background:#f0fdf4;margin:0 -12px;padding-left:12px;padding-right:12px':''}">
+        <span style="font-size:11px;color:#9ca3af;width:28px;flex-shrink:0">${DAY_NAMES[dd.getDay()]}</span>
+        <span style="font-size:12px;flex:1;color:${isWkend?'#9ca3af':'#374151'};font-weight:${isToday?'700':'400'}">${topic}${isToday?' ◀ today':''}</span>
+        ${e&&(e.anki||e.pm)?`<span style="font-size:10px;color:#6b9e7a;flex-shrink:0">🃏${e.anki||0} 📝${e.pm||0}</span>`:''}
       </div>`;
     }).join('');
-    offset += ph.weeks.length;
 
-    return `<div class="accordion ${isCurrentPhase?'':'closed'}" id="acc-rev-phase-${pi}">
-      <div class="accordion-header" onclick="toggleAccordion('rev-phase-${pi}')" style="border-left:3px solid ${ph.color};padding-left:12px">
-        <span style="font-weight:700;font-size:14px">${ph.name}</span>
-        <span class="accordion-meta" style="font-size:12px;color:#9ca3af">${ph.weeks.length} weeks</span>
+    return `<div class="accordion ${isCurrent?'':'closed'}" id="acc-rev-phase-${wIdx}">
+      <div class="accordion-header" onclick="toggleAccordion('rev-phase-${wIdx}')" style="border-left:3px solid #6b9e7a;padding-left:12px">
+        <span style="font-weight:700;font-size:14px">Week ${wIdx+1}</span>
+        <span class="accordion-meta" style="font-size:12px;color:#9ca3af">${dateStr}${wAnki||wPm?' · 🃏'+wAnki+' 📝'+wPm:''}</span>
       </div>
-      <div class="accordion-body" id="acc-body-rev-phase-${pi}" style="padding:0 12px 4px">${weekRows}</div>
+      <div class="accordion-body" id="acc-body-rev-phase-${wIdx}" style="padding:0 12px 4px">${dayRows}</div>
     </div>`;
   }).join('');
 }
@@ -6557,24 +6567,16 @@ function renderDailyBriefing() {
   const isWeekend = dow2 === 0 || dow2 === 6;
   let revHtml = `<div style="${labelStyle}">📚 Revision</div>`;
   if (now2 >= REV_START && now2 < REV_EXAM) {
-    const wi2 = (() => { const diff = Math.floor((now2 - REV_START) / 86400000); return Math.min(Math.max(0, Math.floor(diff / 7)), _revWeeks.length - 1); })();
-    const wk2 = _revWeeks[wi2];
-    if (isWeekend) {
-      const todayRevEntry = getRevLog()[todayDateStr] || { anki: 0, pm: 0 };
-      const ankiDone = todayRevEntry.anki, ankiTarget = wk2.anki;
-      const pmDone   = todayRevEntry.pm,   pmTarget   = wk2.pm;
-      const ankiOk = ankiDone >= ankiTarget, pmOk = pmDone >= pmTarget;
-      revHtml += `<div style="${rowStyle};margin-bottom:4px">📖 <span style="font-weight:600">All Topics</span><span style="margin-left:auto;font-size:10px;color:#9ca3af">Wk ${wi2+1}/${_revWeeks.length}</span></div>`;
-      revHtml += `<div style="${rowStyle}"><span>${ankiOk?'✅':'⏳'} 🃏 Anki</span><span style="margin-left:auto;font-weight:600;color:${ankiOk?'#6b9e7a':'#374151'}">${ankiDone} / ${ankiTarget}</span></div>`;
-      revHtml += `<div style="${rowStyle}"><span>${pmOk?'✅':'⏳'} 📝 PassMed</span><span style="margin-left:auto;font-weight:600;color:${pmOk?'#6b9e7a':'#374151'}">${pmDone} / ${pmTarget}</span></div>`;
-      if (studyStreak > 0) revHtml += `<div style="margin-top:6px"><span class="badge b-sage" style="font-size:10px;padding:2px 7px">${studyStreak} day streak</span></div>`;
-    } else {
-      // Weekday — revision is weekend-only
-      const daysToWeekend = dow2 === 5 ? 1 : 7 - dow2 - 1; // days until Saturday
-      const nextSat = daysToWeekend === 1 ? 'tomorrow' : `in ${daysToWeekend} days`;
-      revHtml += `<div style="font-size:13px;color:#9ca3af">Weekend revision — next session ${nextSat} 📅</div>`;
-      if (studyStreak > 0) revHtml += `<div style="margin-top:6px"><span class="badge b-sage" style="font-size:10px;padding:2px 7px">${studyStreak} day streak</span></div>`;
-    }
+    const wi2 = (() => { const diff = Math.floor((now2 - REV_START) / 86400000); return Math.min(Math.max(0, Math.floor(diff / 7)), 7); })();
+    const todayRevEntry = getRevLog()[todayDateStr] || { anki: 0, pm: 0 };
+    const ankiDone = todayRevEntry.anki, ankiTarget = REV_ANKI_TARGET;
+    const pmDone   = todayRevEntry.pm,   pmTarget   = REV_PM_TARGET;
+    const ankiOk = ankiDone >= ankiTarget, pmOk = pmDone >= pmTarget;
+    const todayTopic2 = getRevTopicForDate(now2);
+    revHtml += `<div style="${rowStyle};margin-bottom:4px">📖 <span style="font-weight:600">${todayTopic2}</span><span style="margin-left:auto;font-size:10px;color:#9ca3af">Wk ${wi2+1}/8</span></div>`;
+    revHtml += `<div style="${rowStyle}"><span>${ankiOk?'✅':'⏳'} 🃏 Anki</span><span style="margin-left:auto;font-weight:600;color:${ankiOk?'#6b9e7a':'#374151'}">${ankiDone} / ${ankiTarget}</span></div>`;
+    revHtml += `<div style="${rowStyle}"><span>${pmOk?'✅':'⏳'} 📝 PassMed</span><span style="margin-left:auto;font-weight:600;color:${pmOk?'#6b9e7a':'#374151'}">${pmDone} / ${pmTarget}</span></div>`;
+    if (studyStreak > 0) revHtml += `<div style="margin-top:6px"><span class="badge b-sage" style="font-size:10px;padding:2px 7px">${studyStreak} day streak</span></div>`;
   } else if (now2 >= REV_EXAM) {
     revHtml += `<div style="${rowStyle}">🎓 <span>Revision complete — good luck!</span></div>`;
   } else {
