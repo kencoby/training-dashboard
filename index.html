@@ -1170,6 +1170,10 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 <h2>Upload Bank Statement</h2>
 <div class="card">
   <div class="sub" style="margin-bottom:10px">CSV exports parse most reliably. PDF statements are read best-effort — layouts vary a lot between banks, so check the imported list afterwards.</div>
+  <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#555;margin-bottom:12px;cursor:pointer">
+    <input type="checkbox" id="stmt-flip-signs" style="width:15px;height:15px;cursor:pointer">
+    My bank shows payments/outgoings as <strong>positive</strong> numbers (flip signs on import)
+  </label>
   <input type="file" id="stmt-file-input" accept=".csv,.pdf" multiple onchange="handleStatementFiles(this.files)" style="display:none">
   <button onclick="document.getElementById('stmt-file-input').click()" style="background:#1a1a1a;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer">📤 Choose statement file(s)</button>
   <div id="stmt-upload-status" class="sub" style="margin-top:10px"></div>
@@ -7627,7 +7631,8 @@ async function handleStatementFiles(fileList) {
       }
       if (!rows.length) throw new Error('no transactions recognised in this file');
       const accountName = file.name.replace(/\.(csv|pdf)$/i, '');
-      rows.forEach(r => { r.account = accountName; });
+      const flipSigns = document.getElementById('stmt-flip-signs')?.checked;
+      rows.forEach(r => { r.account = accountName; if (flipSigns) r.amount = -r.amount; });
       allParsed = allParsed.concat(rows);
     } catch (e) {
       errors.push(`${file.name}: ${e.message}`);
