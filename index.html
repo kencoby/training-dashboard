@@ -2099,21 +2099,32 @@ function buildDonut(acts) {
   });
 }
 
+function weeklyDistBuckets(acts, sport, weeks=16) {
+  const buckets={};
+  acts.filter(a=>a.sport_type===sport&&a.summary.distance>0).forEach(a=>{
+    const d=new Date(a.start_local);
+    const day=d.getDay(); const diff=d.getDate()-(day===0?6:day-1);
+    const mon=new Date(d); mon.setDate(diff); mon.setHours(0,0,0,0);
+    const key=mon.toISOString().slice(0,10);
+    buckets[key]=(buckets[key]||0)+a.summary.distance;
+  });
+  const keys=Object.keys(buckets).sort().slice(-weeks);
+  return {
+    labels:keys.map(k=>{ const d=new Date(k); return `${d.getDate()} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]}`; }),
+    data:keys.map(k=>+(buckets[k]/1000).toFixed(1))
+  };
+}
+
 function buildPaceChart(acts) {
   rmSkel('pace-chart');
-  const runs=acts.filter(a=>a.sport_type==='Run'&&a.summary.distance>0).slice(0,16).reverse();
+  const {labels,data}=weeklyDistBuckets(acts,'Run');
   new Chart(document.getElementById('pace-chart'),{
     type:'bar',
-    data:{labels:runs.map(a=>fmtDate(a.start_local)),datasets:[{
-      label:'Distance (km)',
-      data:runs.map(a=>+(a.summary.distance/1000).toFixed(2)),
-      backgroundColor:'#3b82f6',borderRadius:4
-    }]},
+    data:{labels,datasets:[{label:'Distance (km)',data,backgroundColor:'#3b82f6',borderRadius:4}]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false}},
-      scales:{y:{beginAtZero:true,grid:{color:'#f3f4f6'},
-        ticks:{callback:v=>`${v}km`,font:{size:10}}},
-        x:{grid:{display:false},ticks:{maxTicksLimit:8,font:{size:10}}}}}
+      scales:{y:{beginAtZero:true,grid:{color:'#f3f4f6'},ticks:{callback:v=>`${v}km`,font:{size:10}}},
+              x:{grid:{display:false},ticks:{maxTicksLimit:8,font:{size:10}}}}}
   });
 }
 
@@ -6142,23 +6153,27 @@ function renderSwim(acts) {
 // ── Swim Pace Tracker ────────────────────────────────────────────────────────
 function buildSwimPace(acts) {
   rmSkel('swim-pace-chart');
-  const swims = acts.filter(a=>a.sport_type==='Swim' && a.summary.distance>0).slice(0,16).reverse();
   const chtEl = document.getElementById('swim-pace-chart').closest('.cht');
-  if (swims.length < 2) {
+  // weekly buckets in metres
+  const buckets={};
+  acts.filter(a=>a.sport_type==='Swim'&&a.summary.distance>0).forEach(a=>{
+    const d=new Date(a.start_local);
+    const day=d.getDay(); const diff=d.getDate()-(day===0?6:day-1);
+    const mon=new Date(d); mon.setDate(diff); mon.setHours(0,0,0,0);
+    const key=mon.toISOString().slice(0,10);
+    buckets[key]=(buckets[key]||0)+a.summary.distance;
+  });
+  const keys=Object.keys(buckets).sort().slice(-16);
+  if (!keys.length) {
     if (chtEl) chtEl.style.display = 'none';
     setH('swim-pace-note', 'Log more swims to see your distance trend.');
     return;
   }
+  const labels=keys.map(k=>{ const d=new Date(k); return `${d.getDate()} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]}`; });
+  const data=keys.map(k=>Math.round(buckets[k]));
   new Chart(document.getElementById('swim-pace-chart'), {
     type: 'bar',
-    data: {
-      labels: swims.map(a=>fmtDate(a.start_local)),
-      datasets: [{
-        label: 'Distance (m)',
-        data: swims.map(a=>Math.round(a.summary.distance)),
-        backgroundColor:'#06b6d4', borderRadius:4
-      }]
-    },
+    data: { labels, datasets:[{ label:'Distance (m)', data, backgroundColor:'#06b6d4', borderRadius:4 }] },
     options: {
       responsive:true, maintainAspectRatio:false,
       plugins:{legend:{display:false}},
@@ -6172,14 +6187,10 @@ function buildSwimPace(acts) {
 
 // ── §10 Cycling ──────────────────────────────────────────────────────────────
 function buildBikeSpeed(acts) {
-  const rides=acts.filter(a=>a.sport_type==='Ride'&&a.summary.distance>0).slice(0,16).reverse();
+  const {labels,data}=weeklyDistBuckets(acts,'Ride');
   new Chart(document.getElementById('bike-speed'),{
     type:'bar',
-    data:{labels:rides.map(a=>fmtDate(a.start_local)),datasets:[{
-      label:'Distance (km)',
-      data:rides.map(a=>+(a.summary.distance/1000).toFixed(1)),
-      backgroundColor:'#8b5cf6',borderRadius:4
-    }]},
+    data:{labels,datasets:[{label:'Distance (km)',data,backgroundColor:'#8b5cf6',borderRadius:4}]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false}},
       scales:{y:{beginAtZero:true,grid:{color:'#f3f4f6'},ticks:{callback:v=>`${v}km`,font:{size:10}}},
