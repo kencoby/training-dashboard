@@ -7724,7 +7724,7 @@ async function syncGoogleSheet() {
     const resp = await fetch(proxyUrl);
     if (!resp.ok) throw new Error(`Server returned ${resp.status} — is the sheet published to web?`);
     const text = await resp.text();
-    _financeUSDateFmt = document.getElementById('stmt-us-dates')?.checked || false;
+    _financeUSDateFmt = true; // Emma Google Sheet always exports M/D/YYYY
     const rows = parseCSVStatement(text);
     if (!rows.length) {
       const firstLines = text.trim().split('\n').slice(0, 3).map(l => l.slice(0, 120)).join('\n');
