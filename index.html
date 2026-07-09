@@ -7186,25 +7186,29 @@ let _financeChart = null, _expenseDonut = null, _investChart = null;
 
 // — Overview —
 function renderFinanceOverview() {
-  const fin = getFinance();
-  const m = getMonthEntry(fin, monthKey(new Date()));
-  const income = monthIncome(m), expenses = monthExpenses(m), net = income-expenses;
-  const rate = income>0 ? (net/income*100) : 0;
+  const key = monthKey(new Date());
+  const txs = getFinanceTransactions();
+  const monthTxs = txs.filter(t => t.date.slice(0,7) === key && t.category !== 'transfer');
+  const income = monthTxs.filter(t => t.category === 'income').reduce((s,t) => s + Math.abs(t.amount), 0);
+  const expenses = monthTxs.filter(t => t.category !== 'income').reduce((s,t) => s + Math.abs(t.amount), 0);
+  const net = income - expenses;
+  const rate = income > 0 ? (net / income * 100) : 0;
 
   set('fin-income-val', fmtGBP(income));
   set('fin-expenses-val', fmtGBP(expenses));
   const netEl = document.getElementById('fin-net-val');
-  if (netEl) { netEl.textContent = fmtGBP(net); netEl.style.color = net>=0?'#6b9e7a':'#e05c5c'; }
-  set('fin-savings-val', rate.toFixed(0)+'%');
-  const cls = rate<0?'b-red':rate<=20?'b-amber':'b-sage';
-  const lbl = rate<0?'Overspending':rate<=20?'Low savings':'On track';
+  if (netEl) { netEl.textContent = fmtGBP(net); netEl.style.color = net >= 0 ? '#6b9e7a' : '#e05c5c'; }
+  set('fin-savings-val', rate.toFixed(0) + '%');
+  const cls = rate < 0 ? 'b-red' : rate <= 20 ? 'b-amber' : 'b-sage';
+  const lbl = rate < 0 ? 'Overspending' : rate <= 20 ? 'Low savings' : 'On track';
   setH('fin-savings-badge', `<span class="badge ${cls}">${lbl}</span>`);
 
-  renderOverdraftCard(fin);
-  buildFinanceChart(fin);
+  renderOverdraftCard();
+  buildFinanceChart();
 }
 
-function renderOverdraftCard(fin) {
+function renderOverdraftCard() {
+  const fin = getFinance();
   const limit = +fin.overdraft_limit || 0;
   const input = document.getElementById('overdraft-input');
   if (input) input.value = limit;
@@ -7214,9 +7218,12 @@ function renderOverdraftCard(fin) {
     setH('overdraft-label', `<span class="badge b-sage">✓ Out of the overdraft!</span>`);
     return;
   }
-  const balance = limit + cumulativeNet(fin);
-  const pct = Math.max(0, Math.min(100, ((balance-limit)/(0-limit))*100));
-  if (bar) { bar.style.width = pct+'%'; bar.style.background = balance>=0?'#6b9e7a':'#3b82f6'; }
+  // Cumulative net from real transactions (income minus expenses, excluding transfers)
+  const txs = getFinanceTransactions().filter(t => t.category !== 'transfer');
+  const cumNet = txs.reduce((s,t) => s + (t.category === 'income' ? Math.abs(t.amount) : -Math.abs(t.amount)), 0);
+  const balance = limit + cumNet;
+  const pct = Math.max(0, Math.min(100, ((balance - limit) / (0 - limit)) * 100));
+  if (bar) { bar.style.width = pct + '%'; bar.style.background = balance >= 0 ? '#6b9e7a' : '#3b82f6'; }
   if (balance >= 0) setH('overdraft-label', `<span class="badge b-sage">✓ Out of the overdraft!</span>`);
   else set('overdraft-label', `${fmtGBP(-balance)} to go until you're out of the overdraft`);
 }
@@ -7230,20 +7237,23 @@ function saveOverdraftLimit() {
   const fin = getFinance();
   fin.overdraft_limit = +document.getElementById('overdraft-input').value || 0;
   saveFinance(fin);
-  renderOverdraftCard(fin);
+  renderOverdraftCard();
   renderFinanceDashboardCard();
   document.getElementById('overdraft-edit-wrap').style.display = 'none';
 }
 
-function buildFinanceChart(fin) {
-  const now = new Date(), months = [];
+function buildFinanceChart() {
+  const now = new Date(), months = [], txs = getFinanceTransactions();
   for (let i=7; i>=0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
-    const m = getMonthEntry(fin, monthKey(d));
+    const k = monthKey(d);
+    const mTxs = txs.filter(t => t.date.slice(0,7) === k && t.category !== 'transfer');
+    const inc = mTxs.filter(t => t.category === 'income').reduce((s,t) => s + Math.abs(t.amount), 0);
+    const exp = mTxs.filter(t => t.category !== 'income').reduce((s,t) => s + Math.abs(t.amount), 0);
     months.push({
       label: d.toLocaleDateString('en-GB',{month:'short',year:'2-digit'}),
-      income: +monthIncome(m).toFixed(2),
-      expenses: +monthExpenses(m).toFixed(2),
+      income: +inc.toFixed(2),
+      expenses: +exp.toFixed(2),
     });
   }
   const labels = months.map(m=>m.label);
