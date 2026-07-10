@@ -7729,7 +7729,7 @@ function clearAllFinanceData() {
   localStorage.removeItem('finance_accounts');
   syncPush('finance_transactions', []);
   syncPush('finance_accounts', {});
-  renderStatements();
+  refreshFinanceFromTransactions();
   document.getElementById('stmt-upload-status').textContent = 'All finance data cleared.';
 }
 
@@ -7893,7 +7893,7 @@ function finaliseImport(allParsed, errors, statusElId) {
   updateAccountBalancesFromTransactions(allParsed);
   const skipped = allParsed.length - newOnes.length;
   setH(statusElId, `<div style="color:#6b9e7a">✓ Imported ${newOnes.length} new transaction${newOnes.length === 1 ? '' : 's'}${skipped ? ` (${skipped} already imported, skipped)` : ''}.</div>${errors.length ? `<div style="color:#d97706;margin-top:4px">${errors.map(escHtml).join('<br>')}</div>` : ''}`);
-  renderStatements();
+  refreshFinanceFromTransactions();
   return { added: newOnes.length, skipped };
 }
 
@@ -8168,12 +8168,18 @@ function setTransactionCategory(id, category) {
   t.category = category;
   t.manualCategory = true;
   saveFinanceTransactions(txs);
-  renderStatements();
+  refreshFinanceFromTransactions();
 }
 function deleteTransaction(id) {
   const txs = getFinanceTransactions().filter(t => t.id !== id);
   saveFinanceTransactions(txs);
+  refreshFinanceFromTransactions();
+}
+
+// Refresh all transaction-driven finance views in one call
+function refreshFinanceFromTransactions() {
   renderStatements();
+  if (initialised.finance) { renderFinanceOverview(); renderFinanceIncomeExpenses(); renderFinanceDashboardCard(); }
 }
 
 // — Lazy init —
@@ -9906,7 +9912,7 @@ function applySyncUpdates(updated) {
   if (updated.includes('ecg_quiz_log')) safe(renderEcgQuiz);
   if (updated.includes('study_activity_log')) safe(renderStudyStreak);
   if (updated.includes('finance_data')) safe(() => { renderFinanceOverview(); renderFinanceIncomeExpenses(); renderFinanceDashboardCard(); });
-  if (updated.includes('finance_transactions') || updated.includes('finance_accounts')) safe(renderStatements);
+  if (updated.includes('finance_transactions') || updated.includes('finance_accounts')) safe(refreshFinanceFromTransactions);
   if (updated.includes('rev_schedule_log') || updated.includes('rev_passmed_done')) safe(renderRevSchedule);
   if (updated.includes('tasks_priority')) safe(renderTasks);
   if (updated.includes('shopping_items')) safe(renderShopping);
