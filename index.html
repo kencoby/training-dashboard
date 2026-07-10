@@ -1274,6 +1274,11 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 <!-- TRANSACTIONS -->
 <div class="section">
 <h2>Transactions <span id="stmt-tx-count" style="float:right;font-size:10px;color:#555;text-transform:none;letter-spacing:0;font-weight:400"></span></h2>
+<div style="margin-bottom:8px;position:relative">
+  <input type="search" id="stmt-tx-search" placeholder="Search description, merchant, account…" oninput="setTxSearch(this.value)"
+    style="width:100%;box-sizing:border-box;padding:9px 36px 9px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;outline:none">
+  <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#aaa;pointer-events:none">🔍</span>
+</div>
 <div class="card">
   <div id="stmt-tx-list"></div>
 </div>
@@ -7935,7 +7940,8 @@ function renderStatements() {
   renderBudgetVsActual(monthTxs);
   buildStatementTrendsChart(txs);
   renderNetWorth();
-  renderTransactionList(monthTxs);
+  // When searching, show across all months; otherwise show current month only
+  renderTransactionList(_txSearch ? txs : monthTxs);
 }
 
 function renderCategoryBreakdown(monthTxs) {
@@ -8103,7 +8109,9 @@ function buildNetWorthChart(accounts) {
 }
 
 let _txFilter = 'all';
+let _txSearch = '';
 function setTxFilter(cat) { _txFilter = cat; renderStatements(); }
+function setTxSearch(val) { _txSearch = val; renderStatements(); }
 
 let _txTooltipMap = {};
 function showTxCard(el, id) {
@@ -8154,15 +8162,24 @@ function renderTransactionList(txs) {
   const pillLabel = c => c === 'all' ? 'All' : catLabel(c);
   const pillsHtml = `<div style="margin-bottom:12px;line-height:2">${allCats.map(c => `<span style="${pillStyle(c)}" onclick="setTxFilter('${c}')">${pillLabel(c)}</span>`).join('')}</div>`;
 
-  const filtered = _txFilter === 'all' ? allSorted.filter(t => t.category !== 'transfer') : allSorted.filter(t => t.category === _txFilter);
-  set('stmt-tx-count', `${filtered.length}${_txFilter !== 'all' ? ` ${pillLabel(_txFilter)}` : ''} of ${txs.length} total`);
+  const catFiltered = _txFilter === 'all' ? allSorted.filter(t => t.category !== 'transfer') : allSorted.filter(t => t.category === _txFilter);
+  const q = _txSearch.toLowerCase().trim();
+  const filtered = q ? catFiltered.filter(t =>
+    t.description.toLowerCase().includes(q) ||
+    (t.account && t.account.toLowerCase().includes(q)) ||
+    (t._merchant && t._merchant.toLowerCase().includes(q)) ||
+    (t._details && t._details.toLowerCase().includes(q)) ||
+    String(Math.abs(t.amount)).includes(q)
+  ) : catFiltered;
+  const searchNote = q ? ` matching "${q}"` : '';
+  set('stmt-tx-count', `${filtered.length}${_txFilter !== 'all' ? ` ${pillLabel(_txFilter)}` : ''}${searchNote} of ${txs.length} total`);
 
   if (!allSorted.length) {
     setH('stmt-tx-list', `<div class="sub" style="font-style:italic;padding:8px 0">No transactions imported yet.</div>`);
     return;
   }
 
-  const shown = filtered.slice(0, 150);
+  const shown = filtered.slice(0, q ? 500 : 150);
   setH('stmt-tx-list', pillsHtml + (shown.length ? shown.map(t => {
     const isTransfer = t.category === 'transfer';
     const isIncome = !isTransfer && t.amount > 0;
