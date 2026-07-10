@@ -1048,6 +1048,15 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 </div>
 </div>
 
+<!-- BANK BALANCES -->
+<div class="section">
+<div class="card">
+  <div class="lbl">Total Bank Balance</div>
+  <div class="big" id="fin-total-balance" style="margin-bottom:10px">—</div>
+  <div id="fin-accounts-list"></div>
+</div>
+</div>
+
 <!-- OVERDRAFT -->
 <div class="section">
 <div class="card">
@@ -7202,6 +7211,17 @@ function renderFinanceOverview() {
   const cls = rate < 0 ? 'b-red' : rate <= 20 ? 'b-amber' : 'b-sage';
   const lbl = rate < 0 ? 'Overspending' : rate <= 20 ? 'Low savings' : 'On track';
   setH('fin-savings-badge', `<span class="badge ${cls}">${lbl}</span>`);
+
+  // Bank balances from statement accounts
+  const accounts = getFinanceAccounts();
+  const accNames = Object.keys(accounts);
+  const totalBalance = accNames.reduce((s, n) => s + (+accounts[n].balance || 0), 0);
+  const totalEl = document.getElementById('fin-total-balance');
+  if (totalEl) { totalEl.textContent = fmtGBP(totalBalance); totalEl.style.color = totalBalance >= 0 ? '#1a1a1a' : '#e05c5c'; }
+  setH('fin-accounts-list', accNames.length ? accNames.map(n => {
+    const a = accounts[n];
+    return `<div class="row"><span style="flex:1;font-size:13px;color:#555">${escHtml(n)}${a.asOf ? `<span class="sub" style="display:block">as of ${fmtDate(a.asOf)}</span>` : ''}</span><span style="font-size:14px;font-weight:600;color:${(+a.balance||0)>=0?'#1a1a1a':'#e05c5c'}">${fmtGBP(a.balance)}</span></div>`;
+  }).join('') : `<div class="sub" style="font-style:italic">No accounts yet — import a statement with a balance column.</div>`);
 
   renderOverdraftCard();
   buildFinanceChart();
