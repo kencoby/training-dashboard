@@ -2370,6 +2370,7 @@ function toggleShopItem(id) {
 }
 
 function deleteShopItem(id) {
+  if (!confirm('Delete this item?')) return;
   saveShoppingItems(getShoppingItems().filter(i => i.id !== id));
   renderShopping();
 }
@@ -2385,6 +2386,7 @@ function moveShopItem(id, dir) {
 }
 
 function clearBoughtItems() {
+  if (!confirm('Clear all bought items?')) return;
   saveShoppingItems(getShoppingItems().filter(i => !i.bought));
   renderShopping();
 }
