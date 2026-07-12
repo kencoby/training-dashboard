@@ -3353,6 +3353,46 @@ let _acts = [];
 let gcalEvents = [];
 try { gcalEvents = JSON.parse(localStorage.getItem('gcal_events')) || []; } catch {}
 
+// ── Placement Schedule Seed (Special Interest Week + Antenatal Week) ──────────
+// Runs once on load; merges these events into gcal_events without overwriting
+// events on other dates. Safe to leave in permanently.
+(function seedPlacementEvents() {
+  const seed = [
+    // === Special Interest Week: Jul 14–18, 2026 ===
+    {date:'2026-07-14',title:'Medical ANC – Dr Leeming',start:'09:00',end:'13:00',blocksAM:true,blocksPM:false},
+    {date:'2026-07-14',title:'ANC Clinic – Dr D Smith',start:'13:30',end:'17:00',blocksAM:false,blocksPM:true},
+    {date:'2026-07-14',title:'Substance Misuse/Mental Health ANC – Dr N.Ali',start:'13:30',end:'17:00',blocksAM:false,blocksPM:true},
+    {date:'2026-07-15',title:'Gynae Theatre – P Flynn (Meet Ward 2 / Main Theatre)',start:'07:45',end:'13:00',blocksAM:true,blocksPM:false},
+    {date:'2026-07-15',title:'Gynae Theatre – M Vij, Theatre 3',start:'13:00',end:'17:00',blocksAM:false,blocksPM:true},
+    {date:'2026-07-16',title:'Pre Term Birth Prevention Clinic – Dr N.Ali',start:'09:00',end:'12:30',blocksAM:true,blocksPM:false},
+    {date:'2026-07-16',title:'Pharmacy Tutorial – STU Langland Room',start:'12:30',end:'14:00',blocksAM:false,blocksPM:true},
+    {date:'2026-07-17',title:'Complex & Combined Clinic – Miss M Vij, Suite 17',start:'08:45',end:'13:00',blocksAM:true,blocksPM:false},
+    {date:'2026-07-17',title:'CBDs – Oxwich Room, Singleton Teaching Unit',start:'13:30',end:'17:00',blocksAM:false,blocksPM:true},
+    {date:'2026-07-18',title:'Elective C-Section – Meet on Ward 20',start:'08:00',end:'13:00',blocksAM:true,blocksPM:false},
+    {date:'2026-07-18',title:'Personal Time for Study',start:'13:30',end:'17:00',blocksAM:false,blocksPM:true},
+    // === Antenatal Week: Jul 21–25, 2026 ===
+    {date:'2026-07-21',title:'Obstetric Triage – Report Ward 20 (Dr Kimani)',start:'08:30',end:'13:00',blocksAM:true,blocksPM:false},
+    {date:'2026-07-21',title:'Personal Time for Study',start:'13:30',end:'17:00',blocksAM:false,blocksPM:true},
+    {date:'2026-07-22',title:'Antenatal Ward Round – Dr Shaw, Ward 19 + PBL',start:'08:30',end:'13:00',blocksAM:true,blocksPM:false},
+    {date:'2026-07-22',title:'Teaching with Danielle Clifton – Ward 19',start:'13:30',end:'17:00',blocksAM:false,blocksPM:true},
+    {date:'2026-07-23',title:'ADAU – Level 1',start:'09:00',end:'13:00',blocksAM:true,blocksPM:false},
+    {date:'2026-07-23',title:'Obstetric Triage – Stay with SHO (finish 16:00)',start:'13:00',end:'16:00',blocksAM:false,blocksPM:true},
+    {date:'2026-07-24',title:'ANC Clinic – Dr D Smith, Level 1',start:'09:00',end:'13:00',blocksAM:true,blocksPM:false},
+    {date:'2026-07-24',title:'Simulation – Oxwich Room, Singleton Teaching Unit',start:'13:15',end:'17:00',blocksAM:false,blocksPM:true},
+    {date:'2026-07-25',title:'Antenatal Ward Round – Dr Panda, Ward 19 + PBL',start:'08:30',end:'13:00',blocksAM:true,blocksPM:false},
+    {date:'2026-07-25',title:'Personal Time for Study',start:'13:30',end:'17:00',blocksAM:false,blocksPM:true},
+  ];
+  const seedDates = new Set(seed.map(e => e.date));
+  // Keep any existing events that aren't on placement dates
+  const kept = gcalEvents.filter(e => !seedDates.has(e.date));
+  gcalEvents = [...kept, ...seed];
+  try {
+    localStorage.setItem('gcal_events', JSON.stringify(gcalEvents));
+    // syncPush is defined later in the file — defer until after page init
+    setTimeout(() => { if (typeof syncPush === 'function') syncPush('gcal_events', gcalEvents); }, 3000);
+  } catch {}
+})();
+
 // _healthData is declared up here (not down by the Apple Health section below,
 // where it's populated) because the Nutrition tab's top-level init call
 // (renderNutrDashboardCard() → getMacroTargets() → _healthValueOnDate()) reads
