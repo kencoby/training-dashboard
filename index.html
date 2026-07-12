@@ -2341,6 +2341,43 @@ function moveTask(id, dir) {
   renderTasks();
 }
 
+// ── Task due dates ────────────────────────────────────────────────────────────
+function setTaskDueDate(id, date) {
+  const items = getTasks();
+  const t = items.find(t => t.id === id);
+  if (t) t.dueDate = date || null;
+  saveTasks(items);
+  renderTasks();
+}
+function clearTaskDueDate(id) { setTaskDueDate(id, null); }
+
+function taskDueDateChip(t) {
+  if (!t.dueDate) return '';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const due = new Date(t.dueDate + 'T00:00:00');
+  const diff = Math.round((due - today) / 86400000);
+  let label, bg, col;
+  if (diff < 0)        { label = 'Overdue';  bg = '#fee2e2'; col = '#dc2626'; }
+  else if (diff === 0) { label = 'Today';    bg = '#fee2e2'; col = '#dc2626'; }
+  else if (diff === 1) { label = 'Tomorrow'; bg = '#fef3c7'; col = '#d97706'; }
+  else if (diff <= 6)  { label = `${diff}d`; bg = '#fef3c7'; col = '#d97706'; }
+  else                 { label = due.toLocaleDateString('en-GB',{day:'numeric',month:'short'}); bg = '#f3f4f6'; col = '#9ca3af'; }
+  return `<span onclick="clearTaskDueDate('${t.id}')" title="Click to clear date" style="font-size:10px;padding:2px 6px;border-radius:99px;background:${bg};color:${col};font-weight:600;white-space:nowrap;cursor:pointer;line-height:1.4;flex-shrink:0">${label}</span>`;
+}
+
+// Auto-promote tasks with due dates ≤ 2 days to Critical
+function autoEscalateDueDates() {
+  const items = getTasks();
+  let changed = false;
+  const today = new Date(); today.setHours(0,0,0,0);
+  items.forEach(t => {
+    if (t.done || !t.dueDate || t.priority === 'critical') return;
+    const diff = Math.round((new Date(t.dueDate + 'T00:00:00') - today) / 86400000);
+    if (diff <= 2) { t.priority = 'critical'; changed = true; }
+  });
+  if (changed) saveTasks(items);
+}
+
 // ── Shopping ─────────────────────────────────────────────────────────────────
 const SHOP_TIERS = ['groceries', 'buynow', 'soon', 'wishlist'];
 const SHOP_TIER_COLORS = { groceries: '#16a34a', buynow: '#dc2626', soon: '#d97706', wishlist: '#6b7280' };
@@ -2725,6 +2762,7 @@ function renderDashTasks() {
 }
 
 function renderTasks() {
+  autoEscalateDueDates();
   const items = getTasks();
   renderDashTasks();
   TASK_TIERS.forEach((priority, pi) => {
@@ -2738,7 +2776,13 @@ function renderTasks() {
     const listEl = document.getElementById(`tasks-list-${priority}`);
     if (!listEl) return;
 
-    const sorted = [...tierItems].sort((a, b) => a.done - b.done);
+    const sorted = [...tierItems].sort((a, b) => {
+      if (a.done !== b.done) return a.done - b.done;
+      if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+      if (a.dueDate) return -1;
+      if (b.dueDate) return 1;
+      return 0;
+    });
     if (!sorted.length) {
       listEl.innerHTML = `<div style="color:#bbb;font-size:13px;padding:10px 0">Nothing here yet.</div>`;
       return;
@@ -2764,8 +2808,10 @@ function renderTasks() {
             style="width:16px;height:16px;flex-shrink:0;cursor:pointer;accent-color:${color}">
           <span style="flex:1;font-size:13px;${t.done?'text-decoration:line-through;color:#bbb':''}">${escHtml(t.text)}</span>
           ${subBadge}
+          ${taskDueDateChip(t)}
           ${pi > 0 ? `<button onclick="moveTask('${t.id}',-1)" title="Escalate" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:14px;padding:2px 3px;line-height:1">↑</button>` : ''}
           ${pi < 2 ? `<button onclick="moveTask('${t.id}',1)" title="Defer" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:14px;padding:2px 3px;line-height:1">↓</button>` : ''}
+          <label title="Set due date" style="cursor:pointer;color:#9ca3af;font-size:12px;padding:2px 3px;line-height:1;display:inline-flex;align-items:center;position:relative">📅<input type="date" value="${t.dueDate||''}" onchange="setTaskDueDate('${t.id}',this.value)" style="position:absolute;width:0;height:0;opacity:0;border:none;padding:0"></label>
           <button onclick="deleteTask('${t.id}')" style="background:none;border:none;cursor:pointer;color:#d1d5db;font-size:13px;padding:2px 4px;line-height:1">✕</button>
           <button onclick="toggleSubtaskPanel('${t.id}')" title="Subtasks" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:14px;padding:2px 3px;line-height:1">${subs.length ? '⌄' : '⊕'}</button>
         </div>
