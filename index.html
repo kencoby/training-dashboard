@@ -2350,6 +2350,11 @@ function setTaskDueDate(id, date) {
   renderTasks();
 }
 function clearTaskDueDate(id) { setTaskDueDate(id, null); }
+function openTaskDatePicker(id) {
+  const el = document.getElementById('task-date-' + id);
+  if (!el) return;
+  try { el.showPicker(); } catch { el.focus(); el.click(); }
+}
 
 function taskDueDateChip(t) {
   if (!t.dueDate) return '';
@@ -2811,7 +2816,10 @@ function renderTasks() {
           ${taskDueDateChip(t)}
           ${pi > 0 ? `<button onclick="moveTask('${t.id}',-1)" title="Escalate" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:14px;padding:2px 3px;line-height:1">↑</button>` : ''}
           ${pi < 2 ? `<button onclick="moveTask('${t.id}',1)" title="Defer" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:14px;padding:2px 3px;line-height:1">↓</button>` : ''}
-          <label title="Set due date" style="cursor:pointer;color:#9ca3af;font-size:12px;padding:2px 3px;line-height:1;display:inline-flex;align-items:center;position:relative">📅<input type="date" value="${t.dueDate||''}" onchange="setTaskDueDate('${t.id}',this.value)" style="position:absolute;width:0;height:0;opacity:0;border:none;padding:0"></label>
+          <span style="position:relative;display:inline-flex;align-items:center">
+            <button onclick="openTaskDatePicker('${t.id}')" title="Set due date" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:12px;padding:2px 3px;line-height:1">📅</button>
+            <input type="date" id="task-date-${t.id}" value="${t.dueDate||''}" onchange="setTaskDueDate('${t.id}',this.value)" style="position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0">
+          </span>
           <button onclick="deleteTask('${t.id}')" style="background:none;border:none;cursor:pointer;color:#d1d5db;font-size:13px;padding:2px 4px;line-height:1">✕</button>
           <button onclick="toggleSubtaskPanel('${t.id}')" title="Subtasks" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:14px;padding:2px 3px;line-height:1">${subs.length ? '⌄' : '⊕'}</button>
         </div>
