@@ -1,3 +1,4 @@
+// AI backend: Google Gemini (free tier)
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
 const CORS = {
