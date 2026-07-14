@@ -1,5 +1,4 @@
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
-const MODEL = 'claude-sonnet-4-5';
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
 const CORS = {
   'Content-Type': 'application/json',
@@ -16,8 +15,8 @@ export async function onRequest(context) {
   if (request.method === 'OPTIONS') return json(200, {});
   if (request.method !== 'POST') return json(405, { error: 'Method not allowed' });
 
-  const apiKey = env.ANTHROPIC_API_KEY;
-  if (!apiKey) return json(500, { error: 'ANTHROPIC_API_KEY not configured' });
+  const apiKey = env.GEMINI_API_KEY;
+  if (!apiKey) return json(500, { error: 'GEMINI_API_KEY not configured' });
 
   let prompt, ctx;
   try {
@@ -30,22 +29,17 @@ export async function onRequest(context) {
   const userMessage = ctx ? `${prompt}\n\nContext:\n${ctx}` : prompt;
 
   try {
-    const res = await fetch(ANTHROPIC_URL, {
+    const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 1024,
-        messages: [{ role: 'user', content: userMessage }]
+        contents: [{ parts: [{ text: userMessage }] }],
+        generationConfig: { maxOutputTokens: 1024 }
       })
     });
     const data = await res.json();
-    if (!res.ok) return json(res.status, { error: data.error?.message || 'Anthropic API error' });
-    const text = data.content?.[0]?.text || '';
+    if (!res.ok) return json(res.status, { error: data.error?.message || 'Gemini API error' });
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     return json(200, { text });
   } catch (err) {
     return json(500, { error: err.message });
