@@ -2360,39 +2360,6 @@ function openTaskDatePicker(id) {
   try { el.showPicker(); } catch { el.focus(); el.click(); }
 }
 
-// ── Voice input ────────────────────────────────────────────────────────────────
-function startTaskVoiceInput(priority) {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { alert('Speech recognition not available — use Chrome on desktop.'); return; }
-  const input = document.getElementById('tasks-input-' + priority);
-  if (!input) return;
-  const btn = document.getElementById('mic-btn-' + priority);
-  const rec = new SR();
-  rec.lang = 'en-GB';
-  rec.interimResults = false;
-  if (btn) { btn.textContent = '🔴'; btn.title = 'Listening…'; }
-  rec.onresult = e => { input.value = e.results[0][0].transcript; input.focus(); };
-  rec.onend = () => { if (btn) { btn.textContent = '🎤'; btn.title = 'Voice input'; } };
-  rec.onerror = () => { if (btn) { btn.textContent = '🎤'; btn.title = 'Voice input'; } };
-  rec.start();
-}
-
-function initTaskVoiceButtons() {
-  const colors = { critical: '#fca5a5', ondeck: '#fcd34d', someday: '#d1d5db', dashboard: '#d1d5db' };
-  ['critical','ondeck','someday','dashboard'].forEach(tier => {
-    if (document.getElementById('mic-btn-' + tier)) return; // already added
-    const input = document.getElementById('tasks-input-' + tier);
-    if (!input) return;
-    const btn = document.createElement('button');
-    btn.id = 'mic-btn-' + tier;
-    btn.title = 'Voice input';
-    btn.textContent = '🎤';
-    btn.style.cssText = `background:none;border:1.5px solid ${colors[tier]};border-radius:8px;padding:7px 9px;font-size:14px;cursor:pointer;line-height:1;flex-shrink:0`;
-    btn.onclick = () => startTaskVoiceInput(tier);
-    input.parentNode.insertBefore(btn, input.nextSibling);
-  });
-}
-
 // ── Push notifications ─────────────────────────────────────────────────────────
 async function requestTaskNotifications() {
   if (!('Notification' in window)) { alert('Notifications not supported in this browser.'); return; }
@@ -2418,37 +2385,6 @@ function checkUrgentTaskNotifications() {
     body: urgent.slice(0, 5).map(t => `• ${t.text}`).join('\n'),
     tag: 'urgent-tasks'
   });
-}
-
-// ── AI task breakdown ──────────────────────────────────────────────────────────
-async function aiBreakdownTask(id) {
-  const t = getTasks().find(x => x.id === id);
-  if (!t) return;
-  const btn = document.getElementById('ai-btn-' + id);
-  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
-  try {
-    const prompt = `Break down this task into 3-5 specific, actionable subtasks. Task: "${t.text}". Return ONLY a JSON array of strings, no explanation. Example: ["subtask 1", "subtask 2", "subtask 3"]`;
-    const result = await callClaude(prompt, 'task-breakdown');
-    const match = result.match(/\[[\s\S]*?\]/);
-    const subtasks = match ? JSON.parse(match[0]) : [];
-    if (!subtasks.length) throw new Error('No subtasks returned');
-    const items = getTasks();
-    const task = items.find(x => x.id === id);
-    if (task) {
-      task.subtasks = (task.subtasks || []).concat(
-        subtasks.map(s => ({ id: 'sub' + Date.now() + Math.random().toString(36).slice(2), text: String(s), done: false }))
-      );
-      saveTasks(items);
-      renderTasks();
-      setTimeout(() => {
-        const panel = document.getElementById('subtask-panel-' + id);
-        if (panel) panel.style.display = 'block';
-      }, 80);
-    }
-  } catch(e) {
-    alert('AI breakdown failed: ' + (e.message || 'Unknown error'));
-  }
-  if (btn) { btn.textContent = '🤖'; btn.disabled = false; }
 }
 
 function taskDueDateChip(t) {
@@ -2915,7 +2851,6 @@ function renderTasks() {
             <button onclick="openTaskDatePicker('${t.id}')" title="Set due date" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:12px;padding:2px 3px;line-height:1">📅</button>
             <input type="date" id="task-date-${t.id}" value="${t.dueDate||''}" onchange="setTaskDueDate('${t.id}',this.value)" style="position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0">
           </span>
-          <button id="ai-btn-${t.id}" onclick="aiBreakdownTask('${t.id}')" title="AI: break into subtasks" style="background:none;border:none;cursor:pointer;color:#d1d5db;font-size:12px;padding:2px 3px;line-height:1">🤖</button>
           <button onclick="deleteTask('${t.id}')" style="background:none;border:none;cursor:pointer;color:#d1d5db;font-size:13px;padding:2px 4px;line-height:1">✕</button>
           <button onclick="toggleSubtaskPanel('${t.id}')" title="Subtasks" style="background:none;border:none;cursor:pointer;color:#9ca3af;font-size:14px;padding:2px 3px;line-height:1">${subs.length ? '⌄' : '⊕'}</button>
         </div>
@@ -2933,7 +2868,6 @@ function renderTasks() {
 
     initTaskDragDrop(listEl);
   });
-  initTaskVoiceButtons();
 }
 
 let _dragTaskId = null;
