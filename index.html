@@ -4421,9 +4421,6 @@ function renderTrainingCalendar(acts) {
     const style = r.isToday
       ? 'border-left:3px solid #3b82f6;background:#f0f7ff;border-radius:8px;padding:10px;'
       : `padding:10px 4px;${rowMissed ? 'opacity:0.55;' : ''}`;
-    const blocksAM = r.calEvents.some(e => e.blocksAM);
-    const blocksPM = r.calEvents.some(e => e.blocksPM);
-    const calChips = r.calEvents.map(e => `<span style="font-size:10px;background:#eff6ff;color:#1d4ed8;border-radius:99px;padding:2px 7px">📅 ${escHtml(e.title)}${e.start && e.end ? ` ${e.start}–${e.end}` : ''}</span>`).join('');
     const extraPillsHtml = r.extraSlots.map(e =>
       pill(e.session, e.done, r.isPast, false, e.skipped, r.dateStr, e.slot, e.session?.tag, !e.done && !e.skipped)
     ).join('') + `<span class="badge b-grey" style="font-size:11px;font-weight:600;cursor:pointer;border:1px dashed #d1d5db" onclick="toggleAddExtraPopover(event,'${r.dateStr}','extra${r.extraSlots.length}')">+ Add</span>`;
@@ -4431,11 +4428,10 @@ function renderTrainingCalendar(acts) {
       <div style="font-size:12px;font-weight:700;min-width:80px;color:${r.isToday?'#1d4ed8':'#999'}">${r.tmpl.day.slice(0,3)} ${dateLabel}</div>
       <div style="display:flex;flex-direction:column;gap:4px;flex:1">
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          ${pill(r.am, r.amDone, r.isPast, blocksAM, r.amSkipped, r.dateStr, 'am', r.am?.tag, r.amOverride && !r.amDone && !r.amSkipped)}
-          ${pill(r.pm, r.pmDone, r.isPast, blocksPM, r.pmSkipped, r.dateStr, 'pm', r.pm?.tag, r.pmOverride && !r.pmDone && !r.pmSkipped)}
+          ${pill(r.am, r.amDone, r.isPast, false, r.amSkipped, r.dateStr, 'am', r.am?.tag, r.amOverride && !r.amDone && !r.amSkipped)}
+          ${pill(r.pm, r.pmDone, r.isPast, false, r.pmSkipped, r.dateStr, 'pm', r.pm?.tag, r.pmOverride && !r.pmDone && !r.pmSkipped)}
           ${extraPillsHtml}
         </div>
-        ${calChips ? `<div style="display:flex;gap:6px;flex-wrap:wrap">${calChips}</div>` : ''}
       </div>
     </div>`;
   }).join(''));
