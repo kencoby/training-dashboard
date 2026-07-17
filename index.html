@@ -1697,29 +1697,33 @@ async function loadTodayCalendar() {
 }
 
 function renderTodayCalendar(data) {
+  const today = new Date().toLocaleDateString('en-CA');
+  const fmtEventTime = iso => new Date(iso).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+
+  // Update the standalone gcal-card
   if (!data || !Array.isArray(data.events)) {
     setH('gcal-card', `<div class="sub" style="margin:0">No calendar data synced yet — check back within the hour.</div>`);
-    return;
-  }
-  const today = new Date().toLocaleDateString('en-CA');
-  if (data.date !== today) {
+  } else if (data.date !== today) {
     setH('gcal-card', `<div class="sub" style="margin:0">Calendar sync is stale (last synced for ${escHtml(data.date || 'an earlier day')}) — check back shortly.</div>`);
-    return;
-  }
-  if (!data.events.length) {
+  } else if (!data.events.length) {
     setH('gcal-card', `<div class="sub" style="margin:0">Nothing on your calendar today 🎉</div>`);
-    return;
+    _gcalToday = [];
+  } else {
+    const rows = data.events.map(ev => {
+      const time = ev.allDay ? 'All day' : fmtEventTime(ev.start);
+      return `
+        <div class="whoop-contrib-row">
+          <span class="wc-label" style="flex:0 0 70px;color:#aaa">${time}</span>
+          <span style="flex:1;font-weight:600">${escHtml(ev.summary || '(no title)')}</span>
+        </div>`;
+    }).join('');
+    setH('gcal-card', rows);
+    // Cache for briefing
+    if (data.date === today) {
+      _gcalToday = data.events;
+      renderDailyBriefing(); // refresh briefing with calendar data
+    }
   }
-  const fmtEventTime = iso => new Date(iso).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
-  const rows = data.events.map(ev => {
-    const time = ev.allDay ? 'All day' : fmtEventTime(ev.start);
-    return `
-      <div class="whoop-contrib-row">
-        <span class="wc-label" style="flex:0 0 70px;color:#aaa">${time}</span>
-        <span style="flex:1;font-weight:600">${escHtml(ev.summary || '(no title)')}</span>
-      </div>`;
-  }).join('');
-  setH('gcal-card', rows);
 }
 
 // ── Strava data ──────────────────────────────────────────────────────────────
@@ -6714,6 +6718,7 @@ function renderRaceCalendar() {
 // fetchHealthData()) since it depends on data from both — defensive against
 // either one not having landed yet.
 let _briefingCall = null;
+let _gcalToday = null; // cached from loadTodayCalendar()
 
 // ── Weather (Open-Meteo, Swansea) ────────────────────────────────────────────
 let _weather = null;
@@ -6975,6 +6980,27 @@ function renderDailyBriefing() {
         </div>
       </div>`).join('');
     sections.push(`<div style="${sectionStyle}">${plHtml}</div>`);
+  }
+
+  // ── Calendar ──────────────────────────────────────────────────────────────
+  if (_gcalToday && _gcalToday.length > 0 && isToday) {
+    // Handles both "HH:MM" strings (old format) and ISO timestamps (new format)
+    const fmtEvTime = t => {
+      if (!t) return '';
+      if (/^\d{2}:\d{2}$/.test(t)) return t;
+      const d = new Date(t);
+      return isNaN(d) ? t : d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+    };
+    let calHtml = `<div style="${labelStyle}">📅 Today's Calendar</div>`;
+    calHtml += _gcalToday.map(ev => {
+      const time = ev.allDay ? 'All day' : fmtEvTime(ev.start);
+      const end  = (!ev.allDay && ev.end) ? ` – ${fmtEvTime(ev.end)}` : '';
+      return `<div style="${rowStyle}">
+        <span style="color:#9ca3af;font-size:11px;min-width:80px;flex-shrink:0">${time}${end}</span>
+        <span style="font-weight:500">${escHtml(ev.summary || '(no title)')}</span>
+      </div>`;
+    }).join('');
+    sections.push(`<div style="${sectionStyle}">${calHtml}</div>`);
   }
 
   // ── Tutoring ─────────────────────────────────────────────────────────────
