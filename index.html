@@ -2249,7 +2249,19 @@ async function syncPull(key) {
     if (!remote) return false;
     const localTs = getSyncMeta()[key] || 0;
     if (remote._ts && remote._ts > localTs) {
-      localStorage.setItem(key, JSON.stringify(remote.data));
+      // For append-only log keys, merge remote + local so neither side loses entries.
+      // Remote wins on conflicting individual dates, but local-only dates are kept.
+      const MERGE_KEYS = new Set(['habit_log','rev_log','activity_notes','tutoring_log','mood_log','pb_log','finance_transactions']);
+      if (MERGE_KEYS.has(key) && remote.data && typeof remote.data === 'object' && !Array.isArray(remote.data)) {
+        let local;
+        try { local = JSON.parse(localStorage.getItem(key)); } catch { local = null; }
+        const merged = (local && typeof local === 'object' && !Array.isArray(local))
+          ? { ...local, ...remote.data }  // local as base, remote overwrites
+          : remote.data;
+        localStorage.setItem(key, JSON.stringify(merged));
+      } else {
+        localStorage.setItem(key, JSON.stringify(remote.data));
+      }
       setSyncTs(key, remote._ts);
       return true;
     }
@@ -8378,45 +8390,65 @@ renderFinanceDashboardCard();
 
 // ── Habit History ────────────────────────────────────────────────────────────
 function renderHabitHistory() {
-  const log = getHabitLog();
-  const today = new Date(); today.setHours(0,0,0,0);
+  const log      = getHabitLog();
+  const streaks  = getHabitStreaks();
+  const ticked   = getHabits(); // today's checkbox state
+  const today    = new Date(); today.setHours(0,0,0,0);
   const todayStr = today.toLocaleDateString('en-CA');
+  const yesterdayStr = new Date(today.getTime() - 86400000).toLocaleDateString('en-CA');
   const DAYS = 30;
   const DAY_MS = 86400000;
 
   // Build last-30-days array
   const dates = [];
   for (let i = DAYS - 1; i >= 0; i--) {
-    const d = new Date(today.getTime() - i * DAY_MS);
-    dates.push(d.toLocaleDateString('en-CA'));
+    dates.push(new Date(today.getTime() - i * DAY_MS).toLocaleDateString('en-CA'));
   }
 
+  // Augment habit_log with data synthesised from habit_streaks.
+  // habit_log can be wiped by a sync overwrite; habit_streaks is always written
+  // locally on each tick and is never overwritten with empty data by the sync.
+  const augLog = {};
+  Object.keys(log).forEach(d => { augLog[d] = { ...log[d] }; });
+  DAILY_HABITS.forEach(h => {
+    const s = streaks[h.id];
+    if (!s || !s.count || !s.lastDate) return;
+    for (let i = 0; i < s.count; i++) {
+      const d = new Date(s.lastDate + 'T12:00:00'); // noon avoids DST shift
+      d.setDate(d.getDate() - i);
+      const dStr = d.toLocaleDateString('en-CA');
+      if (!augLog[dStr]) augLog[dStr] = {};
+      augLog[dStr][h.id] = true;
+    }
+  });
+  // Fold in today's live ticked state
+  if (!augLog[todayStr]) augLog[todayStr] = {};
+  Object.keys(ticked).forEach(id => { if (ticked[id]) augLog[todayStr][id] = true; });
+
   // Score bar chart
+  const total  = DAILY_HABITS.length;
   const scoreEl = document.getElementById('habit-score-chart');
   if (scoreEl) {
-    const total = DAILY_HABITS.length;
     const maxH = 52;
     const bars = dates.map((d, i) => {
-      const dayData = log[d] || {};
-      const score = DAILY_HABITS.filter(h => dayData[h.id]).length;
+      const dayData = augLog[d] || {};
+      const score   = DAILY_HABITS.filter(h => dayData[h.id]).length;
       const isToday = d === todayStr;
-      const h = score > 0 ? Math.max(4, Math.round((score / total) * maxH)) : 0;
-      const col = score === total ? '#6b9e7a' : score >= total * 0.7 ? '#93c5a0' : score > 0 ? '#d1fae5' : '#f3f4f6';
-      const dd = new Date(d);
-      const showLabel = dd.getDay() === 1 || i === 0 || i === DAYS - 1;
-      return { d, score, h, col, isToday, dd, showLabel };
+      const barH    = score > 0 ? Math.max(4, Math.round((score / total) * maxH)) : 0;
+      const col     = score === total ? '#6b9e7a' : score >= total * 0.7 ? '#93c5a0' : score > 0 ? '#d1fae5' : '#f3f4f6';
+      const dd      = new Date(d);
+      return { d, score, barH, col, isToday, dd, showLabel: dd.getDay() === 1 || i === 0 || i === DAYS - 1 };
     });
-
     scoreEl.innerHTML = `
       <div style="display:flex;gap:2px;align-items:flex-end;height:${maxH}px">
-        ${bars.map(b => `<div title="${b.d}: ${b.score}/${total}" style="flex:1;height:${b.h}px;background:${b.col};border-radius:2px 2px 0 0;box-sizing:border-box;${b.isToday?'outline:2px solid #374151;outline-offset:-1px':''}"></div>`).join('')}
+        ${bars.map(b => `<div title="${b.d}: ${b.score}/${total}" style="flex:1;height:${b.barH}px;background:${b.col};border-radius:2px 2px 0 0;box-sizing:border-box;${b.isToday?'outline:2px solid #374151;outline-offset:-1px':''}"></div>`).join('')}
       </div>
       <div style="display:flex;gap:2px;margin-top:4px">
         ${bars.map(b => `<div style="flex:1;font-size:8px;color:#9ca3af;text-align:center;overflow:hidden">${b.showLabel ? b.dd.getDate()+'/'+(b.dd.getMonth()+1) : ''}</div>`).join('')}
       </div>
       <div style="display:flex;gap:10px;margin-top:8px;font-size:11px;color:#6b7280">
-        <span><span style="display:inline-block;width:10px;height:10px;background:#6b9e7a;border-radius:2px;vertical-align:middle;margin-right:3px"></span>All 9</span>
-        <span><span style="display:inline-block;width:10px;height:10px;background:#93c5a0;border-radius:2px;vertical-align:middle;margin-right:3px"></span>7–8</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#6b9e7a;border-radius:2px;vertical-align:middle;margin-right:3px"></span>All ${total}</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#93c5a0;border-radius:2px;vertical-align:middle;margin-right:3px"></span>7+</span>
         <span><span style="display:inline-block;width:10px;height:10px;background:#d1fae5;border-radius:2px;vertical-align:middle;margin-right:3px"></span>1–6</span>
         <span><span style="display:inline-block;width:10px;height:10px;background:#f3f4f6;border-radius:2px;vertical-align:middle;margin-right:3px"></span>None</span>
       </div>`;
@@ -8427,7 +8459,6 @@ function renderHabitHistory() {
   if (!hmEl) return;
   const SQ = 16, GAP = 2;
 
-  // Date label row (Mon + first/last)
   const labelRow = dates.map((d, i) => {
     const dd = new Date(d);
     const show = dd.getDay() === 1 || i === 0 || i === DAYS - 1;
@@ -8435,17 +8466,18 @@ function renderHabitHistory() {
   }).join('');
 
   const habitRows = DAILY_HABITS.map(h => {
-    // Streak: count back from today
-    let streak = 0;
-    for (let i = dates.length - 1; i >= 0; i--) {
-      if (log[dates[i]]?.[h.id]) streak++;
-      else break;
-    }
+    // Use stored habit_streaks for the streak number — more reliable than
+    // recomputing from habit_log which may have gaps.
+    const s = streaks[h.id] || { count: 0, lastDate: null };
+    const streakActive = s.lastDate === todayStr || s.lastDate === yesterdayStr;
+    const streak = streakActive ? s.count : 0;
+
     const squares = dates.map(d => {
-      const done = log[d]?.[h.id];
+      const done    = augLog[d]?.[h.id];
       const isToday = d === todayStr;
       return `<div title="${d}" style="width:${SQ}px;height:${SQ}px;flex-shrink:0;border-radius:3px;background:${done ? '#6b9e7a' : '#f3f4f6'};${isToday ? 'outline:2px solid #374151;outline-offset:-1px' : ''}"></div>`;
     }).join('');
+
     return `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:${GAP+1}px">
         <div style="width:110px;flex-shrink:0;font-size:12px;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${h.label}</div>
