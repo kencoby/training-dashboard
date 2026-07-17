@@ -3056,18 +3056,20 @@ function progressFormHtml(shown) {
     <div id="prog-preview" style="margin-top:8px"></div>
   </div>`;
 }
-function getAutoHabitState() {
-  const today = new Date().toLocaleDateString('en-CA');
-  const tryHealth = (...keys) => { for (const k of keys) { const v = _healthValueOnDate(k, today); if (v != null) return v; } return null; };
+function getAutoHabitStateOnDate(dateStr) {
+  const tryHealth = (...keys) => { for (const k of keys) { const v = _healthValueOnDate(k, dateStr); if (v != null) return v; } return null; };
   const steps  = tryHealth('step_count', 'steps', 'step_count_total');
-  const sleep  = computeSleepForDate ? computeSleepForDate(today) : null;
+  const sleep  = (typeof computeSleepForDate === 'function') ? computeSleepForDate(dateStr) : null;
   const weight = tryHealth('body_mass', 'weight', 'body_weight');
-  const loggedWeight = getProgressLog().some(e => e.date === today && e.weight != null);
+  const loggedWeight = getProgressLog().some(e => e.date === dateStr && e.weight != null);
   return {
     'h-steps':  steps  != null && steps  >= 10000,
     'h-sleep':  sleep  != null && sleep.totalSleep >= 8,
     'h-weight': weight != null || loggedWeight,
   };
+}
+function getAutoHabitState() {
+  return getAutoHabitStateOnDate(new Date().toLocaleDateString('en-CA'));
 }
 
 function renderHabits() {
@@ -8435,6 +8437,19 @@ function renderHabitHistory() {
   if (!augLog[todayStr]) augLog[todayStr] = {};
   Object.keys(ticked).forEach(id => { if (ticked[id]) augLog[todayStr][id] = true; });
 
+  // Augment every day with auto-habit state from Apple Health data.
+  // This is the source of truth for steps/sleep/weight — habit_log never
+  // stored auto habits, so the heatmap was always blank for those rows.
+  dates.forEach(dStr => {
+    const auto = getAutoHabitStateOnDate(dStr);
+    DAILY_HABITS.forEach(h => {
+      if (h.auto && auto[h.id]) {
+        if (!augLog[dStr]) augLog[dStr] = {};
+        augLog[dStr][h.id] = true;
+      }
+    });
+  });
+
   // Score bar chart
   const total  = DAILY_HABITS.length;
   const scoreEl = document.getElementById('habit-score-chart');
@@ -8557,19 +8572,24 @@ function recomputeAllStreaks() {
   const today = new Date(); today.setHours(0,0,0,0);
   const streaks = {};
   DAILY_HABITS.forEach(h => {
+    const isDone = dStr => {
+      if (log[dStr]?.[h.id]) return true;
+      if (h.auto) return getAutoHabitStateOnDate(dStr)[h.id] || false;
+      return false;
+    };
     // Find most recent date this habit was completed
     let lastDate = null;
     const d = new Date(today);
     for (let i = 0; i < 365; i++) {
       const dStr = d.toLocaleDateString('en-CA');
-      if (log[dStr]?.[h.id]) { lastDate = dStr; break; }
+      if (isDone(dStr)) { lastDate = dStr; break; }
       d.setDate(d.getDate() - 1);
     }
     if (!lastDate) { streaks[h.id] = { count: 0, lastDate: null }; return; }
     // Count consecutive days backward from lastDate
     let count = 0;
     const cur = new Date(lastDate + 'T12:00:00');
-    while (log[cur.toLocaleDateString('en-CA')]?.[h.id]) {
+    while (isDone(cur.toLocaleDateString('en-CA'))) {
       count++;
       cur.setDate(cur.getDate() - 1);
     }
