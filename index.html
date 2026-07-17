@@ -1559,7 +1559,7 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
   <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#D9D9D9;border:1px solid #ddd;display:inline-block"></span>Vacation</span>
   <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#A6A6A6;display:inline-block"></span>Elective / SDL</span>
   <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#F5A623;display:inline-block"></span>SSA</span>
-  <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#4A90D9;display:inline-block"></span>Travel</span>
+  <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#4A90D9;display:inline-block"></span>Travel / event</span>
   <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#9B59B6;display:inline-block"></span>Race</span>
 </div>
 
@@ -8641,7 +8641,7 @@ function renderYear4Cal() {
     {start:416,end:416,label:'Reading Week',color:'#808080',tc:'#fff'},
     {start:417,end:418,label:'Vacation',color:'#D9D9D9',tc:'#555'},
     {start:419,end:420,label:'Transition to Practice (optional)',color:'#FFC000',tc:'#000'},
-    {start:421,end:421,label:'CPSA',color:'#F4B183',tc:'#7a4010'},
+    {start:421,end:421,label:'OSCE',color:'#F4B183',tc:'#7a4010'},
     {start:422,end:422,label:'Reading Week',color:'#808080',tc:'#fff'},
     {start:423,end:423,label:'AKT Week',color:'#F4B183',tc:'#7a4010'},
     {start:424,end:424,label:'Vacation',color:'#D9D9D9',tc:'#555'},
@@ -8675,7 +8675,7 @@ function renderYear4Cal() {
   let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalW} ${headerH + n * rowH}" width="${totalW}" style="display:block" font-family="system-ui,-apple-system,sans-serif">`;
 
   // header
-  [[0,teachW,'Week'],[teachW,wcW,'W/C'],[teachW+wcW,travelW,'Travel'],[teachW+wcW+travelW,blockW,'Year 4 Block']].forEach(([x,w,lbl]) => {
+  [[0,teachW,'Week'],[teachW,wcW,'W/C'],[teachW+wcW,travelW,'Events'],[teachW+wcW+travelW,blockW,'Year 4 Block']].forEach(([x,w,lbl]) => {
     s += `<rect x="${x}" y="0" width="${w}" height="${headerH}" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1"/>`;
     s += `<text x="${x+w/2}" y="${headerH/2+1}" font-size="10" font-weight="700" text-anchor="middle" dominant-baseline="middle" fill="#6b7280">${lbl}</text>`;
   });
