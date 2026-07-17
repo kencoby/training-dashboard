@@ -1542,16 +1542,6 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
     <div id="habit-heatmap" style="overflow-x:auto"></div>
   </div>
 </div>
-<div class="section" style="margin-top:0">
-  <div class="card" style="padding:16px">
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.07em;font-weight:700;color:#9ca3af;margin-bottom:12px">✏️ Edit a past day</div>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-      <input type="date" id="habit-edit-date" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;flex:1">
-      <button onclick="loadHabitDayEditor()" style="padding:6px 14px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;cursor:pointer">Load</button>
-    </div>
-    <div id="habit-day-editor" style="font-size:13px;color:#9ca3af">Select a date above, or tap a square in the heatmap.</div>
-  </div>
-</div>
 </div><!-- /tab-habits -->
 
 <!-- Popover -->
@@ -8500,7 +8490,7 @@ function renderHabitHistory() {
     const squares = dates.map(d => {
       const done    = augLog[d]?.[h.id];
       const isToday = d === todayStr;
-      return `<div title="${d}" onclick="openHabitDayFromHeatmap('${d}')" style="width:${SQ}px;height:${SQ}px;flex-shrink:0;border-radius:3px;background:${done ? '#6b9e7a' : '#f3f4f6'};cursor:pointer;${isToday ? 'outline:2px solid #374151;outline-offset:-1px' : ''}"></div>`;
+      return `<div title="${done ? '✓' : '✗'} ${h.label} · ${d}" onclick="toggleHabitDaySquare('${h.id}','${d}')" style="width:${SQ}px;height:${SQ}px;flex-shrink:0;border-radius:3px;background:${done ? '#6b9e7a' : '#f3f4f6'};cursor:pointer;${isToday ? 'outline:2px solid #374151;outline-offset:-1px' : ''}"></div>`;
     }).join('');
 
     return `
@@ -8521,50 +8511,22 @@ function renderHabitHistory() {
 }
 
 // ── Past-day habit editor ────────────────────────────────────────────────────
-function openHabitDayFromHeatmap(dateStr) {
-  const input = document.getElementById('habit-edit-date');
-  if (input) input.value = dateStr;
-  loadHabitDayEditor();
-  document.getElementById('habit-day-editor')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
-
-function loadHabitDayEditor() {
-  const input = document.getElementById('habit-edit-date');
-  const dateStr = input?.value;
-  if (!dateStr) return;
+function toggleHabitDaySquare(habitId, dateStr) {
+  const h = DAILY_HABITS.find(x => x.id === habitId);
+  const label = h ? h.label : habitId;
   const log = getHabitLog();
-  const dayData = log[dateStr] || {};
-  const label = new Date(dateStr + 'T12:00:00').toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'short' });
-  const editorEl = document.getElementById('habit-day-editor');
-  if (!editorEl) return;
-  editorEl.innerHTML = `
-    <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:10px">${label}</div>
-    ${DAILY_HABITS.map(h => `
-      <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f5f5f5">
-        <input type="checkbox" id="hedit-${h.id}" ${dayData[h.id] ? 'checked' : ''} style="cursor:pointer;flex-shrink:0">
-        <label for="hedit-${h.id}" style="font-size:13px;cursor:pointer;flex:1">${h.label}</label>
-      </div>`).join('')}
-    <button onclick="saveHabitDayEdit('${dateStr}')"
-      style="margin-top:12px;width:100%;padding:9px;background:#1a1a1a;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600">
-      Save changes for ${label}
-    </button>`;
-}
-
-function saveHabitDayEdit(dateStr) {
-  const log = getHabitLog();
-  const dayData = {};
-  DAILY_HABITS.forEach(h => {
-    const cb = document.getElementById(`hedit-${h.id}`);
-    if (cb?.checked) dayData[h.id] = true;
-  });
-  log[dateStr] = dayData;
+  const inLog = log[dateStr]?.[habitId] || false;
+  const autoOn = h?.auto ? (getAutoHabitStateOnDate(dateStr)[habitId] || false) : false;
+  const current = inLog || autoOn;
+  const verb = current ? 'Untick' : 'Tick';
+  const displayDate = new Date(dateStr + 'T12:00:00').toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short' });
+  if (!confirm(`${verb} "${label}" for ${displayDate}?`)) return;
+  if (!log[dateStr]) log[dateStr] = {};
+  log[dateStr][habitId] = !current;
   saveHabitLog(log);
   recomputeAllStreaks();
   renderHabitHistory();
   renderHabits();
-  const done = Object.values(dayData).filter(Boolean).length;
-  document.getElementById('habit-day-editor').insertAdjacentHTML('beforeend',
-    `<div style="margin-top:8px;font-size:12px;color:#6b9e7a;font-weight:600">✓ Saved — ${done} of ${DAILY_HABITS.length} habits recorded for ${dateStr}</div>`);
 }
 
 function recomputeAllStreaks() {
@@ -8619,15 +8581,7 @@ function switchTab(name) {
   localStorage.setItem('active_tab', name);
   if (name === 'shopping') renderShopping();
   if (name === 'notes') renderNotes();
-  if (name === 'habits') {
-    renderHabitHistory();
-    // Default date picker to yesterday
-    const di = document.getElementById('habit-edit-date');
-    if (di && !di.value) {
-      const y = new Date(Date.now() - 86400000);
-      di.value = y.toLocaleDateString('en-CA');
-    }
-  }
+  if (name === 'habits') { renderHabitHistory(); }
   if (!initialised[name]) {
     initialised[name] = true;
     if (pendingCharts[name]) { pendingCharts[name](); delete pendingCharts[name]; }
