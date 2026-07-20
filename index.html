@@ -184,18 +184,45 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
     pointer-events:none;z-index:100"></div>
 </div>
 
-<div class="tab-pane active" id="tab-dashboard">
+<div class="tab-pane active" id="tab-dashboard" style="overflow:hidden">
 
-<!-- TO-DO / HABITS -->
-<div class="card" style="margin-bottom:12px">
-  <div class="todo-grid" style="display:grid;grid-template-columns:1fr 1px 1fr;gap:0">
+<div style="display:grid;grid-template-columns:1fr 280px;gap:12px;height:calc(100vh - 130px)">
 
-    <!-- LEFT: Priority tasks -->
-    <div style="padding-right:16px">
-      <div class="lbl">To Do</div>
+  <!-- LEFT: Daily briefing (takes most of the width) -->
+  <div style="display:flex;flex-direction:column;min-height:0">
+    <div id="warns" style="flex-shrink:0"></div>
+    <div class="card" id="daily-briefing-body" style="padding:0;overflow:hidden;flex:1;min-height:0;display:flex;flex-direction:column">
+      <div id="today-weather-bar" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 8px;border-bottom:1px solid #f3f4f6;flex-wrap:wrap;gap:6px;flex-shrink:0">
+        <div style="display:flex;align-items:center;gap:6px">
+          <button onclick="briefingNav(-1)" style="background:none;border:none;cursor:pointer;font-size:16px;color:#9ca3af;padding:0 2px;line-height:1">◀</button>
+          <div>
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.07em;color:#9ca3af;font-weight:600" id="today-date-label">—</div>
+            <div style="font-size:11px;color:#bbb;margin-top:1px" id="today-temp-range">—</div>
+          </div>
+          <button onclick="briefingNav(1)" style="background:none;border:none;cursor:pointer;font-size:16px;color:#9ca3af;padding:0 2px;line-height:1">▶</button>
+          <button id="briefing-today-btn" onclick="briefingNav(0,true)" style="display:none;background:#f3f4f6;border:none;cursor:pointer;font-size:11px;color:#6b7280;padding:3px 8px;border-radius:12px;margin-left:4px;line-height:1.4">Today</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px" id="today-weather-right">
+          <span style="font-size:22px" id="today-weather-emoji">—</span>
+          <div style="text-align:right">
+            <div style="font-size:16px;font-weight:700" id="today-temp">—</div>
+            <div style="font-size:11px;color:#9ca3af" id="today-weather-desc">Loading weather…</div>
+          </div>
+        </div>
+      </div>
+      <div id="today-sections" style="padding:10px 14px 6px;flex:1;overflow-y:auto;min-height:0"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Tasks (top) + Habits (bottom) -->
+  <div style="display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden">
+
+    <!-- Tasks card -->
+    <div class="card" style="padding:14px;flex-shrink:0">
+      <div class="lbl" style="margin-bottom:8px">🔴 Critical Tasks</div>
       <div id="dash-tasks-list"></div>
-      <div style="display:flex;gap:5px;margin-top:10px">
-        <select id="dash-task-priority" style="border:1px solid #e5e7eb;border-radius:8px;padding:6px 4px;font-size:13px;font-family:inherit;background:#fff;color:#374151;flex-shrink:0">
+      <div style="display:flex;gap:5px;margin-top:8px">
+        <select id="dash-task-priority" style="border:1px solid #e5e7eb;border-radius:8px;padding:5px 3px;font-size:12px;font-family:inherit;background:#fff;color:#374151;flex-shrink:0">
           <option value="critical">🔴</option>
           <option value="ondeck" selected>🟡</option>
           <option value="someday">⚫</option>
@@ -203,18 +230,15 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
         </select>
         <input id="dash-task-input" type="text" placeholder="Add task…"
           onkeydown="if(event.key==='Enter')addTaskFromDash()"
-          style="flex:1;border:1px solid #e5e7eb;border-radius:8px;padding:7px 10px;font-size:13px;outline:none;font-family:inherit"/>
+          style="flex:1;border:1px solid #e5e7eb;border-radius:8px;padding:6px 8px;font-size:12px;outline:none;font-family:inherit"/>
         <button onclick="addTaskFromDash()"
-          style="background:#1a1a1a;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer">+</button>
+          style="background:#1a1a1a;color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:13px;font-weight:600;cursor:pointer">+</button>
       </div>
     </div>
 
-    <!-- Divider -->
-    <div class="todo-divider" style="background:#f0f0f0"></div>
-
-    <!-- RIGHT: Daily habits -->
-    <div class="todo-right" style="padding-left:16px">
-      <div class="lbl">Daily <span style="font-size:10px;color:#bbb;text-transform:none;letter-spacing:0;font-weight:500">— resets midnight</span></div>
+    <!-- Habits card -->
+    <div class="card" style="padding:14px;flex:1;overflow-y:auto;min-height:0">
+      <div class="lbl" style="margin-bottom:8px">Daily <span style="font-size:10px;color:#bbb;text-transform:none;letter-spacing:0;font-weight:500">— resets midnight</span></div>
       <div id="home-suggestion"></div>
       <div id="training-todo"></div>
       <div id="mood-row"></div>
@@ -224,33 +248,6 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
     </div>
 
   </div>
-</div>
-
-<div id="warns"></div>
-
-<!-- TODAY OVERVIEW -->
-<div class="section" style="margin-bottom:0">
-<div class="card" id="daily-briefing-body" style="padding:0;overflow:hidden">
-  <div id="today-weather-bar" style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 12px;border-bottom:1px solid #f3f4f6;flex-wrap:wrap;gap:8px">
-    <div style="display:flex;align-items:center;gap:6px">
-      <button onclick="briefingNav(-1)" style="background:none;border:none;cursor:pointer;font-size:16px;color:#9ca3af;padding:0 2px;line-height:1">◀</button>
-      <div>
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.07em;color:#9ca3af;font-weight:600" id="today-date-label">—</div>
-        <div style="font-size:11px;color:#bbb;margin-top:2px" id="today-temp-range">—</div>
-      </div>
-      <button onclick="briefingNav(1)" style="background:none;border:none;cursor:pointer;font-size:16px;color:#9ca3af;padding:0 2px;line-height:1">▶</button>
-      <button id="briefing-today-btn" onclick="briefingNav(0,true)" style="display:none;background:#f3f4f6;border:none;cursor:pointer;font-size:11px;color:#6b7280;padding:3px 8px;border-radius:12px;margin-left:4px;line-height:1.4">Today</button>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px" id="today-weather-right">
-      <span style="font-size:26px" id="today-weather-emoji">—</span>
-      <div style="text-align:right">
-        <div style="font-size:18px;font-weight:700" id="today-temp">—</div>
-        <div style="font-size:11px;color:#9ca3af" id="today-weather-desc">Loading weather…</div>
-      </div>
-    </div>
-  </div>
-  <div id="today-sections" style="padding:14px 16px 8px"></div>
-</div>
 </div>
 
 <!-- keep hidden elements so JS doesn't break -->
@@ -8638,6 +8635,9 @@ function switchTab(name) {
   if (name === 'notes') renderNotes();
   if (name === 'habits') { renderHabitHistory(); }
   if (name === 'year4') renderYear4Cal();
+  // Dashboard uses a fixed-height grid — override display:block
+  if (name === 'dashboard') { pane.style.display = 'block'; document.body.style.overflow = 'hidden'; }
+  else { document.body.style.overflow = ''; }
   if (!initialised[name]) {
     initialised[name] = true;
     if (pendingCharts[name]) { pendingCharts[name](); delete pendingCharts[name]; }
@@ -8651,6 +8651,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 // Restore last active tab on load
 const savedTab = localStorage.getItem('active_tab');
 if (savedTab && document.getElementById('tab-' + savedTab)) switchTab(savedTab);
+else document.body.style.overflow = 'hidden'; // default is dashboard
 
 // Manual swipe scrolling for tab nav, clamped to its bounds, with momentum glide
 const nav = document.querySelector('.tab-nav');
