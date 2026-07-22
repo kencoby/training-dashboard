@@ -79,6 +79,8 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 @media (max-width:700px){.g4{grid-template-columns:1fr 1fr}.g2,.g3{grid-template-columns:1fr}.col2{grid-column:span 1}body{padding:12px}.todo-grid{grid-template-columns:1fr !important}.todo-divider{display:none}.todo-right{padding-left:0 !important;border-top:1px solid #f0f0f0;margin-top:16px;padding-top:16px}}
 @media (max-width:420px){.g4{grid-template-columns:1fr}}
+.home-2col{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:12px;height:calc(100vh - 130px)}
+@media(max-width:640px){.home-2col{grid-template-columns:minmax(0,3fr) minmax(0,2fr);height:calc(100vh - 195px)}}
 .accordion { border: 1px solid #e5e7eb; border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
 .accordion-header { display: flex; align-items: center; gap: 10px; padding: 14px 16px; cursor: pointer; background: #fff; user-select: none; }
 .accordion-header:hover { background: #fafafa; }
@@ -186,7 +188,7 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 
 <div class="tab-pane active" id="tab-dashboard" style="overflow:hidden">
 
-<div style="display:grid;grid-template-columns:1fr 280px;gap:12px;height:calc(100vh - 130px)">
+<div class="home-2col">
 
   <!-- LEFT: Daily briefing (takes most of the width) -->
   <div style="display:flex;flex-direction:column;min-height:0">
