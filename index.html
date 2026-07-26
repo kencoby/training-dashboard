@@ -6217,14 +6217,6 @@ function renderRunningPBs(acts) {
       </div>
     </div>
     ${fiveK.isLastKnown ? `<div class="sub" style="margin-top:10px;font-style:italic">* no 5km effort in the last 3 months — using last known time instead.</div>` : ''}
-    <div style="margin-top:12px;padding-top:10px;border-top:1px solid #f3f4f6;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-      <span style="font-size:11px;color:#9ca3af">Override Strava PB:</span>
-      <input id="pb5k-min" type="number" placeholder="mm" min="0" value="${ov ? Math.floor(ov.time/60) : ''}" style="width:48px;padding:3px 6px;border:1px solid #e5e7eb;border-radius:5px;font-size:12px;text-align:center">
-      <span style="font-size:12px;color:#9ca3af">:</span>
-      <input id="pb5k-sec" type="number" placeholder="ss" min="0" max="59" value="${ov ? String(ov.time%60).padStart(2,'0') : ''}" style="width:44px;padding:3px 6px;border:1px solid #e5e7eb;border-radius:5px;font-size:12px;text-align:center">
-      <button onclick="set5kPbOverride(document.getElementById('pb5k-min').value,document.getElementById('pb5k-sec').value,'2026-06-21')" style="padding:3px 10px;border:none;border-radius:5px;background:#3b82f6;color:#fff;font-size:12px;cursor:pointer">Set</button>
-      ${ov ? `<button onclick="clear5kPbOverride()" style="padding:3px 8px;border:1px solid #e5e7eb;border-radius:5px;background:#fff;color:#6b7280;font-size:12px;cursor:pointer">Clear</button>` : ''}
-    </div>
   `);
 }
 
