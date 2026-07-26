@@ -2118,16 +2118,16 @@ function buildPaceChart(acts) {
   const {labels, data} = weeklyDistBuckets(acts, 'Run');
   if (!data.length) return;
 
-  // Linear regression trend line
-  const n = data.length;
-  const sumX = data.reduce((s,_,i) => s+i, 0);
-  const sumY = data.reduce((s,v) => s+v, 0);
-  const sumXY = data.reduce((s,v,i) => s+i*v, 0);
-  const sumX2 = data.reduce((s,_,i) => s+i*i, 0);
-  const slope = (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX);
-  const intercept = (sumY - slope*sumX) / n;
-  const trendData = data.map((_,i) => +(intercept + slope*i).toFixed(1));
-  const trendCol = slope >= 0 ? '#22c55e' : '#ef4444'; // green = improving, red = declining
+  // 4-week rolling average trend line
+  const W = 4;
+  const trendData = data.map((_, i) => {
+    const slice = data.slice(Math.max(0, i - W + 1), i + 1);
+    return +(slice.reduce((s, v) => s + v, 0) / slice.length).toFixed(1);
+  });
+  // Colour by direction of the last 4 weeks vs the 4 before that
+  const recent = trendData[trendData.length - 1];
+  const prev = trendData[Math.max(0, trendData.length - 1 - W)];
+  const trendCol = recent >= prev ? '#22c55e' : '#ef4444';
 
   new Chart(document.getElementById('pace-chart'), {
     type: 'bar',
@@ -2170,7 +2170,7 @@ function buildDistChart(acts) {
 // ── Cross-device sync (Netlify Blobs) ───────────────────────────────────────
 const SYNC_KEYS = [
   'todo_items',
-  'signoff_mandatory', 'signoff_minicex', 'signoff_sa67', 'signoff_sa8', 'signoff_clinical',
+  'signoff_mandatory', 'signoff_sa67', 'signoff_clinical',
   'ukmla_progress',
   'gcal_events',
   'calendar_overrides',
@@ -3252,13 +3252,13 @@ function renderHomeGoals() {
   // 5km sub-19
   const runData = computeRunningPBs(_acts);
   const fiveK = runData.dists.find(d => d.label === '5km');
-  const goalSec5k = timeToSec('19:24'), baseSec5k = timeToSec('25:00');
+  const goalSec5k = timeToSec('19:00'), baseSec5k = timeToSec('25:00');
   if (fiveK && fiveK.allTime) {
     const prog = _runClubProgress(fiveK.allTime.time, baseSec5k, goalSec5k);
     const done = prog.remaining === 0;
     html += `<div style="margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:12px;margin-bottom:5px">
-        <span style="font-weight:700">🏃 Sub 19:24 5km</span>
+        <span style="font-weight:700">🏃 Sub-19 5km</span>
         <span style="color:#9ca3af">${done ? '🎉 Done!' : `PB ${fmtRaceTime(fiveK.allTime.time)} · ${fmtMMSS(prog.remaining)} to go`}</span>
       </div>
       <div style="background:#f3f4f6;border-radius:99px;height:7px;overflow:hidden">
@@ -3482,32 +3482,6 @@ let _healthData = null;
 
 // ── Signoffs & Training accordions ───────────────────────────────────────────
 const ACCORDIONS = [
-  {
-    id: 'minicex',
-    title: 'Mini CEX',
-    deadline: '2026-07-17',
-    storageKey: 'signoff_minicex',
-    items: [
-      'Mini CEX Extra (1)',
-      'Mini CEX Extra (2)',
-      "Mini CEX Women's Health",
-    ]
-  },
-  {
-    id: 'sa8',
-    title: 'SA8 Signoffs',
-    deadline: '2026-07-21',
-    storageKey: 'signoff_sa8',
-    items: [
-      'Obstetric Clerking — full history, third trimester exam, differential & management plan',
-      'Gynaecology Clerking — gynaecological history, abdominal +/- pelvic exam, differential & plan',
-      'Intimate Examination — informed consent and competent bimanual & speculum examination',
-      'Childbirth — compare vaginal, instrumental & C-section delivery; indications & complications',
-      'Sexual Health — sexual health history, differential & management plan',
-      'Contraception — appropriate recommendations including emergency contraception',
-      'Obstetric Emergencies — recognise & initiate management of acute obstetric emergency',
-    ]
-  },
   {
     id: 'clinical',
     title: 'Clinical Skills Signoff',
@@ -6064,7 +6038,7 @@ function renderLiftPBs() {
   }).join(''));
 }
 
-// ── Run PBs / Sub 19:24 5km Club ────────────────────────────────────────────────
+// ── Run PBs / Sub-19 5km Club ────────────────────────────────────────────────
 // Mirrors the Strength PBs table, but auto-computed from real Strava runs
 // instead of manual entry: for each target race distance, finds the fastest
 // run within a tolerance band of that distance, both all-time and in the last
@@ -6143,19 +6117,19 @@ function renderRunningPBs(acts) {
 
   const fiveK = data.dists.find(d => d.label === '5km');
   if (!fiveK || !fiveK.allTime) {
-    setH('run-pb-club', `<div class="lbl">Sub 19:24 5km Club</div><div class="sub" style="margin-top:8px">No 5km efforts logged yet — once you've got a ~5km run on Strava, this'll track your progress automatically.</div>`);
+    setH('run-pb-club', `<div class="lbl">Sub-19 5km Club</div><div class="sub" style="margin-top:8px">No 5km efforts logged yet — once you've got a ~5km run on Strava, this'll track your progress automatically.</div>`);
     return;
   }
 
-  const goalSec = timeToSec('19:24'), baseSec = timeToSec('25:00');
+  const goalSec = timeToSec('19:00'), baseSec = timeToSec('25:00');
   const at = _runClubProgress(fiveK.allTime.time, baseSec, goalSec);
   const cur = _runClubProgress(fiveK.current.time, baseSec, goalSec);
   setH('run-pb-club', `
-    <div class="lbl">Sub 19:24 5km Club</div>
+    <div class="lbl">Sub-19 5km Club</div>
     <div class="g2">
       <div>
         <div class="sub" style="margin-top:0;margin-bottom:4px">All-time best</div>
-        <div class="mid">${fmtRaceTime(fiveK.allTime.time)} <span style="font-size:13px;color:#aaa;font-weight:500">/ 19:24</span></div>
+        <div class="mid">${fmtRaceTime(fiveK.allTime.time)} <span style="font-size:13px;color:#aaa;font-weight:500">/ 19:00</span></div>
         <div style="background:#f3f4f6;border-radius:99px;height:8px;overflow:hidden;margin:8px 0 4px">
           <div style="background:#3b82f6;height:100%;width:${at.pct.toFixed(0)}%"></div>
         </div>
@@ -6163,7 +6137,7 @@ function renderRunningPBs(acts) {
       </div>
       <div>
         <div class="sub" style="margin-top:0;margin-bottom:4px">Current best (3mo)${fiveK.isLastKnown ? ' *' : ''}</div>
-        <div class="mid">${fmtRaceTime(fiveK.current.time)} <span style="font-size:13px;color:#aaa;font-weight:500">/ 19:24</span></div>
+        <div class="mid">${fmtRaceTime(fiveK.current.time)} <span style="font-size:13px;color:#aaa;font-weight:500">/ 19:00</span></div>
         <div style="background:#f3f4f6;border-radius:99px;height:8px;overflow:hidden;margin:8px 0 4px">
           <div style="background:#6b9e7a;height:100%;width:${cur.pct.toFixed(0)}%"></div>
         </div>
@@ -8509,10 +8483,7 @@ let pendingCharts = {};
 function renderYear4Cal() {
   // Year 3 urgency alert
   const Y3_ITEMS = [
-    { accId: 'minicex',  label: 'Mini-CEX (1 more)',           deadline: '2026-07-24' },
     { accId: 'sa67',     label: 'Dermatology sign-off',        deadline: '2026-07-24' },
-    { accId: 'sa8',      label: 'Obstetric clerking sign-off', deadline: '2026-07-24' },
-    { accId: 'sa8',      label: 'Childbirth reflections ×3',   deadline: '2026-07-24' },
   ];
   const today = new Date(); today.setHours(0,0,0,0);
   const daysLeft = Math.ceil((new Date('2026-07-24') - today) / 864e5);
@@ -8521,11 +8492,8 @@ function renderYear4Cal() {
   ACCORDIONS.forEach(a => { doneAccs[a.id] = getSignoff(a.storageKey); });
   const pending = Y3_ITEMS.filter(item => {
     const acc = ACCORDIONS.find(a => a.id === item.accId);
-    if (!acc) return true;
+    if (!acc) return false;
     const done = doneAccs[item.accId];
-    // item is pending if any item in that accordion isn't done yet
-    if (item.accId === 'minicex') return acc.items.some(s => !done.includes(s));
-    if (item.accId === 'sa8') return acc.items.some(s => !done.includes(s));
     if (item.accId === 'sa67') return acc.items.some(s => s.toLowerCase().includes('dermatology') && !done.includes(s));
     return false;
   });
@@ -8535,7 +8503,7 @@ function renderYear4Cal() {
     const icon = daysLeft <= 3 ? '🚨' : '⚠️';
     alertEl.innerHTML = `<div class="warn ${urgency}" style="margin-bottom:14px">
       ${icon} <span><strong>Year 3 sign-offs due ${daysLeft === 0 ? 'today' : daysLeft + ' days'}:</strong>
-      Mini-CEX · Dermatology · Obstetric clerking · Childbirth reflections ×3.
+      Dermatology sign-off.
       <button onclick="switchTab('medicine')" style="background:none;border:none;cursor:pointer;font-weight:700;text-decoration:underline;padding:0;color:inherit;margin-left:4px">View sign-offs →</button></span>
     </div>`;
   } else {
