@@ -4145,13 +4145,13 @@ function renderRevPassmedChecklist() {
 
 // ── Training Calendar ───────────────────────────────────────────────────────
 const TRAINING_TEMPLATE = [
-  { day: 'Monday',    am: { type: 'Swim',          emoji: '🏊', tag: 'swim',  intensity: 'moderate' }, pm: { type: 'Upper A',       emoji: '💪', tag: 'upper', intensity: 'hard' } },
-  { day: 'Tuesday',   am: { type: 'Speed Run',      emoji: '🏃', tag: 'run',   intensity: 'hard'     }, pm: { type: 'Easy Bike',     emoji: '🚴', tag: 'bike',  intensity: 'easy' } },
-  { day: 'Wednesday', am: { type: 'Swim',           emoji: '🏊', tag: 'swim',  intensity: 'moderate' }, pm: { type: 'Lower A',       emoji: '💪', tag: 'lower', intensity: 'hard' } },
-  { day: 'Thursday',  am: { type: 'Bike Intervals', emoji: '🚴', tag: 'bike',  intensity: 'hard'     }, pm: { type: 'Upper B',       emoji: '💪', tag: 'upper', intensity: 'hard' } },
-  { day: 'Friday',    am: { type: 'Easy Run',       emoji: '🏃', tag: 'run',   intensity: 'easy'     }, pm: null },
-  { day: 'Saturday',  am: { type: 'Long Run',       emoji: '🏃', tag: 'run',   intensity: 'hard'     }, pm: { type: 'Swim',          emoji: '🏊', tag: 'swim',  intensity: 'moderate' } },
-  { day: 'Sunday',    am: { type: 'Long Bike + Brick Run', emoji: '🚴', tag: 'brick', intensity: 'hard' }, pm: { type: 'Lower B', emoji: '💪', tag: 'lower', intensity: 'hard' } },
+  { day: 'Monday',    am: { type: 'Easy Run',    emoji: '🏃', tag: 'run',   intensity: 'easy' }, pm: { type: 'Pull', emoji: '💪', tag: 'upper', intensity: 'hard' } },
+  { day: 'Tuesday',   am: { type: 'Speed Session', emoji: '🏃', tag: 'run', intensity: 'hard' }, pm: { type: 'Legs', emoji: '💪', tag: 'lower', intensity: 'hard' } },
+  { day: 'Wednesday', am: null, pm: null },
+  { day: 'Thursday',  am: null, pm: null },
+  { day: 'Friday',    am: null, pm: null },
+  { day: 'Saturday',  am: null, pm: null },
+  { day: 'Sunday',    am: { type: 'Easy Run', emoji: '🏃', tag: 'run', intensity: 'easy' }, pm: { type: 'Push', emoji: '💪', tag: 'upper', intensity: 'hard' } },
 ];
 
 function sessionDone(session, acts, dateStr) {
