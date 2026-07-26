@@ -578,11 +578,56 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 <div id="plan-cards"></div>
 </div>
 
-<!-- §8 TRIATHLON PLAN -->
+<!-- TRAINING PLAN -->
 <div class="section">
-<h2>Triathlon Plan</h2>
-<div class="card" id="tri-plan-sum" style="font-size:13px;color:#666;margin-bottom:10px;font-style:italic;line-height:1.6">Generating plan…</div>
-<div id="tri-plan-cards"></div>
+<h2>This Week's Plan</h2>
+<div id="training-plan-cards">
+
+<div class="pc pc-easy" style="margin-bottom:8px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+    <span style="font-weight:700;font-size:14px">Sun 26 Jul</span>
+    <div style="display:flex;gap:6px;align-items:center">
+      <span style="font-size:13px">🏃 Long Run &nbsp;|&nbsp; 🏋️ Push</span>
+      <span class="badge b-sage" style="font-size:10px;padding:2px 7px">easy</span>
+    </div>
+  </div>
+  <div style="font-size:12px;color:#777">10km at easy pace (5:00–5:20/km). Gym: Push session.</div>
+</div>
+
+<div class="pc pc-easy" style="margin-bottom:8px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+    <span style="font-weight:700;font-size:14px">Mon 27 Jul</span>
+    <div style="display:flex;gap:6px;align-items:center">
+      <span style="font-size:13px">🏃 Easy Run &nbsp;|&nbsp; 🏋️ Pull</span>
+      <span class="badge b-sage" style="font-size:10px;padding:2px 7px">easy</span>
+    </div>
+  </div>
+  <div style="font-size:12px;color:#777">6–7km at relaxed easy pace. Gym: Pull session.</div>
+</div>
+
+<div class="pc pc-hard" style="margin-bottom:8px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+    <span style="font-weight:700;font-size:14px">Tue 28 Jul</span>
+    <div style="display:flex;gap:6px;align-items:center">
+      <span style="font-size:13px">🏃 Speed Session &nbsp;|&nbsp; 🏋️ Legs</span>
+      <span class="badge b-red" style="font-size:10px;padding:2px 7px">hard</span>
+    </div>
+  </div>
+  <div style="font-size:12px;color:#777">2km warm-up → 6–8 × 400m @ 3:40–3:50/km (~90s rep, 90s jog recovery) → 2km cool-down. Keep it controlled — flying tomorrow. Gym: Legs session.</div>
+</div>
+
+<div class="pc pc-easy" style="margin-bottom:8px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+    <span style="font-weight:700;font-size:14px">Wed 29 Jul – Mon 3 Aug&nbsp; ✈️ Barcelona</span>
+    <div style="display:flex;gap:6px;align-items:center">
+      <span style="font-size:13px">🏃 Easy Runs × 3</span>
+      <span class="badge b-sage" style="font-size:10px;padding:2px 7px">easy</span>
+    </div>
+  </div>
+  <div style="font-size:12px;color:#777">3 easy runs spread across the 6 days, 25–35 min each, genuinely easy. No pressure on pace.</div>
+</div>
+
+</div>
 </div>
 
 <!-- §11 RACE CALENDAR -->
@@ -6094,8 +6139,35 @@ function _runClubProgress(curSec, baseSec, goalSec) {
   return { pct, remaining };
 }
 
+function get5kPbOverride() {
+  try { return JSON.parse(localStorage.getItem('run_5k_pb_override')) || null; } catch { return null; }
+}
+function set5kPbOverride(minStr, secStr, dateStr) {
+  const m = parseInt(minStr, 10), s = parseInt(secStr || '0', 10);
+  if (isNaN(m) || m < 0) return;
+  const sec = m * 60 + (isNaN(s) ? 0 : s);
+  localStorage.setItem('run_5k_pb_override', JSON.stringify({ time: sec, date: dateStr || todayStr() }));
+  renderRunningPBs(_acts);
+}
+function clear5kPbOverride() {
+  localStorage.removeItem('run_5k_pb_override');
+  renderRunningPBs(_acts);
+}
+
 function renderRunningPBs(acts) {
   const data = computeRunningPBs(acts || _acts);
+  // Apply manual override if faster than Strava-detected time
+  const ov = get5kPbOverride();
+  const fiveKData = data.dists.find(d => d.label === '5km');
+  if (ov && fiveKData) {
+    if (!fiveKData.allTime || ov.time < fiveKData.allTime.time) {
+      fiveKData.allTime = { time: ov.time, date: ov.date };
+    }
+    if (!fiveKData.current || ov.time < fiveKData.current.time) {
+      fiveKData.current = { time: ov.time, date: ov.date };
+      fiveKData.isLastKnown = false;
+    }
+  }
 
   const rows = data.dists.map(d => {
     const at = d.allTime ? `${fmtRaceTime(d.allTime.time)}<span style="display:block;font-size:11px;color:#aaa;font-weight:500">${fmtDate(d.allTime.date)}</span>` : '<span style="color:#bbb">—</span>';
@@ -6145,6 +6217,14 @@ function renderRunningPBs(acts) {
       </div>
     </div>
     ${fiveK.isLastKnown ? `<div class="sub" style="margin-top:10px;font-style:italic">* no 5km effort in the last 3 months — using last known time instead.</div>` : ''}
+    <div style="margin-top:12px;padding-top:10px;border-top:1px solid #f3f4f6;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <span style="font-size:11px;color:#9ca3af">Override Strava PB:</span>
+      <input id="pb5k-min" type="number" placeholder="mm" min="0" value="${ov ? Math.floor(ov.time/60) : ''}" style="width:48px;padding:3px 6px;border:1px solid #e5e7eb;border-radius:5px;font-size:12px;text-align:center">
+      <span style="font-size:12px;color:#9ca3af">:</span>
+      <input id="pb5k-sec" type="number" placeholder="ss" min="0" max="59" value="${ov ? String(ov.time%60).padStart(2,'0') : ''}" style="width:44px;padding:3px 6px;border:1px solid #e5e7eb;border-radius:5px;font-size:12px;text-align:center">
+      <button onclick="set5kPbOverride(document.getElementById('pb5k-min').value,document.getElementById('pb5k-sec').value,'2026-06-21')" style="padding:3px 10px;border:none;border-radius:5px;background:#3b82f6;color:#fff;font-size:12px;cursor:pointer">Set</button>
+      ${ov ? `<button onclick="clear5kPbOverride()" style="padding:3px 8px;border:1px solid #e5e7eb;border-radius:5px;background:#fff;color:#6b7280;font-size:12px;cursor:pointer">Clear</button>` : ''}
+    </div>
   `);
 }
 
@@ -10153,7 +10233,7 @@ async function main() {
       renderRaceCalendar();
       buildSportSplit(acts);
       renderOther(acts);
-      renderTriPlan(acts, acwr, call);
+      /* renderTriPlan removed */
     } else {
       pendingCharts.training = () => {
         renderTrainingCalendar(acts);
@@ -10163,7 +10243,7 @@ async function main() {
         buildHRZones(acts);
         buildTriBalance(acts);
         renderMonthlyGoal(acts);
-        renderS2(acts); renderRaceCalendar(); buildSportSplit(acts); renderOther(acts); renderTriPlan(acts, acwr, call);
+        renderS2(acts); renderRaceCalendar(); buildSportSplit(acts); renderOther(acts); /* renderTriPlan removed */
       };
     }
 
