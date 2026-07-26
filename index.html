@@ -3895,10 +3895,20 @@ function renderUkmlaTracker() {
 renderUkmlaTracker();
 
 // ── UKMLA Revision Schedule ───────────────────────────────────────────────────
-const REV_START = new Date('2026-07-06T00:00:00');
+const REV_START = new Date('2026-07-26T00:00:00'); // restart from today
 const REV_EXAM  = new Date('2026-08-31T00:00:00');
 
-// UKMLA daily topics — each weekday gets a focused system; weekends = All Topics
+// Dates excluded from revision (Barcelona trip)
+const REV_EXCL = new Set([
+  '2026-07-29','2026-07-30','2026-07-31',
+  '2026-08-01','2026-08-02','2026-08-03',
+]);
+function isRevExcluded(d) {
+  const k = `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+  return REV_EXCL.has(k);
+}
+
+// UKMLA daily topics — every non-excluded day cycles through these; weekends = All Topics
 const UKMLA_DAILY_TOPICS = [
   'Cardiovascular',
   'Respiratory',
@@ -3924,16 +3934,19 @@ const UKMLA_DAILY_TOPICS = [
 const REV_ANKI_TARGET = 100;
 const REV_PM_TARGET   = 25;
 
-// Returns topic for a given date — 'All Topics' on weekends, system topic on weekdays
+// Returns topic for a date. Excluded (Barcelona) days return null.
+// Weekends = 'All Topics'. Weekdays cycle through UKMLA_DAILY_TOPICS,
+// skipping excluded dates so the count doesn't advance during the trip.
 function getRevTopicForDate(d) {
+  if (isRevExcluded(d)) return null; // Off — Barcelona
   const day = d.getDay();
   if (day === 0 || day === 6) return 'All Topics';
-  const start = new Date('2026-07-08T00:00:00'); // topics start from today
+  const start = new Date(REV_START);
   const target = new Date(d); target.setHours(0,0,0,0);
   let wdCount = 0;
   const cur = new Date(start);
   while (cur < target) {
-    if (cur.getDay() !== 0 && cur.getDay() !== 6) wdCount++;
+    if (!isRevExcluded(cur) && cur.getDay() !== 0 && cur.getDay() !== 6) wdCount++;
     cur.setDate(cur.getDate() + 1);
   }
   return UKMLA_DAILY_TOPICS[wdCount % UKMLA_DAILY_TOPICS.length];
@@ -3950,7 +3963,7 @@ function revTodayKey() { return revDateKey(new Date()); }
 function revCurrentWeekIdx() {
   const now = new Date(); now.setHours(0,0,0,0);
   const diff = Math.floor((now - REV_START) / 86400000);
-  return Math.min(Math.max(0, Math.floor(diff / 7)), 7);
+  return Math.min(Math.max(0, Math.floor(diff / 7)), 5); // 6 weeks: Jul 26 – Aug 31
 }
 
 function logRevToday() {
@@ -4012,24 +4025,31 @@ function renderRevWeekCard() {
   const wi  = revCurrentWeekIdx();
   const log = getRevLog();
   const isWeekend = now.getDay() === 0 || now.getDay() === 6;
-  const todayTopic = getRevTopicForDate(now);
+  const isExclToday = isRevExcluded(now);
+  const todayTopic = isExclToday ? '✈️ Barcelona' : getRevTopicForDate(now);
   const startOfWeek = new Date(REV_START.getTime() + wi * 7 * 86400000);
   let weekAnki = 0, weekPm = 0;
   for (let i = 0; i < 7; i++) {
     const d = new Date(startOfWeek.getTime() + i * 86400000);
     const e = log[revDateKey(d)]; if (e) { weekAnki += e.anki||0; weekPm += e.pm||0; }
   }
-  const weekAnkiTarget = REV_ANKI_TARGET * 7;
-  const weekPmTarget   = REV_PM_TARGET   * 7;
-  const ankiPct = Math.min(100, Math.round(weekAnki / weekAnkiTarget * 100));
-  const pmPct   = Math.min(100, Math.round(weekPm   / weekPmTarget   * 100));
+  // Adjust weekly targets: subtract excluded days from the target
+  let activeDays = 7;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(startOfWeek.getTime() + i * 86400000);
+    if (isRevExcluded(d)) activeDays--;
+  }
+  const weekAnkiTarget = REV_ANKI_TARGET * activeDays;
+  const weekPmTarget   = REV_PM_TARGET   * activeDays;
+  const ankiPct = Math.min(100, Math.round(weekAnki / Math.max(1, weekAnkiTarget) * 100));
+  const pmPct   = Math.min(100, Math.round(weekPm   / Math.max(1, weekPmTarget)   * 100));
 
   el.innerHTML = `
     <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
       <div>
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.07em;color:#6b9e7a;font-weight:700">${isWeekend ? 'Weekend — General Review' : "Today's Topic"}</div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.07em;color:#6b9e7a;font-weight:700">${isExclToday ? 'Off — Enjoy Barcelona!' : isWeekend ? 'Weekend — General Review' : "Today's Topic"}</div>
         <div style="font-size:18px;font-weight:700;margin-top:3px">${todayTopic}</div>
-        <div style="font-size:12px;color:#9ca3af;margin-top:2px">Week ${wi+1} of 8</div>
+        <div style="font-size:12px;color:#9ca3af;margin-top:2px">Week ${wi+1} of 6</div>
       </div>
       <div style="text-align:right;flex-shrink:0">
         <div style="font-size:30px;font-weight:800;color:${daysToExam<=14?'#ef4444':daysToExam<=60?'#f59e0b':'#374151'};line-height:1">${daysToExam}</div>
@@ -4089,7 +4109,7 @@ function renderRevPhases() {
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
-  el.innerHTML = Array.from({length: 8}, (_, wIdx) => {
+  el.innerHTML = Array.from({length: 6}, (_, wIdx) => {
     const weekStart = new Date(REV_START.getTime() + wIdx * 7 * 86400000);
     const dateStr = `${weekStart.getDate()} ${MONTHS[weekStart.getMonth()]}`;
     const isCurrent = wIdx === wi;
@@ -4104,12 +4124,13 @@ function renderRevPhases() {
       const dKey = revDateKey(dd);
       const isToday = dKey === todayKey;
       const isWkend = dd.getDay() === 0 || dd.getDay() === 6;
-      const topic = getRevTopicForDate(dd);
+      const isExcl = isRevExcluded(dd);
+      const topic = isExcl ? '✈️ Barcelona — Off' : getRevTopicForDate(dd);
       const e = log[dKey];
-      return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f9fafb;${isToday?'background:#f0fdf4;margin:0 -12px;padding-left:12px;padding-right:12px':''}">
+      return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f9fafb;${isToday?'background:#f0fdf4;margin:0 -12px;padding-left:12px;padding-right:12px':''}${isExcl?'opacity:0.45':''}">
         <span style="font-size:11px;color:#9ca3af;width:28px;flex-shrink:0">${DAY_NAMES[dd.getDay()]}</span>
-        <span style="font-size:12px;flex:1;color:${isWkend?'#9ca3af':'#374151'};font-weight:${isToday?'700':'400'}">${topic}${isToday?' ◀ today':''}</span>
-        ${e&&(e.anki||e.pm)?`<span style="font-size:10px;color:#6b9e7a;flex-shrink:0">🃏${e.anki||0} 📝${e.pm||0}</span>`:''}
+        <span style="font-size:12px;flex:1;color:${isExcl?'#9ca3af':isWkend?'#9ca3af':'#374151'};font-weight:${isToday?'700':'400'}">${topic}${isToday?' ◀ today':''}</span>
+        ${!isExcl&&e&&(e.anki||e.pm)?`<span style="font-size:10px;color:#6b9e7a;flex-shrink:0">🃏${e.anki||0} 📝${e.pm||0}</span>`:''}
       </div>`;
     }).join('');
 
