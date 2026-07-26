@@ -723,6 +723,7 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 <div class="section">
 <div class="card">
   <div class="lbl">Run Distance Trend</div>
+  <div id="pace-chart-legend" style="display:flex;gap:16px;align-items:center;margin:4px 0 10px;font-size:12px;color:#374151;flex-wrap:wrap"></div>
   <div class="cht"><div class="skeleton" id="pace-chart-skel" style="position:absolute;inset:0"></div><canvas id="pace-chart"></canvas></div>
 </div>
 </div>
@@ -2122,22 +2123,79 @@ function weeklyDistBuckets(acts, sport, weeks=16) {
     buckets[key]=(buckets[key]||0)+a.summary.distance;
   });
   const keys=Object.keys(buckets).sort().slice(-weeks);
+  const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return {
-    labels:keys.map(k=>{ const d=new Date(k); return `${d.getDate()} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]}`; }),
+    weekKeys: keys,
+    labels:keys.map(k=>{ const d=new Date(k+'T12:00:00'); return `${d.getDate()} ${MONTHS[d.getMonth()]}`; }),
     data:keys.map(k=>+(buckets[k]/1000).toFixed(1))
   };
 }
 
 function buildPaceChart(acts) {
   rmSkel('pace-chart');
-  const {labels,data}=weeklyDistBuckets(acts,'Run');
-  new Chart(document.getElementById('pace-chart'),{
-    type:'bar',
-    data:{labels,datasets:[{label:'Distance (km)',data,backgroundColor:'#3b82f6',borderRadius:4}]},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
-      scales:{y:{beginAtZero:true,grid:{color:'#f3f4f6'},ticks:{callback:v=>`${v}km`,font:{size:10}}},
-              x:{grid:{display:false},ticks:{maxTicksLimit:8,font:{size:10}}}}}
+  const {labels, data, weekKeys} = weeklyDistBuckets(acts, 'Run');
+
+  // Current week's Monday key
+  const now = new Date();
+  const dow = now.getDay();
+  const thisMon = new Date(now); thisMon.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1)); thisMon.setHours(0,0,0,0);
+  const thisWeekKey = thisMon.toISOString().slice(0,10);
+
+  // Race-week detection — any Run-type race in the RACES array
+  const raceWeekKeys = new Set();
+  let raceWeekLabel = 'Race week';
+  (typeof RACES !== 'undefined' ? RACES : []).filter(r => r.type === 'Run').forEach(r => {
+    const rd = new Date(r.date + 'T12:00:00');
+    const rdow = rd.getDay();
+    const rMon = new Date(rd); rMon.setDate(rd.getDate() - (rdow === 0 ? 6 : rdow - 1)); rMon.setHours(0,0,0,0);
+    const rKey = rMon.toISOString().slice(0,10);
+    if (weekKeys.includes(rKey)) { raceWeekKeys.add(rKey); raceWeekLabel = r.name; }
+  });
+
+  const COL_TRAIN   = '#1e3a8a';  // dark blue
+  const COL_RACE    = '#f97316';  // orange
+  const COL_CURRENT = '#93c5fd';  // light blue
+
+  const bgColors = weekKeys.map(k =>
+    k === thisWeekKey   ? COL_CURRENT :
+    raceWeekKeys.has(k) ? COL_RACE    : COL_TRAIN
+  );
+
+  // Build HTML legend
+  const legendEl = document.getElementById('pace-chart-legend');
+  if (legendEl) {
+    const dot = (col) => `<span style="display:inline-block;width:12px;height:12px;background:${col};border-radius:2px;margin-right:5px;vertical-align:middle"></span>`;
+    const items = [`${dot(COL_TRAIN)}Training week`];
+    if (weekKeys.some(k => raceWeekKeys.has(k))) items.push(`${dot(COL_RACE)}${raceWeekLabel}`);
+    if (weekKeys.includes(thisWeekKey)) items.push(`${dot(COL_CURRENT)}Current week (in progress)`);
+    legendEl.innerHTML = items.map(i => `<span style="display:flex;align-items:center;gap:2px">${i}</span>`).join('');
+  }
+
+  new Chart(document.getElementById('pace-chart'), {
+    type: 'bar',
+    data: { labels, datasets: [{ data, backgroundColor: bgColors, borderRadius: 3, borderSkipped: false }] },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => `${ctx.parsed.y} km` } }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: { color: '#e5e7eb' },
+          border: { display: false },
+          ticks: { font: { size: 10 }, color: '#6b7280' },
+          title: { display: true, text: 'km', font: { size: 11 }, color: '#6b7280' }
+        },
+        x: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: { maxTicksLimit: 10, font: { size: 10 }, color: '#6b7280' }
+        }
+      }
+    }
   });
 }
 
