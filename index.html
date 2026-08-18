@@ -3047,6 +3047,7 @@ function toggleHabit(id) {
   const ticked = getHabits();
   ticked[id] = !ticked[id];
   saveHabits({ date: today, ticked });
+  recomputeAllStreaks(); // recompute from actual log after every toggle
   renderHabits();
 }
 function progressFormHtml(shown) {
@@ -3098,11 +3099,6 @@ function renderHabits() {
   const manualHabits = DAILY_HABITS.filter(h => !h.auto);
   const ordered = [...autoHabits, ...manualHabits];
 
-  // Update streaks for all completed habits (idempotent within same day)
-  ordered.forEach(h => {
-    const autoOn = h.auto ? (auto[h.id] || false) : false;
-    if (ticked[h.id] || autoOn) updateHabitStreak(h.id, true);
-  });
   const streaks = getHabitStreaks();
 
   setH('habit-list', ordered.map((h, i) => {
@@ -8417,22 +8413,10 @@ function renderHabitHistory() {
     if (d >= HISTORY_FLOOR) dates.push(d.toLocaleDateString('en-CA'));
   }
 
-  // Augment habit_log with data synthesised from habit_streaks.
-  // habit_log can be wiped by a sync overwrite; habit_streaks is always written
-  // locally on each tick and is never overwritten with empty data by the sync.
+  // Build augLog from actual habit_log only — no streak-based backfill
+  // (streak backfill caused false positives when streak counts were stale)
   const augLog = {};
   Object.keys(log).forEach(d => { augLog[d] = { ...log[d] }; });
-  DAILY_HABITS.forEach(h => {
-    const s = streaks[h.id];
-    if (!s || !s.count || !s.lastDate) return;
-    for (let i = 0; i < s.count; i++) {
-      const d = new Date(s.lastDate + 'T12:00:00'); // noon avoids DST shift
-      d.setDate(d.getDate() - i);
-      const dStr = d.toLocaleDateString('en-CA');
-      if (!augLog[dStr]) augLog[dStr] = {};
-      augLog[dStr][h.id] = true;
-    }
-  });
   // Fold in today's live ticked state
   if (!augLog[todayStr]) augLog[todayStr] = {};
   Object.keys(ticked).forEach(id => { if (ticked[id]) augLog[todayStr][id] = true; });
@@ -8570,6 +8554,9 @@ function recomputeAllStreaks() {
   saveHabitStreaks(streaks);
   return streaks;
 }
+
+// Recompute streaks from actual log on page load to fix any stale counts
+recomputeAllStreaks();
 
 // ── Tab navigation ───────────────────────────────────────────────────────────
 const initialised = { dashboard: true };
