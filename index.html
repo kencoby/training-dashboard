@@ -277,6 +277,7 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
   <button class="sub-tab-btn" data-subtab="whoop-sleep">Sleep</button>
   <button class="sub-tab-btn" data-subtab="whoop-strain">Strain</button>
   <button class="sub-tab-btn" data-subtab="whoop-monitor">Monitor</button>
+  <button class="sub-tab-btn" data-subtab="whoop-fitness">Fitness</button>
 </nav>
 
 <div class="sub-tab-pane active" id="sub-tab-whoop-recovery">
@@ -387,7 +388,7 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 
 <div class="section">
 <h2>Health Monitor <span id="whoop-monitor-date" style="float:right;font-size:10px;color:#555;text-transform:none;letter-spacing:0;font-weight:400"></span></h2>
-<div class="card whoop-contrib-card" id="whoop-monitor-stats"></div>
+<div class="card" id="whoop-monitor-tiles" style="padding:12px"></div>
 </div>
 
 <div class="section">
@@ -402,6 +403,30 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 </div>
 
 </div><!-- /sub-tab-whoop-monitor -->
+
+<div class="sub-tab-pane" id="sub-tab-whoop-fitness">
+
+<div class="section">
+<h2>Last 30 Days</h2>
+<div class="card" id="whoop-fitness-summary" style="padding:16px"></div>
+</div>
+
+<div class="section">
+<h2>Activity Calendar</h2>
+<div class="card" id="whoop-activity-cal" style="padding:14px"></div>
+</div>
+
+<div class="section">
+<h2>Biomarkers</h2>
+<div class="card" id="whoop-biomarkers" style="padding:0 14px"></div>
+</div>
+
+<div class="section">
+<h2>Cardio Focus — 30 Days</h2>
+<div class="card" id="whoop-cardio-focus" style="padding:14px"></div>
+</div>
+
+</div><!-- /sub-tab-whoop-fitness -->
 
 </div><!-- /tab-whoop -->
 
@@ -9277,6 +9302,8 @@ async function fetchHealthData() {
       renderWhoopSleep();
       renderWhoopStrain();
       renderWhoopMonitor();
+      if (initialised['whoop-fitness']) renderFitnessSubTab();
+      else pendingCharts['whoop-fitness'] = renderFitnessSubTab;
       renderDailyBriefing();
       renderSleepPerformanceLink();
       renderNutrToday(); // recalc calorie target now that today's Apple Health burn data is in
@@ -10146,42 +10173,78 @@ function renderFitnessTrend() {
   `);
 }
 
+// ── Health Monitor tile grid ──────────────────────────────────────────────────
+function monitorTile(label, value, status, statusColor) {
+  return `<div style="background:#f9fafb;border-radius:12px;padding:14px 10px;text-align:center">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#999;margin-bottom:6px">${label}</div>
+    <div style="font-size:19px;font-weight:700;line-height:1.1">${value}</div>
+    <div style="font-size:11px;margin-top:6px;color:${statusColor||'#6b7280'}">${status}</div>
+  </div>`;
+}
+
 function renderWhoopMonitor() {
   renderWeeklyRollup();
-  const rows = [];
+  const tiles = [];
 
-  const vo2 = _healthLatest('vo2_max', 5);
-  if (vo2) rows.push(monitorRow('VO2 Max', `${vo2.value.toFixed(1)} ml/kg/min`, null, 'whoop-vo2max'));
+  const hrv = _healthLatest('heart_rate_variability', 2);
+  const hrv30 = _avg(_healthSeries('heart_rate_variability', 30).map(p => p.value));
+  if (hrv) {
+    const diff = hrv30 ? hrv.value - hrv30 : null;
+    const status = diff === null ? '—' : diff > 5 ? '↑ Higher' : diff < -5 ? '↓ Lower' : '→ Normal';
+    const color = diff === null ? '#9ca3af' : diff > 5 ? '#22c55e' : diff < -5 ? '#ef4444' : '#22c55e';
+    tiles.push(monitorTile('HRV', `${hrv.value.toFixed(0)}<span style="font-size:12px"> ms</span>`, status, color));
+  }
 
-  const resp = _healthLatest('respiratory_rate', 2);
-  const respBaseline = _avg(_healthSeries('respiratory_rate', 30).map(p => p.value));
-  if (resp) {
-    const dev = respBaseline ? resp.value - respBaseline : null;
-    const unusual = dev !== null && Math.abs(dev) >= 2;
-    rows.push(monitorRow('Respiratory Rate', `${resp.value.toFixed(1)} br/min`, unusualBadge(unusual, 'Outside baseline'), 'whoop-resp-rate'));
+  const rhr = _healthLatest('resting_heart_rate', 2);
+  const rhr30 = _avg(_healthSeries('resting_heart_rate', 30).map(p => p.value));
+  if (rhr) {
+    const v = rhr.value;
+    const rating = v < 55 ? 'Excellent' : v < 65 ? '✓ Normal' : v < 75 ? 'Fair' : '⚠ High';
+    const color = v < 65 ? '#22c55e' : v < 75 ? '#f59e0b' : '#ef4444';
+    const trend = rhr30 ? (v - rhr30 < -2 ? ' ↓' : v - rhr30 > 2 ? ' ↑' : '') : '';
+    tiles.push(monitorTile('RHR', `${v.toFixed(0)}<span style="font-size:12px"> bpm</span>`, rating + trend, color));
   }
 
   const spo2 = _healthLatest('blood_oxygen_saturation', 2);
   if (spo2) {
     const low = spo2.value < 95;
-    rows.push(monitorRow('Blood Oxygen (SpO₂)', `${spo2.value.toFixed(0)}%`, unusualBadge(low, 'Low'), 'whoop-spo2'));
+    const status = low ? '⚠ Low' : '✓ Normal';
+    const color = low ? '#ef4444' : '#22c55e';
+    tiles.push(monitorTile('SpO₂', `${spo2.value.toFixed(0)}<span style="font-size:12px">%</span>`, status, color));
   }
 
   const skinTemp = _healthLatest('apple_sleeping_wrist_temperature', 2);
   const skinBaseline = _avg(_healthSeries('apple_sleeping_wrist_temperature', 30).map(p => p.value));
   if (skinTemp) {
     const dev = skinBaseline ? skinTemp.value - skinBaseline : null;
+    const devText = dev !== null ? `${dev >= 0 ? '+' : ''}${dev.toFixed(1)}°C` : '';
     const unusual = dev !== null && Math.abs(dev) >= 0.3;
-    const devText = dev !== null ? ` (${dev >= 0 ? '+' : ''}${dev.toFixed(2)}°C vs baseline)` : '';
-    rows.push(monitorRow('Skin Temperature', `${skinTemp.value.toFixed(1)}°C${devText}`, unusualBadge(unusual), 'whoop-skin-temp'));
+    const status = unusual ? `⚠ ${devText} vs baseline` : dev !== null ? `✓ ${devText}` : '✓ Normal';
+    const color = unusual ? '#f59e0b' : '#22c55e';
+    tiles.push(monitorTile('Temp', `${skinTemp.value.toFixed(1)}<span style="font-size:12px">°C</span>`, status, color));
   }
 
-  const rhr = _healthLatest('resting_heart_rate', 2);
-  if (rhr) rows.push(monitorRow('Resting Heart Rate', `${rhr.value.toFixed(0)} bpm`, null, 'whoop-rhr'));
+  const resp = _healthLatest('respiratory_rate', 2);
+  const respBaseline = _avg(_healthSeries('respiratory_rate', 30).map(p => p.value));
+  if (resp) {
+    const dev = respBaseline ? resp.value - respBaseline : null;
+    const unusual = dev !== null && Math.abs(dev) >= 2;
+    const status = unusual ? '⚠ Unusual' : '✓ Normal';
+    const color = unusual ? '#f59e0b' : '#22c55e';
+    tiles.push(monitorTile('Resp Rate', `${resp.value.toFixed(1)}<span style="font-size:12px"> rpm</span>`, status, color));
+  }
 
-  setH('whoop-monitor-stats', rows.length
-    ? rows.join('')
-    : `<div class="sub" style="font-style:italic;color:#bbb">Not enough data yet</div>`);
+  const vo2 = _healthLatest('vo2_max', 5);
+  if (vo2) {
+    const v = vo2.value;
+    const rating = v >= 52 ? '🔥 Excellent' : v >= 46 ? '✓ Good' : v >= 42 ? 'Average' : 'Below Avg';
+    const color = v >= 46 ? '#22c55e' : v >= 42 ? '#f59e0b' : '#ef4444';
+    tiles.push(monitorTile('VO₂ Max', `${v.toFixed(1)}<span style="font-size:12px"></span>`, rating, color));
+  }
+
+  setH('whoop-monitor-tiles', tiles.length
+    ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${tiles.join('')}</div>`
+    : `<div style="font-style:italic;color:#bbb;font-size:13px;padding:8px">Not enough data yet</div>`);
 
   const ago = healthSyncedAgoText();
   set('whoop-monitor-date', ago || '');
@@ -10190,6 +10253,237 @@ function renderWhoopMonitor() {
 
   if (initialised['whoop-monitor']) { buildWhoopWeightChart(); buildFitnessTrendChart(); }
   else pendingCharts['whoop-monitor'] = () => { buildWhoopWeightChart(); buildFitnessTrendChart(); };
+}
+
+// ── Fitness Sub-Tab ───────────────────────────────────────────────────────────
+function renderFitnessSubTab() {
+  renderActivity30DaySummary();
+  renderActivityCalendar();
+  renderBiomarkersSection();
+  renderCardioFocus();
+}
+
+function renderActivity30DaySummary() {
+  const now = Date.now(), day = 864e5;
+  const last30 = (_acts||[]).filter(a => (now - new Date(a.start_local)) < 30*day);
+  const prev30 = (_acts||[]).filter(a => { const age = now - new Date(a.start_local); return age >= 30*day && age < 60*day; });
+
+  const hrs30 = last30.reduce((s,a) => s + (a.summary.moving_time||0)/3600, 0);
+  const hrsPrev = prev30.reduce((s,a) => s + (a.summary.moving_time||0)/3600, 0);
+  const hrsDiff = hrs30 - hrsPrev;
+
+  const dist30 = last30.filter(a => a.sport_type==='Run'||a.sport_type==='Ride')
+    .reduce((s,a) => s + (a.summary.distance||0)/1000, 0);
+
+  const wk30 = last30.length, wkPrev = prev30.length, wkDiff = wk30 - wkPrev;
+
+  const diffChip = (d, unit='') => {
+    if (!d) return '';
+    const up = d > 0;
+    const col = up ? '#22c55e' : '#ef4444';
+    return `<span style="font-size:11px;color:${col};display:block;margin-top:2px">${up?'↑':'↓'} ${Math.abs(d).toFixed(d%1?1:0)}${unit} vs prev</span>`;
+  };
+
+  setH('whoop-fitness-summary', `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;text-align:center">
+      <div style="padding:10px 0">
+        <div style="font-size:26px;font-weight:700">${wk30}</div>
+        <div style="font-size:11px;color:#888;margin-top:2px">Workouts</div>
+        ${diffChip(wkDiff)}
+      </div>
+      <div style="padding:10px 0;border-left:1px solid #f0f0f0;border-right:1px solid #f0f0f0">
+        <div style="font-size:26px;font-weight:700">${fmtHrsMin(hrs30)}</div>
+        <div style="font-size:11px;color:#888;margin-top:2px">Active time</div>
+        ${diffChip(hrsDiff, 'h')}
+      </div>
+      <div style="padding:10px 0">
+        <div style="font-size:26px;font-weight:700">${dist30.toFixed(0)}<span style="font-size:16px">km</span></div>
+        <div style="font-size:11px;color:#888;margin-top:2px">Run + Ride</div>
+      </div>
+    </div>
+  `);
+}
+
+function renderActivityCalendar() {
+  const now = new Date(); now.setHours(0,0,0,0);
+  const countMap = {};
+  (_acts||[]).forEach(a => { const d = a.start_local.slice(0,10); countMap[d] = (countMap[d]||0) + 1; });
+
+  // Build 5 weeks from most recent Monday before 5 weeks ago
+  const startD = new Date(now);
+  startD.setDate(startD.getDate() - 34);
+  const dow = startD.getDay();
+  startD.setDate(startD.getDate() - (dow===0?6:dow-1));
+
+  const weeks = [];
+  const cur = new Date(startD);
+  while (weeks.length < 6 && cur <= new Date(now.getTime() + 7*864e5)) {
+    const week = [];
+    for (let i = 0; i < 7; i++) {
+      const dStr = cur.toLocaleDateString('en-CA');
+      week.push({ dStr, count: countMap[dStr]||0, isFuture: cur > now, day: cur.getDate(), month: cur.getMonth() });
+      cur.setDate(cur.getDate()+1);
+    }
+    weeks.push(week);
+    if (cur > now && weeks.length >= 5) break;
+  }
+
+  const cellBg = (count, isFuture) => isFuture ? '#f5f5f5' : !count ? '#e8e8e8' : count===1 ? '#bbf7d0' : count===2 ? '#4ade80' : '#16a34a';
+  const cellTxt = (count) => count >= 2 ? '#fff' : '#aaa';
+
+  const dayLabels = ['M','T','W','T','F','S','S'];
+  const hdr = `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:4px">
+    ${dayLabels.map(d=>`<div style="font-size:9px;color:#bbb;text-align:center">${d}</div>`).join('')}
+  </div>`;
+
+  const grid = weeks.map(week => `
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:3px">
+      ${week.map(({dStr,count,isFuture,day,month}) => {
+        const types = (_acts||[]).filter(a=>a.start_local.slice(0,10)===dStr).map(a=>EMOJI[a.sport_type]||'🏃').join(' ');
+        const tip = `${dStr}: ${count} workout${count!==1?'s':''}${types?' — '+types:''}`;
+        return `<div title="${tip}" style="aspect-ratio:1;border-radius:3px;background:${cellBg(count,isFuture)};display:flex;align-items:center;justify-content:center;font-size:8px;color:${cellTxt(count)}">${day}</div>`;
+      }).join('')}
+    </div>
+  `).join('');
+
+  const legend = `<div style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:10px;color:#aaa">
+    <span>0</span>
+    ${['#e8e8e8','#bbf7d0','#4ade80','#16a34a'].map(c=>`<span style="width:12px;height:12px;border-radius:2px;background:${c};display:inline-block;flex-shrink:0"></span>`).join('')}
+    <span>3+</span>
+    <span style="margin-left:auto;color:#bbb">activities/day</span>
+  </div>`;
+
+  setH('whoop-activity-cal', hdr + grid + legend);
+}
+
+function renderBiomarkersSection() {
+  const rows = [];
+
+  const vo2 = _healthLatest('vo2_max', 14);
+  if (vo2) {
+    const v = vo2.value;
+    const rating = v >= 52 ? 'Excellent' : v >= 46 ? 'Good' : v >= 42 ? 'Average' : 'Below Avg';
+    const color = v >= 46 ? '#22c55e' : v >= 42 ? '#f59e0b' : '#ef4444';
+    rows.push(bioRow('VO₂ Max', `${v.toFixed(1)} ml/kg/min`, rating, color, '❤️‍🔥'));
+  }
+
+  const hrv = _healthLatest('heart_rate_variability', 2);
+  const hrv30 = _avg(_healthSeries('heart_rate_variability', 30).map(p=>p.value));
+  if (hrv) {
+    const diff = hrv30 ? hrv.value - hrv30 : null;
+    const trend = diff===null?'—': diff>5?'↑ Improving': diff<-5?'↓ Declining':'→ Stabilizing';
+    const color = diff===null?'#9ca3af': diff>5?'#22c55e': diff<-5?'#ef4444':'#6b7280';
+    rows.push(bioRow('HRV Baseline', `${hrv.value.toFixed(0)} ms`, trend, color, '💓'));
+  }
+
+  const rhr = _healthLatest('resting_heart_rate', 2);
+  const rhr30 = _avg(_healthSeries('resting_heart_rate', 30).map(p=>p.value));
+  if (rhr) {
+    const v = rhr.value;
+    const rating = v<55?'Excellent': v<65?'Normal': v<75?'Fair':'High';
+    const color = v<65?'#22c55e': v<75?'#f59e0b':'#ef4444';
+    const trend = rhr30?(v-rhr30<-2?' ↓': v-rhr30>2?' ↑':''):'';
+    rows.push(bioRow('RHR', `${v.toFixed(0)} bpm${trend}`, rating, color, '❤️'));
+  }
+
+  const bf = _healthLatest('body_fat_percentage', 14);
+  if (bf) {
+    const v = bf.value;
+    const rating = v<12?'Lean': v<17?'Acceptable': v<22?'Average':'High';
+    const color = v<17?'#22c55e': v<22?'#f59e0b':'#ef4444';
+    rows.push(bioRow('Body Fat', `${v.toFixed(1)}%`, rating, color, '⚖️'));
+  }
+
+  const lbm = _healthLatest('lean_body_mass', 14);
+  if (lbm) {
+    const lbm30 = _avg(_healthSeries('lean_body_mass', 30).map(p=>p.value));
+    const diff = lbm30 ? lbm.value - lbm30 : null;
+    const trend = diff===null?'—': diff>0.5?'↑ Gaining': diff<-0.5?'↓ Decreasing':'→ Stable';
+    const color = diff===null?'#9ca3af': diff>0.5?'#22c55e': diff<-0.5?'#f59e0b':'#6b7280';
+    rows.push(bioRow('Lean Mass', `${lbm.value.toFixed(1)} kg`, trend, color, '💪'));
+  }
+
+  const w = _healthLatest('body_mass',5) || _healthLatest('weight_body_mass',5);
+  if (w && !bf) {
+    const w30 = _avg((_healthSeries('body_mass',30).length?_healthSeries('body_mass',30):_healthSeries('weight_body_mass',30)).map(p=>p.value));
+    const diff = w30 ? w.value - w30 : null;
+    const trend = diff===null?'—': diff>0.5?'↑ Gaining': diff<-0.5?'↓ Decreasing':'→ Stable';
+    const color = diff===null?'#9ca3af': diff<-0.5?'#22c55e': diff>0.5?'#f59e0b':'#6b7280';
+    rows.push(bioRow('Weight', `${w.value.toFixed(1)} kg`, trend, color, '⚖️'));
+  }
+
+  setH('whoop-biomarkers', rows.length
+    ? rows.join('')
+    : `<div style="font-style:italic;color:#bbb;font-size:13px;padding:14px 0">No biomarker data available</div>`);
+}
+
+function bioRow(label, value, status, color, icon) {
+  return `<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid #f3f4f6">
+    <span style="font-size:18px;width:26px;text-align:center;flex-shrink:0">${icon}</span>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.4px">${label}</div>
+      <div style="font-size:15px;font-weight:600;margin-top:1px">${value}</div>
+    </div>
+    <span style="font-size:12px;font-weight:500;color:${color};text-align:right;flex-shrink:0">${status}</span>
+  </div>`;
+}
+
+function renderCardioFocus() {
+  const now = Date.now(), day = 864e5;
+  const cardioActs = (_acts||[]).filter(a => {
+    const age = now - new Date(a.start_local);
+    return age < 30*day && (a.sport_type==='Run'||a.sport_type==='Ride'||a.sport_type==='Swim');
+  });
+
+  // ACWR load status
+  const acwr = calcACWR(_acts||[]);
+  const zone = acwrZone(acwr.ratio);
+  const loadCard = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding:12px;background:#f9fafb;border-radius:10px">
+    <div>
+      <div style="font-size:10px;color:#999;text-transform:uppercase;letter-spacing:0.5px">Cardio Load (ACWR)</div>
+      <div style="font-size:22px;font-weight:700;margin-top:2px">${acwr.ratio.toFixed(2)}</div>
+    </div>
+    <span style="font-size:13px;font-weight:600;padding:6px 12px;border-radius:20px;background:${zone.color}22;color:${zone.color}">${zone.label}</span>
+  </div>`;
+
+  if (!cardioActs.length) {
+    setH('whoop-cardio-focus', loadCard + `<div style="font-style:italic;color:#bbb;font-size:13px">No cardio logged in last 30 days</div>`);
+    return;
+  }
+
+  const totalMins = cardioActs.reduce((s,a) => s + (a.summary.moving_time||0)/60, 0);
+  const byInt = {easy:0, moderate:0, hard:0};
+  cardioActs.forEach(a => { const m = (a.summary.moving_time||0)/60; byInt[intensity(a)] = (byInt[intensity(a)]||0) + m; });
+
+  const cfg = [
+    { k:'easy',     label:'Low Aerobic / Easy',    color:'#67e8f9' },
+    { k:'moderate', label:'Aerobic / Moderate',     color:'#818cf8' },
+    { k:'hard',     label:'High Intensity / Hard',  color:'#f87171' },
+  ];
+
+  const bars = cfg.map(({k,label,color}) => {
+    const pct = totalMins > 0 ? Math.round((byInt[k]||0)/totalMins*100) : 0;
+    if (!pct) return '';
+    return `<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:#555;margin-bottom:5px">
+        <span>${label}</span><span style="font-weight:600">${pct}%</span>
+      </div>
+      <div style="height:8px;background:#f0f0f0;border-radius:4px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:${color};border-radius:4px;transition:width 0.5s"></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const sportSplit = ['Run','Ride','Swim'].map(s => {
+    const acts = cardioActs.filter(a=>a.sport_type===s);
+    if (!acts.length) return '';
+    const h = acts.reduce((t,a)=>(t+(a.summary.moving_time||0)/3600),0);
+    return `<span style="margin-right:12px;font-size:12px;color:#666">${EMOJI[s]||''} ${fmtHrsMin(h)}</span>`;
+  }).join('');
+
+  setH('whoop-cardio-focus', loadCard +
+    `<div style="font-size:11px;color:#aaa;margin-bottom:12px">Intensity breakdown · ${sportSplit}</div>` +
+    bars);
 }
 
 fetchHealthData();
@@ -10221,6 +10515,8 @@ async function main() {
     _acts = acts;
     renderWhoopStrain(); // refresh now that today's workouts are loaded
     renderWhoopMonitor(); // weekly rollup + fitness trend also depend on _acts
+    if (initialised['whoop-fitness']) renderFitnessSubTab();
+    else pendingCharts['whoop-fitness'] = renderFitnessSubTab;
     if (typeof renderPlannerCalendar === 'function') renderPlannerCalendar(); // actual-vs-planned depends on _acts
     if (typeof renderAnnualPlan === 'function') renderAnnualPlan();
 
