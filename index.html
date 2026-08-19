@@ -3228,9 +3228,9 @@ function getTrainingSuggestion() {
   const sleepData = (typeof computeSleepForDate === 'function') ? computeSleepForDate(today) : null;
   if (!sleepData) return null;
   const h = sleepData.totalSleep;
-  if (h < 6)   return { verdict: 'Rest day 😴', color: '#ef4444', bg: '#fef2f2', detail: `Only ${h.toFixed(1)}h sleep` };
-  if (h < 7.5) return { verdict: 'Take it easy ⚡', color: '#f59e0b', bg: '#fffbeb', detail: `${h.toFixed(1)}h sleep` };
-  return { verdict: 'Ready to push 💪', color: '#6b9e7a', bg: '#f0fdf4', detail: `${h.toFixed(1)}h sleep` };
+  if (h < 6)   return { verdict: 'Rest day 😴', color: '#ef4444', bg: '#fef2f2', detail: `Only ${fmtHrsMin(h)} sleep` };
+  if (h < 7.5) return { verdict: 'Take it easy ⚡', color: '#f59e0b', bg: '#fffbeb', detail: `${fmtHrsMin(h)} sleep` };
+  return { verdict: 'Ready to push 💪', color: '#6b9e7a', bg: '#f0fdf4', detail: `${fmtHrsMin(h)} sleep` };
 }
 function renderTrainingSuggestion() {
   const el = document.getElementById('home-suggestion');
