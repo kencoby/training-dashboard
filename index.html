@@ -10356,6 +10356,15 @@ function renderActivityCalendar() {
   setH('whoop-activity-cal', hdr + grid + legend);
 }
 
+function toggleBioRow(id) {
+  const hist = document.getElementById(id + '-hist');
+  const chev = document.getElementById(id + '-chev');
+  if (!hist) return;
+  const open = hist.style.display !== 'none';
+  hist.style.display = open ? 'none' : 'block';
+  if (chev) chev.style.transform = open ? '' : 'rotate(180deg)';
+}
+
 function renderBiomarkersSection() {
   const rows = [];
 
@@ -10364,7 +10373,8 @@ function renderBiomarkersSection() {
     const v = vo2.value;
     const rating = v >= 52 ? 'Excellent' : v >= 46 ? 'Good' : v >= 42 ? 'Average' : 'Below Avg';
     const color = v >= 46 ? '#22c55e' : v >= 42 ? '#f59e0b' : '#ef4444';
-    rows.push(bioRow('VO₂ Max', `${v.toFixed(1)} ml/kg/min`, rating, color, '❤️‍🔥'));
+    const hist = _healthSeries('vo2_max', 120).slice(-10).reverse();
+    rows.push(bioRow('bio-vo2', 'VO₂ Max', `${v.toFixed(1)} ml/kg/min`, rating, color, '❤️‍🔥', hist, 'ml/kg/min', 1));
   }
 
   const hrv = _healthLatest('heart_rate_variability', 2);
@@ -10373,7 +10383,8 @@ function renderBiomarkersSection() {
     const diff = hrv30 ? hrv.value - hrv30 : null;
     const trend = diff===null?'—': diff>5?'↑ Improving': diff<-5?'↓ Declining':'→ Stabilizing';
     const color = diff===null?'#9ca3af': diff>5?'#22c55e': diff<-5?'#ef4444':'#6b7280';
-    rows.push(bioRow('HRV Baseline', `${hrv.value.toFixed(0)} ms`, trend, color, '💓'));
+    const hist = _healthSeries('heart_rate_variability', 60).slice(-10).reverse();
+    rows.push(bioRow('bio-hrv', 'HRV Baseline', `${hrv.value.toFixed(0)} ms`, trend, color, '💓', hist, 'ms', 0));
   }
 
   const rhr = _healthLatest('resting_heart_rate', 2);
@@ -10383,7 +10394,8 @@ function renderBiomarkersSection() {
     const rating = v<55?'Excellent': v<65?'Normal': v<75?'Fair':'High';
     const color = v<65?'#22c55e': v<75?'#f59e0b':'#ef4444';
     const trend = rhr30?(v-rhr30<-2?' ↓': v-rhr30>2?' ↑':''):'';
-    rows.push(bioRow('RHR', `${v.toFixed(0)} bpm${trend}`, rating, color, '❤️'));
+    const hist = _healthSeries('resting_heart_rate', 60).slice(-10).reverse();
+    rows.push(bioRow('bio-rhr', 'RHR', `${v.toFixed(0)} bpm`, rating + trend, color, '❤️', hist, 'bpm', 0));
   }
 
   const bf = _healthLatest('body_fat_percentage', 14);
@@ -10391,7 +10403,8 @@ function renderBiomarkersSection() {
     const v = bf.value;
     const rating = v<12?'Lean': v<17?'Acceptable': v<22?'Average':'High';
     const color = v<17?'#22c55e': v<22?'#f59e0b':'#ef4444';
-    rows.push(bioRow('Body Fat', `${v.toFixed(1)}%`, rating, color, '⚖️'));
+    const hist = _healthSeries('body_fat_percentage', 120).slice(-10).reverse();
+    rows.push(bioRow('bio-bf', 'Body Fat', `${v.toFixed(1)}%`, rating, color, '⚖️', hist, '%', 1));
   }
 
   const lbm = _healthLatest('lean_body_mass', 14);
@@ -10400,16 +10413,19 @@ function renderBiomarkersSection() {
     const diff = lbm30 ? lbm.value - lbm30 : null;
     const trend = diff===null?'—': diff>0.5?'↑ Gaining': diff<-0.5?'↓ Decreasing':'→ Stable';
     const color = diff===null?'#9ca3af': diff>0.5?'#22c55e': diff<-0.5?'#f59e0b':'#6b7280';
-    rows.push(bioRow('Lean Mass', `${lbm.value.toFixed(1)} kg`, trend, color, '💪'));
+    const hist = _healthSeries('lean_body_mass', 120).slice(-10).reverse();
+    rows.push(bioRow('bio-lbm', 'Lean Mass', `${lbm.value.toFixed(1)} kg`, trend, color, '💪', hist, 'kg', 1));
   }
 
   const w = _healthLatest('body_mass',5) || _healthLatest('weight_body_mass',5);
   if (w && !bf) {
-    const w30 = _avg((_healthSeries('body_mass',30).length?_healthSeries('body_mass',30):_healthSeries('weight_body_mass',30)).map(p=>p.value));
+    const wSeries = _healthSeries('body_mass',120).length ? _healthSeries('body_mass',120) : _healthSeries('weight_body_mass',120);
+    const w30 = _avg(wSeries.slice(-30).map(p=>p.value));
     const diff = w30 ? w.value - w30 : null;
     const trend = diff===null?'—': diff>0.5?'↑ Gaining': diff<-0.5?'↓ Decreasing':'→ Stable';
     const color = diff===null?'#9ca3af': diff<-0.5?'#22c55e': diff>0.5?'#f59e0b':'#6b7280';
-    rows.push(bioRow('Weight', `${w.value.toFixed(1)} kg`, trend, color, '⚖️'));
+    const hist = wSeries.slice(-10).reverse();
+    rows.push(bioRow('bio-wt', 'Weight', `${w.value.toFixed(1)} kg`, trend, color, '⚖️', hist, 'kg', 1));
   }
 
   setH('whoop-biomarkers', rows.length
@@ -10417,14 +10433,46 @@ function renderBiomarkersSection() {
     : `<div style="font-style:italic;color:#bbb;font-size:13px;padding:14px 0">No biomarker data available</div>`);
 }
 
-function bioRow(label, value, status, color, icon) {
-  return `<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid #f3f4f6">
-    <span style="font-size:18px;width:26px;text-align:center;flex-shrink:0">${icon}</span>
-    <div style="flex:1;min-width:0">
-      <div style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.4px">${label}</div>
-      <div style="font-size:15px;font-weight:600;margin-top:1px">${value}</div>
+function bioRow(id, label, value, status, color, icon, history, unit, decimals) {
+  const fmtD = d => new Date(d).toLocaleDateString('en-GB', {day:'numeric', month:'short'});
+  const hasHist = history && history.length > 1;
+
+  let histHtml = '';
+  if (hasHist) {
+    const rows = history.map((pt, i) => {
+      const prev = history[i + 1];
+      const diff = prev != null ? pt.value - prev.value : null;
+      const sign = diff === null ? '' : diff > 0 ? '+' : '';
+      const diffStr = diff === null ? '' : `${sign}${diff.toFixed(decimals)}`;
+      const diffCol = diff === null ? '' : diff > 0 ? '#22c55e' : diff < 0 ? '#ef4444' : '#9ca3af';
+      const isLatest = i === 0;
+      return `<div style="display:grid;grid-template-columns:72px 1fr auto;gap:4px;align-items:center;padding:4px 0;${isLatest?'font-weight:600':'opacity:0.75'}">
+        <span style="font-size:11px;color:#9ca3af">${fmtD(pt.date)}</span>
+        <span style="font-size:12px">${pt.value.toFixed(decimals)} ${unit}</span>
+        <span style="font-size:11px;color:${diffCol};min-width:36px;text-align:right">${diffStr}</span>
+      </div>`;
+    }).join('');
+    histHtml = `<div id="${id}-hist" style="display:none;padding:2px 0 10px 38px;border-top:1px solid #f3f4f6;margin-top:2px">${rows}</div>`;
+  }
+
+  const chevron = hasHist
+    ? `<span id="${id}-chev" style="font-size:11px;color:#d1d5db;flex-shrink:0;transition:transform 0.2s;display:inline-block">▾</span>`
+    : '';
+
+  const cursor = hasHist ? 'cursor:pointer;user-select:none' : '';
+  const onclick = hasHist ? `onclick="toggleBioRow('${id}')"` : '';
+
+  return `<div style="border-bottom:1px solid #f3f4f6">
+    <div style="display:flex;align-items:center;gap:12px;padding:11px 0;${cursor}" ${onclick}>
+      <span style="font-size:18px;width:26px;text-align:center;flex-shrink:0">${icon}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.4px">${label}</div>
+        <div style="font-size:15px;font-weight:600;margin-top:1px">${value}</div>
+      </div>
+      <span style="font-size:12px;font-weight:500;color:${color};text-align:right;flex-shrink:0">${status}</span>
+      ${chevron}
     </div>
-    <span style="font-size:12px;font-weight:500;color:${color};text-align:right;flex-shrink:0">${status}</span>
+    ${histHtml}
   </div>`;
 }
 
