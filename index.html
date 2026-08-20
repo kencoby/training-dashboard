@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Philip's Training Dashboard</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1a1a1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Training">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous"></script>
 <style>
@@ -169,6 +174,7 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
   <div style="display:flex;gap:8px;align-items:center">
     <button onclick="toggleGoalModal()" title="Set race/goal" style="background:none;border:none;cursor:pointer;font-size:16px;padding:0;line-height:1" title="Set a target event">🎯</button>
     <button id="dark-mode-btn" onclick="toggleDarkMode()" title="Toggle dark mode" style="background:none;border:none;cursor:pointer;font-size:16px;padding:0;line-height:1">🌙</button>
+    <button onclick="showExportMenu()" title="Export data" style="background:none;border:none;cursor:pointer;font-size:16px;padding:0;line-height:1">📤</button>
     <button id="disconnect-btn" class="disconnect-btn" title="Disconnect Strava">Disconnect</button>
   </div>
 </div>
@@ -217,6 +223,7 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
   <!-- LEFT: Daily briefing (takes most of the width) -->
   <div class="home-briefing-col" style="display:flex;flex-direction:column;min-height:0">
     <div id="warns" style="flex-shrink:0"></div>
+    <div id="alerts-banner" style="display:none"></div>
     <div class="card" id="daily-briefing-body" style="padding:0;overflow:hidden;flex:1;min-height:0;display:flex;flex-direction:column">
       <div id="today-weather-bar" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 8px;border-bottom:1px solid #f3f4f6;flex-wrap:wrap;gap:6px;flex-shrink:0">
         <div style="display:flex;align-items:center;gap:6px">
@@ -459,6 +466,21 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 <div class="section">
 <h2>Cardio Focus — 30 Days</h2>
 <div class="card" id="whoop-cardio-focus" style="padding:14px"></div>
+</div>
+
+
+<div class="section">
+<h2>Personal Records 🏆</h2>
+<div class="card" id="whoop-pr-tracker" style="padding:14px">
+  <div style="font-size:12px;color:#bbb;text-align:center;padding:16px">Loading PRs…</div>
+</div>
+</div>
+
+<div class="section">
+<h2>Load Forecast</h2>
+<div class="card" id="whoop-load-forecast" style="padding:14px">
+  <div style="font-size:12px;color:#bbb;text-align:center;padding:16px">Loading…</div>
+</div>
 </div>
 
 </div><!-- /sub-tab-whoop-fitness -->
@@ -947,6 +969,47 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
     <span onclick="promptStudyGoal()" style="cursor:pointer;text-decoration:underline">Set goal</span>
   </div>
   <div id="study-q-heatmap" style="display:flex;gap:3px;flex-wrap:wrap;margin-top:10px"></div>
+</div>
+
+<!-- POMODORO TIMER -->
+<div class="card" style="margin-bottom:12px;padding:14px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div class="lbl" style="margin:0">🍅 Pomodoro</div>
+    <div style="font-size:11px;color:#bbb" id="pomo-session-count">0 sessions today</div>
+  </div>
+  <div style="text-align:center">
+    <div style="font-size:52px;font-weight:800;letter-spacing:-2px;font-variant-numeric:tabular-nums" id="pomo-display">25:00</div>
+    <div style="font-size:12px;color:#9ca3af;margin-top:2px" id="pomo-phase-label">Focus</div>
+  </div>
+  <div style="background:#f3f4f6;border-radius:99px;height:5px;overflow:hidden;margin:10px 0">
+    <div id="pomo-progress-bar" style="background:#e05c5c;height:100%;width:0%;transition:width 1s linear;border-radius:99px"></div>
+  </div>
+  <div style="display:flex;gap:8px;justify-content:center">
+    <button id="pomo-start-btn" onclick="pomoToggle()" style="background:#1a1a1a;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:14px;font-weight:600;cursor:pointer">Start</button>
+    <button onclick="pomoReset()" style="background:#f3f4f6;border:none;border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer">Reset</button>
+    <button onclick="pomoSkip()" style="background:#f3f4f6;border:none;border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer">Skip →</button>
+  </div>
+</div>
+
+<!-- TOPIC WEAKNESS HEATMAP -->
+<div class="card" style="margin-bottom:12px;padding:14px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+    <div class="lbl" style="margin:0">🧠 Topic Tracker</div>
+    <button onclick="showTopicInput()" style="background:none;border:1px solid #e5e7eb;border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer">+ Flag topic</button>
+  </div>
+  <div id="topic-input-row" style="display:none;margin-bottom:10px">
+    <input id="topic-name-input" type="text" placeholder="Topic name (e.g. Cardiac tamponade)" style="width:100%;border:1px solid #e5e7eb;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none;margin-bottom:6px">
+    <div style="display:flex;gap:6px">
+      <select id="topic-confidence" style="flex:1;border:1px solid #e5e7eb;border-radius:8px;padding:7px 10px;font-size:13px;background:#fff;font-family:inherit;outline:none">
+        <option value="weak">🔴 Weak — don't know it</option>
+        <option value="shaky">🟠 Shaky — unsure</option>
+        <option value="ok">🟡 OK — mostly there</option>
+        <option value="strong">🟢 Strong — nailed it</option>
+      </select>
+      <button onclick="addTopicEntry()" style="background:#1a1a1a;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer">Add</button>
+    </div>
+  </div>
+  <div id="topic-weakness-list" style="display:flex;flex-direction:column;gap:4px"></div>
 </div>
 
   <nav class="sub-tab-nav">
@@ -11531,6 +11594,581 @@ renderStudyQTracker();
 document.querySelectorAll('[data-subtab^="med"]').forEach(btn => {
   btn.addEventListener('click', () => setTimeout(renderStudyQTracker, 50));
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK 10 — Personal Records Tracker
+// ═══════════════════════════════════════════════════════════════════════════
+function renderPRTracker() {
+  const el = document.getElementById('whoop-pr-tracker');
+  if (!el) return;
+  const acts = _acts || [];
+
+  // PR definitions: [sport, label, minDist_m, maxDist_m]
+  const targets = [
+    { sport: 'Run', label: '1 km',  min: 950,   max: 1050  },
+    { sport: 'Run', label: '5 km',  min: 4800,  max: 5200  },
+    { sport: 'Run', label: '10 km', min: 9500,  max: 10500 },
+    { sport: 'Run', label: 'Half',  min: 20500, max: 21800 },
+    { sport: 'Run', label: 'Marathon', min: 41800, max: 43000 },
+    { sport: 'Ride', label: '10 km',  min: 9500,  max: 10800 },
+    { sport: 'Ride', label: '25 km',  min: 24000, max: 26000 },
+    { sport: 'Ride', label: '50 km',  min: 48000, max: 52000 },
+    { sport: 'Swim', label: '400 m',  min: 380,   max: 420  },
+    { sport: 'Swim', label: '1500 m', min: 1400,  max: 1600 },
+  ];
+
+  const sportEmoji = { Run: '🏃', Ride: '🚴', Swim: '🏊' };
+  const fmtPace = (speedMs, sport) => {
+    if (!speedMs) return '—';
+    if (sport === 'Ride') return (speedMs * 3.6).toFixed(1) + ' km/h';
+    // Run/Swim: min/km
+    const secPerKm = 1000 / speedMs;
+    const m = Math.floor(secPerKm / 60), s = Math.round(secPerKm % 60);
+    return `${m}:${s.toString().padStart(2,'0')}/km`;
+  };
+  const fmtTime = secs => {
+    if (!secs) return '—';
+    const h = Math.floor(secs/3600), m = Math.floor((secs%3600)/60), s = secs%60;
+    return h > 0 ? `${h}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}` : `${m}:${s.toString().padStart(2,'0')}`;
+  };
+
+  const rows = targets.map(t => {
+    const matching = acts.filter(a => {
+      const sp = a.sport_type;
+      const d  = a.summary.distance || 0;
+      if (t.sport === 'Run' && sp !== 'Run') return false;
+      if (t.sport === 'Ride' && !['Ride','VirtualRide'].includes(sp)) return false;
+      if (t.sport === 'Swim' && sp !== 'Swim') return false;
+      return d >= t.min && d <= t.max;
+    });
+    if (!matching.length) return null;
+    // Best = fastest moving time
+    const best = matching.reduce((b, a) => (a.summary.moving_time||9999) < (b.summary.moving_time||9999) ? a : b);
+    const d = new Date(best.start_local);
+    const dateStr = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
+    return { t, best, dateStr };
+  }).filter(Boolean);
+
+  if (!rows.length) {
+    el.innerHTML = '<div style="text-align:center;color:#bbb;font-size:12px;padding:16px">Not enough activity data yet</div>';
+    return;
+  }
+
+  // Group by sport
+  const bySport = {};
+  rows.forEach(r => { (bySport[r.t.sport] = bySport[r.t.sport] || []).push(r); });
+
+  let html = '';
+  Object.entries(bySport).forEach(([sport, sRows]) => {
+    html += `<div style="margin-bottom:12px">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.07em;font-weight:700;color:#9ca3af;margin-bottom:6px">${sportEmoji[sport]||''} ${sport}</div>
+      ${sRows.map(({ t, best, dateStr }) => `
+        <div style="display:flex;align-items:center;padding:6px 0;border-bottom:1px solid #f9fafb">
+          <div style="font-size:13px;font-weight:600;min-width:70px">${t.label}</div>
+          <div style="flex:1;font-size:14px;font-weight:700">${fmtTime(best.summary.moving_time)}</div>
+          <div style="font-size:11px;color:#9ca3af;text-align:right">${fmtPace(best.summary.avg_speed, sport)}<br>${dateStr}</div>
+        </div>`).join('')}
+    </div>`;
+  });
+  el.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK 11 — Training Load Forecast
+// ═══════════════════════════════════════════════════════════════════════════
+function renderLoadForecast() {
+  const el = document.getElementById('whoop-load-forecast');
+  if (!el) return;
+
+  // Get current CTL/ATL from last point in fitness trend
+  const series = computeFitnessTrend(90);
+  if (!series.length) { el.innerHTML = '<div style="color:#bbb;font-size:12px;text-align:center;padding:12px">Not enough data</div>'; return; }
+  const { ctl, atl } = series[series.length - 1];
+
+  // Estimate next 7 days of load from planned sessions
+  const ctlK = 1 - Math.exp(-1 / 42);
+  const atlK = 1 - Math.exp(-1 / 7);
+  const LOAD_BY_INTENSITY = { easy: 30, moderate: 55, hard: 85, rest: 0 };
+
+  let projCTL = ctl, projATL = atl;
+  const projPoints = [];
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  for (let i = 1; i <= 7; i++) {
+    const d = new Date(today); d.setDate(d.getDate() + i);
+    const dStr = d.toLocaleDateString('en-CA');
+    const sessions = typeof getTodaysSessions === 'function' ? getTodaysSessions(d) : [];
+    let load = sessions.length ? sessions.reduce((s, { session }) => {
+      const lvl = session ? (session.intensity || session.lvl || 'moderate') : 'moderate';
+      return s + (LOAD_BY_INTENSITY[lvl] || LOAD_BY_INTENSITY.moderate);
+    }, 0) : LOAD_BY_INTENSITY.rest;
+    projCTL += (load - projCTL) * ctlK;
+    projATL += (load - projATL) * atlK;
+    const acwr = projCTL > 0 ? projATL / projCTL : 0;
+    projPoints.push({ d, dStr, load, ctl: projCTL, atl: projATL, acwr });
+  }
+
+  const finalACWR = projPoints[projPoints.length - 1]?.acwr || 0;
+  const acwrColor = finalACWR > 1.5 ? '#ef4444' : finalACWR > 1.3 ? '#f97316' : finalACWR >= 0.8 ? '#22c55e' : '#f59e0b';
+  const acwrLabel = finalACWR > 1.5 ? 'High injury risk' : finalACWR > 1.3 ? 'Caution' : finalACWR >= 0.8 ? 'Sweet spot' : 'Detraining risk';
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div>
+        <div style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.06em;font-weight:700">Projected ACWR in 7 days</div>
+        <div style="font-size:28px;font-weight:800;color:${acwrColor}">${finalACWR.toFixed(2)}</div>
+        <div style="font-size:12px;color:${acwrColor};font-weight:600">${acwrLabel}</div>
+      </div>
+      <div style="text-align:right;font-size:11px;color:#9ca3af">
+        <div>Current CTL: ${ctl.toFixed(1)}</div>
+        <div>Current ATL: ${atl.toFixed(1)}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:3px;align-items:flex-end;height:40px">
+      ${projPoints.map(p => {
+        const h = Math.min(100, Math.max(5, (p.load / 100) * 100));
+        const c = p.acwr > 1.5 ? '#ef4444' : p.acwr > 1.3 ? '#f97316' : '#6b9e7a';
+        const dayLabel = p.d.toLocaleDateString('en-GB', { weekday: 'short' });
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+          <div style="width:100%;background:${c};border-radius:3px 3px 0 0;height:${h}%" title="${dayLabel}: load ${Math.round(p.load)}, ACWR ${p.acwr.toFixed(2)}"></div>
+          <div style="font-size:9px;color:#9ca3af">${dayLabel.slice(0,1)}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="font-size:10px;color:#bbb;margin-top:8px">Based on planned sessions. ACWR sweet spot: 0.8–1.3</div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK 12 — HR Zone Breakdown (added to renderFitnessSubTab)
+// ═══════════════════════════════════════════════════════════════════════════
+function renderHRZoneBreakdown() {
+  const el = document.getElementById('whoop-cardio-focus');
+  if (!el) return;
+  const lthr = (_plannerZones && _plannerZones.thresholdHR) || 170;
+  const zones = [
+    { label: 'Z1 Recovery',  max: lthr * 0.75, color: '#6b9e7a' },
+    { label: 'Z2 Aerobic',   max: lthr * 0.83, color: '#84cc16' },
+    { label: 'Z3 Tempo',     max: lthr * 0.91, color: '#f59e0b' },
+    { label: 'Z4 Threshold', max: lthr * 0.97, color: '#f97316' },
+    { label: 'Z5 VO₂',      max: Infinity,     color: '#ef4444' },
+  ];
+  const now = Date.now(), day = 864e5;
+  const last30 = (_acts || []).filter(a => (now - new Date(a.start_local)) < 30 * day);
+  const zoneMins = [0, 0, 0, 0, 0];
+  last30.forEach(a => {
+    const hr = a.summary.avg_hr;
+    if (!hr) return;
+    const mins = (a.summary.moving_time || 0) / 60;
+    const zi = zones.findIndex(z => hr < z.max);
+    if (zi >= 0) zoneMins[zi] += mins;
+  });
+  const totalMins = zoneMins.reduce((s, v) => s + v, 0);
+  if (totalMins < 1) return; // skip — existing renderCardioFocus handles this
+
+  // Append zone breakdown to existing cardio focus card
+  const existing = el.innerHTML;
+  const zoneHtml = `<div style="margin-top:16px;border-top:1px solid #f3f4f6;padding-top:12px">
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.07em;font-weight:700;color:#9ca3af;margin-bottom:8px">HR Zone Distribution</div>
+    ${zones.map((z, i) => {
+      const pct = totalMins ? Math.round(zoneMins[i] / totalMins * 100) : 0;
+      const m = Math.round(zoneMins[i]);
+      if (!m) return '';
+      return `<div style="margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px">
+          <span style="font-weight:600;color:${z.color}">${z.label}</span>
+          <span style="color:#9ca3af">${fmtHrsMin(m/60)} · ${pct}%</span>
+        </div>
+        <div style="background:#f3f4f6;border-radius:99px;height:5px;overflow:hidden">
+          <div style="background:${z.color};height:100%;width:${pct}%;border-radius:99px"></div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+  el.innerHTML = existing + zoneHtml;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK 13 — Weight Trend Chart
+// ═══════════════════════════════════════════════════════════════════════════
+function renderWeightTrendChart() {
+  // Append a weight trend canvas to biomarkers section
+  const el = document.getElementById('whoop-biomarkers');
+  if (!el || document.getElementById('weight-trend-canvas')) return;
+
+  const series = _healthSeries('body_mass', 60);
+  if (series.length < 5) return;
+
+  // Build date-keyed data
+  const now = new Date(); now.setHours(0,0,0,0);
+  const points = [];
+  for (let i = 59; i >= 0; i--) {
+    const d = new Date(now); d.setDate(d.getDate() - i);
+    const dStr = d.toLocaleDateString('en-CA');
+    const v = typeof _healthValueOnDate === 'function' ? _healthValueOnDate('body_mass', dStr) : null;
+    if (v != null) points.push({ x: dStr, y: v });
+  }
+  if (points.length < 5) return;
+
+  // 7-day moving average
+  const smoothed = points.map((p, i) => {
+    const window = points.slice(Math.max(0, i - 6), i + 1);
+    return { x: p.x, y: _avg(window.map(w => w.y)) };
+  });
+
+  const div = document.createElement('div');
+  div.style.cssText = 'padding:14px 14px 8px;border-top:1px solid #f3f4f6';
+  div.innerHTML = `<div style="font-size:11px;text-transform:uppercase;letter-spacing:.07em;font-weight:700;color:#9ca3af;margin-bottom:8px">⚖️ Weight Trend (7-day avg)</div><div style="height:100px"><canvas id="weight-trend-canvas"></canvas></div>`;
+  el.appendChild(div);
+
+  if (typeof Chart === 'undefined') return;
+  new Chart(document.getElementById('weight-trend-canvas'), {
+    type: 'line',
+    data: {
+      labels: smoothed.map(p => p.x.slice(5)),
+      datasets: [
+        { label: 'Raw', data: points.map(p => p.y), borderColor: '#d1d5db', backgroundColor: 'transparent', borderWidth: 1, pointRadius: 0 },
+        { label: '7d avg', data: smoothed.map(p => +p.y.toFixed(2)), borderColor: '#6b9e7a', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 0, tension: 0.3 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.raw} kg` } } },
+      scales: {
+        x: { ticks: { font: { size: 9 }, maxTicksLimit: 8 } },
+        y: { ticks: { font: { size: 9 } }, grace: '5%' }
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK 14 — Hydration Tracker (Home tab, injected into sections)
+// ═══════════════════════════════════════════════════════════════════════════
+function getHydrationData() {
+  const today = new Date().toLocaleDateString('en-CA');
+  try {
+    const d = JSON.parse(localStorage.getItem('hydration_data') || '{}');
+    if (d.date !== today) return { date: today, ml: 0 };
+    return d;
+  } catch { return { date: today, ml: 0 }; }
+}
+function saveHydrationData(ml) {
+  const today = new Date().toLocaleDateString('en-CA');
+  localStorage.setItem('hydration_data', JSON.stringify({ date: today, ml }));
+}
+function addHydration(ml) {
+  const d = getHydrationData();
+  const newMl = Math.max(0, d.ml + ml);
+  saveHydrationData(newMl);
+  renderHydrationSection();
+}
+function renderHydrationSection() {
+  const el = document.getElementById('hydration-section');
+  if (!el) return;
+  const { ml } = getHydrationData();
+  const goal = +(localStorage.getItem('hydration_goal') || 2500);
+  const pct = Math.min(100, Math.round(ml / goal * 100));
+  const cups = Math.floor(ml / 250);
+  const cupsHtml = Array.from({length: Math.min(10, Math.ceil(goal/250))}, (_, i) =>
+    `<span style="font-size:18px;cursor:pointer;opacity:${i < cups ? 1 : 0.25}" onclick="addHydration(250)" title="Add 250ml">💧</span>`
+  ).join('');
+  el.innerHTML = `
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:#9ca3af;font-weight:700;margin-bottom:6px">💧 Hydration</div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="flex:1">
+        <div style="display:flex;flex-wrap:wrap;gap:2px;margin-bottom:6px">${cupsHtml}</div>
+        <div style="background:#f3f4f6;border-radius:99px;height:5px;overflow:hidden">
+          <div style="background:#3b82f6;height:100%;width:${pct}%;border-radius:99px;transition:width .3s"></div>
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:16px;font-weight:700">${ml} ml</div>
+        <div style="font-size:10px;color:#9ca3af">of ${goal} ml</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:8px">
+      <button onclick="addHydration(250)" style="flex:1;background:#eff6ff;color:#3b82f6;border:none;border-radius:8px;padding:5px;font-size:12px;font-weight:600;cursor:pointer">+250 ml</button>
+      <button onclick="addHydration(500)" style="flex:1;background:#eff6ff;color:#3b82f6;border:none;border-radius:8px;padding:5px;font-size:12px;font-weight:600;cursor:pointer">+500 ml</button>
+      <button onclick="addHydration(-250)" style="flex:1;background:#f3f4f6;color:#6b7280;border:none;border-radius:8px;padding:5px;font-size:12px;cursor:pointer">-250 ml</button>
+    </div>`;
+}
+
+// Inject hydration into home sections via override of renderDailyBriefing
+const _origSetHTodaySections = setH;
+// Patch: append hydration section after today-sections renders
+const _origRenderDailyBriefing2 = renderDailyBriefing;
+renderDailyBriefing = function() {
+  _origRenderDailyBriefing2.apply(this, arguments);
+  // Inject hydration card below today-sections
+  const parent = document.getElementById('today-sections');
+  if (parent && !document.getElementById('hydration-section')) {
+    const div = document.createElement('div');
+    div.id = 'hydration-section';
+    div.style.cssText = 'padding-top:12px;border-top:1px solid #f3f4f6;margin-top:4px';
+    parent.appendChild(div);
+  }
+  renderHydrationSection();
+  renderAlertsBanner();
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK 15 — Pomodoro Timer
+// ═══════════════════════════════════════════════════════════════════════════
+const POMO_FOCUS = 25 * 60;
+const POMO_BREAK = 5 * 60;
+let _pomoPhase = 'focus';   // 'focus' | 'break'
+let _pomoRemaining = POMO_FOCUS;
+let _pomoRunning = false;
+let _pomoInterval = null;
+let _pomoSessionsToday = 0;
+
+function _pomoLoadSessions() {
+  const today = new Date().toLocaleDateString('en-CA');
+  try {
+    const d = JSON.parse(localStorage.getItem('pomo_sessions') || '{}');
+    _pomoSessionsToday = d.date === today ? (d.count || 0) : 0;
+  } catch { _pomoSessionsToday = 0; }
+}
+function _pomoSaveSession() {
+  const today = new Date().toLocaleDateString('en-CA');
+  _pomoSessionsToday++;
+  localStorage.setItem('pomo_sessions', JSON.stringify({ date: today, count: _pomoSessionsToday }));
+  // Auto-add 25 questions to study tracker
+  adjustQCount(25);
+}
+
+function pomoUpdateDisplay() {
+  const m = Math.floor(_pomoRemaining / 60), s = _pomoRemaining % 60;
+  const el = document.getElementById('pomo-display');
+  const lbl = document.getElementById('pomo-phase-label');
+  const bar = document.getElementById('pomo-progress-bar');
+  const cnt = document.getElementById('pomo-session-count');
+  const btn = document.getElementById('pomo-start-btn');
+  if (el) el.textContent = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+  if (lbl) lbl.textContent = _pomoPhase === 'focus' ? 'Focus' : '☕ Break';
+  const total = _pomoPhase === 'focus' ? POMO_FOCUS : POMO_BREAK;
+  if (bar) {
+    bar.style.width = ((total - _pomoRemaining) / total * 100) + '%';
+    bar.style.background = _pomoPhase === 'focus' ? '#e05c5c' : '#3b82f6';
+  }
+  if (cnt) cnt.textContent = `${_pomoSessionsToday} session${_pomoSessionsToday !== 1 ? 's' : ''} today`;
+  if (btn) btn.textContent = _pomoRunning ? 'Pause' : 'Start';
+}
+
+function pomoToggle() {
+  if (_pomoRunning) {
+    clearInterval(_pomoInterval);
+    _pomoRunning = false;
+  } else {
+    _pomoRunning = true;
+    _pomoInterval = setInterval(() => {
+      if (_pomoRemaining > 0) {
+        _pomoRemaining--;
+        pomoUpdateDisplay();
+      } else {
+        clearInterval(_pomoInterval);
+        _pomoRunning = false;
+        if (_pomoPhase === 'focus') {
+          _pomoSaveSession();
+          _pomoPhase = 'break';
+          _pomoRemaining = POMO_BREAK;
+          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            new Notification('🍅 Focus complete!', { body: 'Take a 5-minute break.', icon: '/icon-192.png' });
+          }
+        } else {
+          _pomoPhase = 'focus';
+          _pomoRemaining = POMO_FOCUS;
+        }
+        pomoUpdateDisplay();
+      }
+    }, 1000);
+  }
+  pomoUpdateDisplay();
+}
+
+function pomoReset() {
+  clearInterval(_pomoInterval);
+  _pomoRunning = false;
+  _pomoPhase = 'focus';
+  _pomoRemaining = POMO_FOCUS;
+  pomoUpdateDisplay();
+}
+
+function pomoSkip() {
+  clearInterval(_pomoInterval);
+  _pomoRunning = false;
+  if (_pomoPhase === 'focus') { _pomoSaveSession(); _pomoPhase = 'break'; _pomoRemaining = POMO_BREAK; }
+  else { _pomoPhase = 'focus'; _pomoRemaining = POMO_FOCUS; }
+  pomoUpdateDisplay();
+}
+
+// Request notification permission on first interaction
+document.addEventListener('click', function _reqNotif() {
+  if (typeof Notification !== 'undefined' && Notification.permission === 'default') Notification.requestPermission();
+  document.removeEventListener('click', _reqNotif);
+}, { once: true });
+
+_pomoLoadSessions();
+pomoUpdateDisplay();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK 16 — Topic Weakness Heatmap
+// ═══════════════════════════════════════════════════════════════════════════
+function getTopicData() {
+  try { return JSON.parse(localStorage.getItem('topic_weakness') || '[]'); } catch { return []; }
+}
+function saveTopicData(d) { localStorage.setItem('topic_weakness', JSON.stringify(d)); }
+
+function showTopicInput() {
+  const r = document.getElementById('topic-input-row');
+  if (r) r.style.display = r.style.display === 'none' ? 'block' : 'none';
+}
+
+function addTopicEntry() {
+  const name = (document.getElementById('topic-name-input') || {}).value || '';
+  const conf = (document.getElementById('topic-confidence') || {}).value || 'shaky';
+  if (!name.trim()) return;
+  const data = getTopicData();
+  // Update existing or add new
+  const idx = data.findIndex(t => t.name.toLowerCase() === name.trim().toLowerCase());
+  if (idx >= 0) data[idx] = { ...data[idx], confidence: conf, updated: new Date().toLocaleDateString('en-CA') };
+  else data.unshift({ id: Date.now(), name: name.trim(), confidence: conf, updated: new Date().toLocaleDateString('en-CA') });
+  saveTopicData(data);
+  const inp = document.getElementById('topic-name-input');
+  if (inp) inp.value = '';
+  document.getElementById('topic-input-row').style.display = 'none';
+  renderTopicWeakness();
+}
+
+function deleteTopicEntry(id) {
+  saveTopicData(getTopicData().filter(t => t.id !== id));
+  renderTopicWeakness();
+}
+
+function cycleTopicConfidence(id) {
+  const cycle = ['weak', 'shaky', 'ok', 'strong'];
+  const data = getTopicData().map(t => t.id === id ? { ...t, confidence: cycle[(cycle.indexOf(t.confidence) + 1) % cycle.length] } : t);
+  saveTopicData(data);
+  renderTopicWeakness();
+}
+
+function renderTopicWeakness() {
+  const el = document.getElementById('topic-weakness-list');
+  if (!el) return;
+  const data = getTopicData();
+  if (!data.length) { el.innerHTML = '<div style="text-align:center;color:#bbb;font-size:12px;padding:12px">No topics flagged yet</div>'; return; }
+  const confColor = { weak: '#ef4444', shaky: '#f97316', ok: '#f59e0b', strong: '#22c55e' };
+  const confLabel = { weak: '🔴 Weak', shaky: '🟠 Shaky', ok: '🟡 OK', strong: '🟢 Strong' };
+  // Sort: weak first
+  const order = ['weak', 'shaky', 'ok', 'strong'];
+  const sorted = [...data].sort((a, b) => order.indexOf(a.confidence) - order.indexOf(b.confidence));
+  el.innerHTML = sorted.map(t => `
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f9fafb">
+      <button onclick="cycleTopicConfidence(${t.id})" title="Click to change confidence" style="background:${confColor[t.confidence]}22;border:none;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;color:${confColor[t.confidence]};cursor:pointer;white-space:nowrap">${confLabel[t.confidence]}</button>
+      <span style="flex:1;font-size:13px">${escHtml(t.name)}</span>
+      <span style="font-size:10px;color:#d1d5db;cursor:pointer" onclick="deleteTopicEntry(${t.id})">✕</span>
+    </div>`).join('');
+}
+
+renderTopicWeakness();
+document.querySelectorAll('[data-subtab^="med"]').forEach(btn => {
+  btn.addEventListener('click', () => setTimeout(renderTopicWeakness, 50));
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK 17 — Alerts: Readiness <40 and ACWR >1.5
+// ═══════════════════════════════════════════════════════════════════════════
+function renderAlertsBanner() {
+  const el = document.getElementById('alerts-banner');
+  if (!el) return;
+  const alerts = [];
+
+  // Readiness alert
+  const hasHealthData = _healthLatest('heart_rate_variability', 1) != null || _healthLatest('resting_heart_rate', 1) != null;
+  if (hasHealthData) {
+    const { score, label } = computeReadinessScore();
+    if (score < 40) alerts.push({ color: '#ef4444', bg: '#fef2f2', icon: '🔴', text: `Readiness ${score} (${label}) — consider a rest day` });
+    else if (score < 55) alerts.push({ color: '#f97316', bg: '#fff7ed', icon: '🟠', text: `Readiness ${score} (${label}) — take it easy today` });
+  }
+
+  // ACWR alert (use acwr-run-val or recompute from series)
+  const runValEl = document.getElementById('acwr-run-val');
+  const runAcwr = runValEl ? parseFloat(runValEl.textContent) : NaN;
+  if (!isNaN(runAcwr) && runAcwr > 1.5) alerts.push({ color: '#ef4444', bg: '#fef2f2', icon: '⚠️', text: `Run ACWR ${runAcwr.toFixed(2)} — high injury risk. Back off intensity.` });
+  else if (!isNaN(runAcwr) && runAcwr > 1.3) alerts.push({ color: '#f97316', bg: '#fff7ed', icon: '⚠️', text: `Run ACWR ${runAcwr.toFixed(2)} — caution zone. Avoid adding load.` });
+
+  if (!alerts.length) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.innerHTML = alerts.map(a => `
+    <div style="background:${a.bg};border-left:4px solid ${a.color};padding:8px 14px;margin-bottom:4px;display:flex;align-items:center;gap:8px;border-radius:0 6px 6px 0">
+      <span>${a.icon}</span>
+      <span style="font-size:12px;font-weight:600;color:${a.color}">${a.text}</span>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK 18 — Data Export (CSV)
+// ═══════════════════════════════════════════════════════════════════════════
+function downloadCSV(filename, rows) {
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = filename;
+  a.click();
+}
+
+function exportFoodLog() {
+  const log = getFoodLog();
+  const rows = [['Date','Name','Calories','Protein (g)','Carbs (g)','Fat (g)']];
+  Object.entries(log).sort().forEach(([date, entries]) => {
+    entries.forEach(e => rows.push([date, e.name||'', e.kcal||0, e.protein||0, e.carbs||0, e.fat||0]));
+  });
+  downloadCSV('food_log.csv', rows);
+}
+
+function exportInjuryLog() {
+  const log = getInjuryLog();
+  const rows = [['Date','Body Part','Severity','Notes','Resolved']];
+  log.forEach(e => rows.push([e.date, e.part, e.severity, e.notes||'', e.resolved ? 'Yes' : 'No']));
+  downloadCSV('injury_log.csv', rows);
+}
+
+function exportStudyLog() {
+  const data = getStudyQData();
+  const rows = [['Date','Questions']];
+  Object.entries(data.days || {}).sort().forEach(([date, count]) => rows.push([date, count]));
+  downloadCSV('study_log.csv', rows);
+}
+
+function showExportMenu() {
+  // Simple choice prompt — could be a modal but keep it minimal
+  const choice = prompt('Export which dataset?\n1 = Food log\n2 = Injury log\n3 = Study log\nType 1, 2, or 3:');
+  if (choice === '1') exportFoodLog();
+  else if (choice === '2') exportInjuryLog();
+  else if (choice === '3') exportStudyLog();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Hook new renders into renderFitnessSubTab
+// ═══════════════════════════════════════════════════════════════════════════
+const _origRenderFitnessSubTab = renderFitnessSubTab;
+renderFitnessSubTab = function() {
+  _origRenderFitnessSubTab.apply(this, arguments);
+  renderPRTracker();
+  renderLoadForecast();
+  renderHRZoneBreakdown();
+  renderWeightTrendChart();
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK 19 — PWA: Register Service Worker
+// ═══════════════════════════════════════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
 </script>
 </body>
 </html>
