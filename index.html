@@ -166,7 +166,27 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 
 <div class="topbar">
   <div class="topbar-title">Philip's Training Dashboard<span id="sync-dot" style="width:7px;height:7px;border-radius:50%;background:#d1d5db;display:inline-block;margin-left:6px;transition:background 0.3s" title="Sync status"></span></div>
-  <button id="disconnect-btn" class="disconnect-btn" title="Disconnect Strava">Disconnect</button>
+  <div style="display:flex;gap:8px;align-items:center">
+    <button onclick="toggleGoalModal()" title="Set race/goal" style="background:none;border:none;cursor:pointer;font-size:16px;padding:0;line-height:1" title="Set a target event">🎯</button>
+    <button id="dark-mode-btn" onclick="toggleDarkMode()" title="Toggle dark mode" style="background:none;border:none;cursor:pointer;font-size:16px;padding:0;line-height:1">🌙</button>
+    <button id="disconnect-btn" class="disconnect-btn" title="Disconnect Strava">Disconnect</button>
+  </div>
+</div>
+
+<!-- Goal modal -->
+<div id="goal-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:10000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:24px;width:320px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+    <div style="font-size:16px;font-weight:700;margin-bottom:16px">🎯 Set a Target Event</div>
+    <label style="font-size:12px;color:#888;display:block;margin-bottom:4px">Event name</label>
+    <input id="goal-name-input" type="text" placeholder="e.g. Edinburgh Half Marathon" style="width:100%;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;font-size:14px;font-family:inherit;margin-bottom:12px;outline:none">
+    <label style="font-size:12px;color:#888;display:block;margin-bottom:4px">Date</label>
+    <input id="goal-date-input" type="date" style="width:100%;border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;font-size:14px;font-family:inherit;margin-bottom:16px;outline:none">
+    <div style="display:flex;gap:8px">
+      <button onclick="saveGoal()" style="flex:1;background:#1a1a1a;color:#fff;border:none;border-radius:8px;padding:10px;font-size:14px;font-weight:600;cursor:pointer">Save</button>
+      <button onclick="toggleGoalModal()" style="flex:1;background:#f3f4f6;color:#555;border:none;border-radius:8px;padding:10px;font-size:14px;cursor:pointer">Cancel</button>
+    </div>
+    <button id="goal-delete-btn" onclick="deleteGoal()" style="display:none;width:100%;margin-top:8px;background:none;border:none;color:#ef4444;font-size:12px;cursor:pointer">Remove goal</button>
+  </div>
 </div>
 
 <div style="position:relative">
@@ -180,6 +200,7 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
     <button class="tab-btn" data-tab="finance">💰 Finance</button>
     <button class="tab-btn" data-tab="planner">✅ Tasks</button>
     <button class="tab-btn" data-tab="shopping">🛒 Shopping</button>
+    <button class="tab-btn" data-tab="calendar">📅 Calendar</button>
     <button class="tab-btn" data-tab="notes">📝 Notes</button>
     <button class="tab-btn" data-tab="habits">🔥 Habits</button>
     <button class="tab-btn" data-tab="year4">📅 Year 4</button>
@@ -207,7 +228,12 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
           <button onclick="briefingNav(1)" style="background:none;border:none;cursor:pointer;font-size:16px;color:#9ca3af;padding:0 2px;line-height:1">▶</button>
           <button id="briefing-today-btn" onclick="briefingNav(0,true)" style="display:none;background:#f3f4f6;border:none;cursor:pointer;font-size:11px;color:#6b7280;padding:3px 8px;border-radius:12px;margin-left:4px;line-height:1.4">Today</button>
         </div>
-        <div style="display:flex;align-items:center;gap:8px" id="today-weather-right">
+        <div style="display:flex;align-items:center;gap:10px" id="today-weather-right">
+          <div id="readiness-chip" style="display:none;text-align:center;padding:4px 10px;border-radius:10px;cursor:pointer" onclick="switchTab('whoop')" title="Go to Health tab">
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;color:#9ca3af;font-weight:600">Readiness</div>
+            <div style="font-size:18px;font-weight:800;line-height:1.1" id="readiness-chip-score">—</div>
+            <div style="font-size:9px;font-weight:600;margin-top:1px" id="readiness-chip-label"></div>
+          </div>
           <span style="font-size:22px" id="today-weather-emoji">—</span>
           <div style="text-align:right">
             <div style="font-size:16px;font-weight:700" id="today-temp">—</div>
@@ -345,6 +371,15 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 <div class="card"><div class="cht-sm"><canvas id="whoop-sleep-trend-chart"></canvas></div></div>
 </div>
 
+<div class="section">
+<h2>Sleep → Next-Day HRV Correlation</h2>
+<div class="card" style="padding:14px">
+  <div style="font-size:12px;color:#9ca3af;margin-bottom:10px">Each dot is one night. Drag to see details.</div>
+  <div class="cht-sm"><canvas id="sleep-hrv-scatter"></canvas></div>
+  <div id="sleep-hrv-corr-label" style="font-size:12px;color:#6b7280;margin-top:8px;text-align:center"></div>
+</div>
+</div>
+
 </div><!-- /sub-tab-whoop-sleep -->
 
 <div class="sub-tab-pane" id="sub-tab-whoop-strain">
@@ -439,6 +474,7 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
   <button class="sub-tab-btn" data-subtab="train-cycling">Cycling</button>
   <button class="sub-tab-btn" data-subtab="train-swimming">Swimming</button>
   <button class="sub-tab-btn" data-subtab="train-other">Other</button>
+  <button class="sub-tab-btn" data-subtab="train-injuries">🩹 Injuries</button>
 </nav>
 
 <div class="sub-tab-pane active" id="sub-tab-train-overview">
@@ -847,6 +883,26 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 
 </div><!-- /sub-tab-train-other -->
 
+<div class="sub-tab-pane" id="sub-tab-train-injuries">
+<div class="section">
+<h2>Injury &amp; Niggle Log</h2>
+<div class="card" style="margin-bottom:12px;padding:14px">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+    <input id="inj-body-part" type="text" placeholder="Body part (e.g. Left knee)" style="border:1px solid #e5e7eb;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none">
+    <select id="inj-severity" style="border:1px solid #e5e7eb;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;background:#fff;outline:none">
+      <option value="niggle">🟡 Niggle</option>
+      <option value="mild">🟠 Mild</option>
+      <option value="moderate">🔴 Moderate</option>
+      <option value="severe">⛔ Severe</option>
+    </select>
+  </div>
+  <input id="inj-notes" type="text" placeholder="Notes (optional)" style="width:100%;border:1px solid #e5e7eb;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none;margin-bottom:8px">
+  <button onclick="addInjuryEntry()" style="background:#1a1a1a;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer">Log it</button>
+</div>
+<div id="injury-log-list"></div>
+</div>
+</div><!-- /sub-tab-train-injuries -->
+
 </div><!-- /tab-training -->
 
 <div id="tab-medicine" class="tab-pane">
@@ -865,6 +921,32 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
     <div class="sub" style="margin-bottom:6px">Last 28 days <span style="color:#bbb">· tap a day to mark it hit/miss, including past days</span></div>
     <div id="study-heatmap" style="display:flex;gap:3px;flex-wrap:wrap"></div>
   </div>
+</div>
+
+<!-- DAILY QUESTION TRACKER -->
+<div class="card" style="margin-bottom:12px;padding:14px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+    <div class="lbl" style="margin:0">📚 Daily Questions</div>
+    <div style="font-size:11px;color:#bbb" id="study-q-date"></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <button onclick="adjustQCount(-10)" style="background:#f3f4f6;border:none;border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer;font-weight:700">-10</button>
+    <button onclick="adjustQCount(-1)" style="background:#f3f4f6;border:none;border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer;font-weight:700">-1</button>
+    <div style="flex:1;text-align:center">
+      <div style="font-size:36px;font-weight:800;letter-spacing:-1px" id="study-q-count">0</div>
+      <div style="font-size:11px;color:#aaa">of <span id="study-q-goal">50</span> goal</div>
+    </div>
+    <button onclick="adjustQCount(1)" style="background:#f3f4f6;border:none;border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer;font-weight:700">+1</button>
+    <button onclick="adjustQCount(10)" style="background:#1a1a1a;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer;font-weight:700">+10</button>
+  </div>
+  <div style="background:#f3f4f6;border-radius:99px;height:6px;overflow:hidden;margin-top:10px">
+    <div id="study-q-bar" style="background:#6b9e7a;height:100%;width:0%;transition:width .3s;border-radius:99px"></div>
+  </div>
+  <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:#bbb">
+    <span id="study-q-streak">Streak: —</span>
+    <span onclick="promptStudyGoal()" style="cursor:pointer;text-decoration:underline">Set goal</span>
+  </div>
+  <div id="study-q-heatmap" style="display:flex;gap:3px;flex-wrap:wrap;margin-top:10px"></div>
 </div>
 
   <nav class="sub-tab-nav">
@@ -1480,6 +1562,23 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 
 </div><!-- /tab-shopping -->
 
+<div class="tab-pane" id="tab-calendar">
+<div id="gcal-connect-banner" style="display:none;padding:24px;text-align:center">
+  <div style="font-size:36px;margin-bottom:12px">📅</div>
+  <h2 style="margin:0 0 8px">Connect Google Calendar</h2>
+  <p style="color:#888;font-size:14px;margin:0 0 20px">Sign in with Google to see your upcoming events.</p>
+  <button onclick="startGCalAuth()" style="background:#4285f4;color:#fff;border:none;border-radius:10px;padding:12px 28px;font-size:15px;font-weight:600;cursor:pointer">Sign in with Google</button>
+</div>
+<div id="gcal-main" style="display:none">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0 10px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap" id="gcal-legend"></div>
+    <button onclick="disconnectGCal()" style="font-size:11px;color:#bbb;background:none;border:none;cursor:pointer">Disconnect</button>
+  </div>
+  <div id="gcal-agenda"></div>
+</div>
+<div id="gcal-loading" style="display:none;padding:40px;text-align:center;color:#bbb;font-size:14px">Loading calendar…</div>
+</div><!-- /tab-calendar -->
+
 <div class="tab-pane" id="tab-notes">
 
 <!-- QUICK ADD -->
@@ -2013,14 +2112,30 @@ function hrBadge(a) {
 }
 
 // ── Intensity classification ──────────────────────────────────────────────────
+// Primary: avg heart rate vs threshold HR zones (if HR data present).
+// Fallback: speed-based (used only when avg_hr is missing).
 function intensity(a) {
-  const t = a.sport_type, sp = a.summary.avg_speed;
+  const t = a.sport_type;
   if (t==='Yoga'||t==='Walk') return 'easy';
+
+  const hr = a.summary.avg_hr;
+  if (hr && hr > 0) {
+    // Use threshold HR from planner zones if set, else sensible defaults
+    const lthr = (_plannerZones && _plannerZones.thresholdHR) || 170;
+    const easyMax = lthr * 0.83;   // Z1/Z2 boundary
+    const hardMin = lthr * 0.95;   // Z4+ boundary
+    if (hr < easyMax)  return 'easy';
+    if (hr >= hardMin) return 'hard';
+    return 'moderate';
+  }
+
+  // No HR data — fall back to speed
+  const sp = a.summary.avg_speed;
   if (t==='Hike'||t==='Swim'||t==='WeightTraining') return 'moderate';
-  if (t==='Ride') return sp>6.944?'hard':'moderate';
+  if (t==='Ride') return sp > 6.944 ? 'hard' : 'moderate';
   if (t==='Run') {
-    if (!sp||sp<=2.381) return 'easy';
-    if (sp<=2.564) return 'moderate';
+    if (!sp || sp <= 2.381) return 'easy';
+    if (sp <= 2.564) return 'moderate';
     return 'hard';
   }
   return 'moderate';
@@ -8734,6 +8849,7 @@ function switchTab(name) {
   if (name === 'notes') renderNotes();
   if (name === 'habits') { renderHabitHistory(); }
   if (name === 'year4') renderYear4Cal();
+  if (name === 'calendar') renderCalendarTab();
   // Dashboard uses a fixed-height grid — override display:block
   if (name === 'dashboard') { pane.style.display = 'block'; document.body.style.overflow = 'hidden'; }
   else { document.body.style.overflow = ''; }
@@ -8848,6 +8964,203 @@ function setupSubTabs(paneId, storageKey) {
   if (saved && document.getElementById('sub-tab-' + saved)) {
     group.querySelectorAll(`[data-subtab="${saved}"]`).forEach(b => b.click());
   }
+}
+
+// ── Google Calendar Tab ──────────────────────────────────────────────────────
+const GCAL_CALENDARS = [
+  { id: 'philipcobon@gmail.com',                                                                   name: 'Personal',        color: '#4285f4' },
+  { id: '7850b6e0251223b3c49f7da881654e7c4384dcb49425207d1737766f907cf12c@group.calendar.google.com', name: 'Uni',             color: '#7c3aed' },
+  { id: '4ab37acd43967e03536dc538241e8b47ab65dc91f1ce2d647ea1b597fe3cd6eb@group.calendar.google.com', name: 'Runna',           color: '#f59e0b' },
+  { id: '04eb942ee05b14a2180af794dd9aacd02d31029b3d7254b2174e053dc0614353@group.calendar.google.com', name: 'HCA',             color: '#10b981' },
+  { id: 'family13445373423551396351@group.calendar.google.com',                                    name: 'Family',          color: '#ec4899' },
+  { id: 'f7cbab6b4cd3fde31947806e797ccc2c4ec4fd9a28013bcae3d5bfcef15418ae@group.calendar.google.com', name: 'Durham Timetable', color: '#6366f1' },
+];
+const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
+const GCAL_STORAGE_KEY = 'gcal_tokens';
+
+const gcalGetTokens = () => { try { return JSON.parse(localStorage.getItem(GCAL_STORAGE_KEY)); } catch { return null; } };
+const gcalSetTokens = t => localStorage.setItem(GCAL_STORAGE_KEY, JSON.stringify(t));
+const gcalClearTokens = () => localStorage.removeItem(GCAL_STORAGE_KEY);
+
+async function gcalEnsureToken() {
+  let t = gcalGetTokens();
+  if (!t) return null;
+  if (Date.now() / 1000 > t.expires_at - 120) {
+    if (!t.refresh_token) { gcalClearTokens(); return null; }
+    const res = await fetch(`/api/google-calendar-auth?action=refresh&refresh_token=${encodeURIComponent(t.refresh_token)}`);
+    if (!res.ok) { gcalClearTokens(); return null; }
+    const data = await res.json();
+    t = { ...t, access_token: data.access_token, expires_at: data.expires_at };
+    gcalSetTokens(t);
+  }
+  return t.access_token;
+}
+
+async function startGCalAuth() {
+  let gClientId;
+  try {
+    const r = await fetch('/api/google-calendar-auth?action=client_id');
+    const d = await r.json();
+    gClientId = d.client_id;
+  } catch {}
+  if (!gClientId) {
+    alert('Google Calendar not configured — GOOGLE_CLIENT_ID is missing from Cloudflare env vars.');
+    return;
+  }
+  const redirect = window.location.origin + window.location.pathname;
+  localStorage.setItem('gcal_redirect', redirect);
+  const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  url.searchParams.set('client_id', gClientId);
+  url.searchParams.set('redirect_uri', redirect);
+  url.searchParams.set('response_type', 'code');
+  url.searchParams.set('scope', GCAL_SCOPE);
+  url.searchParams.set('access_type', 'offline');
+  url.searchParams.set('prompt', 'consent');
+  url.searchParams.set('state', 'gcal');
+  window.location.href = url.toString();
+}
+
+function disconnectGCal() {
+  if (!confirm('Disconnect Google Calendar?')) return;
+  gcalClearTokens();
+  renderCalendarTab();
+}
+
+async function handleGCalOAuthReturn() {
+  const url = new URL(window.location.href);
+  if (url.searchParams.get('state') !== 'gcal') return false;
+  const code = url.searchParams.get('code');
+  if (!code) return false;
+  // Clean URL
+  url.searchParams.delete('code');
+  url.searchParams.delete('state');
+  url.searchParams.delete('scope');
+  history.replaceState({}, '', url.toString());
+
+  const redirect = localStorage.getItem('gcal_redirect') || (window.location.origin + window.location.pathname);
+  const res = await fetch(`/api/google-calendar-auth?action=exchange&code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(redirect)}`);
+  if (!res.ok) { alert('Google Calendar auth failed'); return false; }
+  const data = await res.json();
+  gcalSetTokens(data);
+  return true;
+}
+
+async function renderCalendarTab() {
+  const connect = document.getElementById('gcal-connect-banner');
+  const main = document.getElementById('gcal-main');
+  const loading = document.getElementById('gcal-loading');
+  if (!connect || !main) return;
+
+  // Handle OAuth return
+  const justAuthed = await handleGCalOAuthReturn();
+
+  const token = gcalGetTokens();
+  if (!token) {
+    connect.style.display = '';
+    main.style.display = 'none';
+    loading.style.display = 'none';
+    return;
+  }
+
+  connect.style.display = 'none';
+  loading.style.display = '';
+  main.style.display = 'none';
+
+  const accessToken = await gcalEnsureToken();
+  if (!accessToken) {
+    connect.style.display = '';
+    loading.style.display = 'none';
+    return;
+  }
+
+  // Fetch 35 days of events from all calendars in parallel
+  const now = new Date(); now.setHours(0,0,0,0);
+  const end = new Date(now.getTime() + 35 * 864e5);
+  const timeMin = now.toISOString(), timeMax = end.toISOString();
+
+  const results = await Promise.allSettled(
+    GCAL_CALENDARS.map(cal =>
+      fetch(`/api/google-calendar-auth?action=proxy&access_token=${encodeURIComponent(accessToken)}&path=${encodeURIComponent('/calendars/' + cal.id + '/events')}&timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime&maxResults=100`)
+        .then(r => r.json())
+        .then(d => ({ cal, events: d.items || [] }))
+    )
+  );
+
+  // Collect all events with calendar info
+  const allEvents = [];
+  results.forEach(r => {
+    if (r.status === 'fulfilled') {
+      const { cal, events } = r.value;
+      events.forEach(e => allEvents.push({ ...e, _cal: cal }));
+    }
+  });
+
+  // Group by day
+  const byDay = {};
+  allEvents.forEach(e => {
+    const dayKey = (e.start.dateTime || e.start.date).slice(0, 10);
+    if (!byDay[dayKey]) byDay[dayKey] = [];
+    byDay[dayKey].push(e);
+  });
+  // Sort each day's events by start time
+  Object.values(byDay).forEach(arr => arr.sort((a, b) => (a.start.dateTime || a.start.date).localeCompare(b.start.dateTime || b.start.date)));
+
+  // Build agenda
+  const fmtTime = dt => {
+    if (!dt) return '';
+    const d = new Date(dt);
+    return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  };
+  const fmtDay = ds => {
+    const d = new Date(ds + 'T12:00:00');
+    const today = new Date(); today.setHours(12,0,0,0);
+    const diff = Math.round((d - today) / 864e5);
+    const dayName = diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : d.toLocaleDateString('en-GB', { weekday: 'long' });
+    const dateStr = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    return `${dayName} · ${dateStr}`;
+  };
+
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  let html = '';
+  for (let i = 0; i < 35; i++) {
+    const d = new Date(now.getTime() + i * 864e5);
+    const ds = d.toLocaleDateString('en-CA');
+    const events = byDay[ds];
+    if (!events && ds > todayStr) continue; // skip empty future days
+    const isToday = ds === todayStr;
+    html += `<div style="display:flex;gap:14px;margin-bottom:${events ? 16 : 0}px">
+      <div style="width:72px;flex-shrink:0;padding-top:2px">
+        <div style="font-size:11px;font-weight:${isToday?700:500};color:${isToday?'#4285f4':'#9ca3af'};text-transform:uppercase;letter-spacing:0.4px">${d.toLocaleDateString('en-GB',{weekday:'short'})}</div>
+        <div style="font-size:22px;font-weight:700;line-height:1;color:${isToday?'#4285f4':'#1f2937'}">${d.getDate()}</div>
+        <div style="font-size:10px;color:#bbb">${d.toLocaleDateString('en-GB',{month:'short'})}</div>
+      </div>
+      <div style="flex:1;min-width:0;${!events ? 'padding:6px 0' : ''}">
+        ${events ? events.map(e => {
+          const allDay = !!e.start.date && !e.start.dateTime;
+          const timeStr = allDay ? 'All day' : `${fmtTime(e.start.dateTime)}${e.end.dateTime ? ' – ' + fmtTime(e.end.dateTime) : ''}`;
+          return `<div style="background:#f9fafb;border-left:3px solid ${e._cal.color};border-radius:0 8px 8px 0;padding:8px 12px;margin-bottom:6px">
+            <div style="font-size:13px;font-weight:600;color:#1f2937">${e.summary || '(No title)'}</div>
+            <div style="font-size:11px;color:#9ca3af;margin-top:2px;display:flex;gap:8px;flex-wrap:wrap">
+              <span>${timeStr}</span>
+              ${e.location ? `<span>📍 ${e.location}</span>` : ''}
+              <span style="color:${e._cal.color}">${e._cal.name}</span>
+            </div>
+          </div>`;
+        }).join('') : `<div style="border-left:2px solid #f0f0f0;padding:4px 12px;color:#e5e7eb;font-size:12px">No events</div>`}
+      </div>
+    </div>`;
+  }
+
+  // Legend
+  const activeCals = [...new Set(allEvents.map(e => e._cal.name))];
+  setH('gcal-legend', GCAL_CALENDARS
+    .filter(c => activeCals.includes(c.name))
+    .map(c => `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#555;background:#f5f5f5;padding:3px 10px;border-radius:20px"><span style="width:8px;height:8px;border-radius:50%;background:${c.color};display:inline-block;flex-shrink:0"></span>${c.name}</span>`)
+    .join(''));
+
+  setH('gcal-agenda', html);
+  loading.style.display = 'none';
+  main.style.display = '';
 }
 
 // ── Nutrition Tab ───────────────────────────────────────────────────────────
@@ -10553,6 +10866,8 @@ async function main() {
     loadSessionAnalysis(); // fire-and-forget; live-only, shows a message if unavailable
     loadProgress(); // fire-and-forget; live-only — 1RM trend, weekly tonnage, rep PRs
     loadTodayCalendar(); // fire-and-forget; separate OAuth flow from Strava, never blocks the page
+    // If returning from Google Calendar OAuth, switch to the calendar tab
+    if (new URL(window.location.href).searchParams.get('state') === 'gcal') switchTab('calendar');
     loadPlannerData(); // fire-and-forget; planned workouts + zones, feeds the Zones form + per-sport TSS
     loadPlannerHevyHistory(); // fire-and-forget; wider Hevy window for strength TSS in the PMC
 
@@ -10714,6 +11029,508 @@ setTimeout(() => {
   renderShopping();
   renderNotes();
 }, 800);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK 1 — Daily Readiness Score
+// ═══════════════════════════════════════════════════════════════════════════
+function computeReadinessScore() {
+  // HRV component (40%) — compare today vs 30-day baseline
+  const hrvSeries = _healthSeries('heart_rate_variability', 30);
+  const todayHrv  = _healthLatest('heart_rate_variability', 1);
+  let hrvScore = 50;
+  if (todayHrv != null && hrvSeries.length > 5) {
+    const baseline = _avg(hrvSeries);
+    const pct = todayHrv / baseline;
+    if (pct >= 1.1)       hrvScore = 100;
+    else if (pct >= 1.0)  hrvScore = 85;
+    else if (pct >= 0.9)  hrvScore = 65;
+    else if (pct >= 0.8)  hrvScore = 45;
+    else                  hrvScore = 25;
+  }
+
+  // RHR component (25%) — lower is better vs 30-day baseline
+  const rhrSeries = _healthSeries('resting_heart_rate', 30);
+  const todayRhr  = _healthLatest('resting_heart_rate', 1);
+  let rhrScore = 50;
+  if (todayRhr != null && rhrSeries.length > 5) {
+    const baseline = _avg(rhrSeries);
+    const diff = todayRhr - baseline;
+    if (diff <= -3)       rhrScore = 100;
+    else if (diff <= 0)   rhrScore = 80;
+    else if (diff <= 3)   rhrScore = 55;
+    else if (diff <= 6)   rhrScore = 35;
+    else                  rhrScore = 15;
+  }
+
+  // Sleep component (25%) — last night's total vs 8h target
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yStr = yesterday.toLocaleDateString('en-CA');
+  let sleepScore = 50;
+  if (typeof computeSleepForDate === 'function') {
+    const sd = computeSleepForDate(yStr);
+    if (sd && sd.totalSleep != null) {
+      const hrs = sd.totalSleep / 3600;
+      if (hrs >= 8)       sleepScore = 100;
+      else if (hrs >= 7)  sleepScore = 80;
+      else if (hrs >= 6)  sleepScore = 55;
+      else if (hrs >= 5)  sleepScore = 30;
+      else                sleepScore = 10;
+    }
+  }
+
+  // Skin temp component (10%) — deviation from baseline
+  const skinTemp = _healthLatest('skin_temperature', 1);
+  const skinSeries = _healthSeries('skin_temperature', 30);
+  let tempScore = 70;
+  if (skinTemp != null && skinSeries.length > 5) {
+    const baseline = _avg(skinSeries);
+    const dev = Math.abs(skinTemp - baseline);
+    if (dev <= 0.2)  tempScore = 100;
+    else if (dev <= 0.5) tempScore = 70;
+    else if (dev <= 1.0) tempScore = 40;
+    else tempScore = 20;
+  }
+
+  const composite = Math.round(hrvScore * 0.40 + rhrScore * 0.25 + sleepScore * 0.25 + tempScore * 0.10);
+  let label, color;
+  if (composite >= 80)       { label = 'Optimal';   color = '#22c55e'; }
+  else if (composite >= 65)  { label = 'Good';       color = '#84cc16'; }
+  else if (composite >= 50)  { label = 'Fair';       color = '#f59e0b'; }
+  else if (composite >= 35)  { label = 'Low';        color = '#f97316'; }
+  else                       { label = 'Poor';       color = '#ef4444'; }
+
+  return { score: composite, label, color, components: { hrv: hrvScore, rhr: rhrScore, sleep: sleepScore, temp: tempScore } };
+}
+
+function renderReadinessChip() {
+  const chip = document.getElementById('readiness-chip');
+  if (!chip) return;
+  // Only show if we have at least HRV or RHR data
+  const hasData = _healthLatest('heart_rate_variability', 1) != null || _healthLatest('resting_heart_rate', 1) != null;
+  if (!hasData) return;
+  const { score, label, color } = computeReadinessScore();
+  chip.style.display = 'block';
+  chip.style.background = color + '22';
+  chip.style.borderLeft = `3px solid ${color}`;
+  const scoreEl = document.getElementById('readiness-chip-score');
+  const labelEl = document.getElementById('readiness-chip-label');
+  if (scoreEl) { scoreEl.textContent = score; scoreEl.style.color = color; }
+  if (labelEl) { labelEl.textContent = label; labelEl.style.color = color; }
+}
+
+// Hook readiness chip into daily briefing render
+const _origRenderDailyBriefing = renderDailyBriefing;
+renderDailyBriefing = function() {
+  _origRenderDailyBriefing.apply(this, arguments);
+  renderReadinessChip();
+  renderGoalCountdown();
+  renderWeeklyReview();
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK 2 — Goal / Race Countdown Widget
+// ═══════════════════════════════════════════════════════════════════════════
+function toggleGoalModal() {
+  const modal = document.getElementById('goal-modal');
+  if (!modal) return;
+  const open = modal.style.display !== 'none' && modal.style.display !== '';
+  modal.style.display = open ? 'none' : 'flex';
+  if (!open) {
+    const saved = JSON.parse(localStorage.getItem('training_goal') || 'null');
+    const nameEl = document.getElementById('goal-name-input');
+    const dateEl = document.getElementById('goal-date-input');
+    const delBtn = document.getElementById('goal-delete-btn');
+    if (saved) {
+      if (nameEl) nameEl.value = saved.name || '';
+      if (dateEl) dateEl.value = saved.date || '';
+      if (delBtn) delBtn.style.display = 'block';
+    } else {
+      if (nameEl) nameEl.value = '';
+      if (dateEl) dateEl.value = '';
+      if (delBtn) delBtn.style.display = 'none';
+    }
+  }
+}
+
+function saveGoal() {
+  const name = (document.getElementById('goal-name-input') || {}).value || '';
+  const date = (document.getElementById('goal-date-input') || {}).value || '';
+  if (!name || !date) return;
+  localStorage.setItem('training_goal', JSON.stringify({ name, date }));
+  toggleGoalModal();
+  renderGoalCountdown();
+}
+
+function deleteGoal() {
+  if (!confirm('Remove this goal?')) return;
+  localStorage.removeItem('training_goal');
+  toggleGoalModal();
+  renderGoalCountdown();
+}
+
+function renderGoalCountdown() {
+  const el = document.getElementById('goal-countdown-banner');
+  if (!el) return;
+  const goal = JSON.parse(localStorage.getItem('training_goal') || 'null');
+  if (!goal || !goal.date) { el.style.display = 'none'; return; }
+  const today = new Date(); today.setHours(0,0,0,0);
+  const target = new Date(goal.date); target.setHours(0,0,0,0);
+  const days = Math.round((target - today) / 86400000);
+  if (days < 0) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  const weeks = Math.floor(days / 7), rem = days % 7;
+  const timeStr = weeks > 0 ? `${weeks}w ${rem}d` : `${days}d`;
+  el.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:linear-gradient(90deg,#6b9e7a22,#4f7a5c22);border-radius:10px;cursor:pointer" onclick="toggleGoalModal()">
+    <span style="font-size:18px">🎯</span>
+    <div style="flex:1">
+      <div style="font-size:11px;color:#6b9e7a;font-weight:700;text-transform:uppercase;letter-spacing:.05em">Goal</div>
+      <div style="font-size:13px;font-weight:600">${escHtml(goal.name)}</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:22px;font-weight:800;color:#6b9e7a;line-height:1">${timeStr}</div>
+      <div style="font-size:10px;color:#9ca3af">${days} days</div>
+    </div>
+  </div>`;
+}
+
+// Inject goal countdown banner into home tab if not already present
+(function() {
+  const briefing = document.getElementById('daily-briefing-body');
+  if (briefing && !document.getElementById('goal-countdown-banner')) {
+    const div = document.createElement('div');
+    div.id = 'goal-countdown-banner';
+    div.style.cssText = 'display:none;padding:0 14px 4px';
+    briefing.insertBefore(div, briefing.firstChild);
+  }
+})();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK 3 — Weekly Review Card (injected into home tab)
+// ═══════════════════════════════════════════════════════════════════════════
+function renderWeeklyReview() {
+  // Only render on Mondays or if explicitly showing (day 1 = Mon)
+  const el = document.getElementById('weekly-review-card');
+  if (!el) return;
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon...
+  if (dayOfWeek !== 1) { el.style.display = 'none'; return; }
+
+  const ws = weekStart(new Date(today.getTime() - 7*864e5)); // last week's Monday
+  const we = new Date(ws.getTime() + 7*864e5);
+  const lastWeekActs = (_acts || []).filter(a => {
+    const d = new Date(a.start_local); return d >= ws && d < we;
+  });
+  const totalKm = lastWeekActs.reduce((s,a) => s + (a.summary.distance||0)/1000, 0);
+  const totalMins = lastWeekActs.reduce((s,a) => s + (a.summary.elapsed_time||0)/60, 0);
+  const runs = lastWeekActs.filter(a=>a.sport_type==='Run').length;
+  const rides = lastWeekActs.filter(a=>['Ride','VirtualRide'].includes(a.sport_type)).length;
+  const gym = lastWeekActs.filter(a=>a.sport_type==='WeightTraining').length;
+
+  const sleepDays = [];
+  for (let i=1; i<=7; i++) {
+    const d = new Date(ws.getTime() + i*864e5);
+    const dStr = d.toLocaleDateString('en-CA');
+    const sd = typeof computeSleepForDate === 'function' ? computeSleepForDate(dStr) : null;
+    if (sd && sd.totalSleep) sleepDays.push(sd.totalSleep / 3600);
+  }
+  const avgSleep = sleepDays.length ? _avg(sleepDays) : null;
+
+  const hrvSeries = _healthSeries('heart_rate_variability', 14).slice(7);
+  const avgHrv = hrvSeries.length ? Math.round(_avg(hrvSeries)) : null;
+
+  el.style.display = 'block';
+  el.innerHTML = `<div style="padding:12px 14px;border-top:1px solid #f3f4f6">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:#9ca3af;font-weight:700;margin-bottom:8px">📊 Last Week</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center">
+      <div><div style="font-size:18px;font-weight:800">${totalKm.toFixed(1)}</div><div style="font-size:10px;color:#9ca3af">km</div></div>
+      <div><div style="font-size:18px;font-weight:800">${Math.round(totalMins/60*10)/10}</div><div style="font-size:10px;color:#9ca3af">hrs training</div></div>
+      <div><div style="font-size:18px;font-weight:800">${lastWeekActs.length}</div><div style="font-size:10px;color:#9ca3af">sessions</div></div>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+      ${runs?`<span style="background:#eff6ff;color:#3b82f6;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600">${runs} run${runs>1?'s':''}</span>`:''}
+      ${rides?`<span style="background:#f0fdf4;color:#22c55e;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600">${rides} ride${rides>1?'s':''}</span>`:''}
+      ${gym?`<span style="background:#faf5ff;color:#a855f7;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600">${gym} gym</span>`:''}
+      ${avgSleep!=null?`<span style="background:#fff7ed;color:#f97316;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600">Sleep ${fmtHrsMin(avgSleep)}</span>`:''}
+      ${avgHrv!=null?`<span style="background:#f0fdf4;color:#6b9e7a;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600">HRV ${avgHrv}ms</span>`:''}
+    </div>
+  </div>`;
+}
+
+// Inject weekly review card into briefing body (below goal banner)
+(function() {
+  const briefing = document.getElementById('daily-briefing-body');
+  if (briefing && !document.getElementById('weekly-review-card')) {
+    const div = document.createElement('div');
+    div.id = 'weekly-review-card';
+    div.style.display = 'none';
+    briefing.insertBefore(div, briefing.childNodes[1] || null);
+  }
+})();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK 4 — Dark Mode Toggle
+// ═══════════════════════════════════════════════════════════════════════════
+(function() {
+  const style = document.createElement('style');
+  style.id = 'dark-mode-style';
+  style.textContent = `
+    body.dark-mode { filter: invert(1) hue-rotate(180deg); background:#111; }
+    body.dark-mode img,
+    body.dark-mode canvas,
+    body.dark-mode video,
+    body.dark-mode .weather-emoji,
+    body.dark-mode [style*="background-image"] { filter: invert(1) hue-rotate(180deg); }
+  `;
+  document.head.appendChild(style);
+  if (localStorage.getItem('dark_mode') === '1') document.body.classList.add('dark-mode');
+})();
+
+function toggleDarkMode() {
+  const on = document.body.classList.toggle('dark-mode');
+  localStorage.setItem('dark_mode', on ? '1' : '0');
+  const btn = document.getElementById('dark-mode-btn');
+  if (btn) btn.textContent = on ? '☀️' : '🌙';
+}
+
+// Apply saved icon on load
+(function() {
+  const btn = document.getElementById('dark-mode-btn');
+  if (btn && localStorage.getItem('dark_mode') === '1') btn.textContent = '☀️';
+})();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK 5 — Sleep + HRV Correlation Chart
+// ═══════════════════════════════════════════════════════════════════════════
+function buildSleepHrvScatter() {
+  const canvas = document.getElementById('sleep-hrv-scatter');
+  if (!canvas) return;
+  const corrLabel = document.getElementById('sleep-hrv-corr-label');
+  const days = 28;
+  const points = [];
+  for (let i = 1; i <= days; i++) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const dStr = d.toLocaleDateString('en-CA');
+    const sd = typeof computeSleepForDate === 'function' ? computeSleepForDate(dStr) : null;
+    const hrv = _healthValueOnDate ? _healthValueOnDate('heart_rate_variability', dStr) : null;
+    if (sd && sd.totalSleep && hrv) {
+      points.push({ x: sd.totalSleep / 3600, y: hrv });
+    }
+  }
+  if (points.length < 4) {
+    canvas.parentElement.innerHTML = '<div style="text-align:center;color:#bbb;font-size:12px;padding:20px">Not enough data for correlation</div>';
+    return;
+  }
+  // Pearson correlation
+  const n = points.length;
+  const mx = _avg(points.map(p=>p.x)), my = _avg(points.map(p=>p.y));
+  let num=0, dx2=0, dy2=0;
+  points.forEach(p => { const dx=p.x-mx,dy=p.y-my; num+=dx*dy; dx2+=dx*dx; dy2+=dy*dy; });
+  const r = num / Math.sqrt(dx2 * dy2);
+  if (corrLabel) {
+    const pct = Math.abs(Math.round(r * 100));
+    const dir = r > 0 ? 'positive' : 'negative';
+    const str = Math.abs(r) > 0.5 ? 'strong' : Math.abs(r) > 0.3 ? 'moderate' : 'weak';
+    corrLabel.textContent = `r = ${r.toFixed(2)} — ${str} ${dir} correlation (${n} nights)`;
+    corrLabel.style.color = r > 0.3 ? '#6b9e7a' : r < -0.3 ? '#e05c5c' : '#9ca3af';
+  }
+  if (typeof Chart === 'undefined') return;
+  if (canvas._chartInstance) canvas._chartInstance.destroy();
+  canvas._chartInstance = new Chart(canvas, {
+    type: 'scatter',
+    data: { datasets: [{ label: 'Sleep vs HRV', data: points,
+      backgroundColor: '#6b9e7a88', borderColor: '#6b9e7a', pointRadius: 5 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: ctx => `Sleep: ${ctx.raw.x.toFixed(1)}h · HRV: ${ctx.raw.y}ms` }
+      }},
+      scales: {
+        x: { title: { display: true, text: 'Sleep (hours)', font: { size: 10 } }, ticks: { font: { size: 10 } } },
+        y: { title: { display: true, text: 'HRV (ms)', font: { size: 10 } }, ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+// Hook into sleep tab
+const _origWhoop_sleep_pending = pendingCharts['whoop-sleep'];
+pendingCharts['whoop-sleep'] = function() {
+  if (_origWhoop_sleep_pending) _origWhoop_sleep_pending();
+  buildSleepHrvScatter();
+};
+if (initialised['whoop-sleep']) buildSleepHrvScatter();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK 6 — Injury / Niggle Log
+// ═══════════════════════════════════════════════════════════════════════════
+function getInjuryLog() {
+  try { return JSON.parse(localStorage.getItem('injury_log')) || []; } catch { return []; }
+}
+function saveInjuryLog(log) { localStorage.setItem('injury_log', JSON.stringify(log)); }
+
+function addInjuryEntry() {
+  const part = (document.getElementById('inj-body-part') || {}).value || '';
+  const sev  = (document.getElementById('inj-severity') || {}).value || 'mild';
+  const notes = (document.getElementById('inj-notes') || {}).value || '';
+  if (!part.trim()) return;
+  const log = getInjuryLog();
+  log.unshift({ id: Date.now(), date: new Date().toLocaleDateString('en-CA'), part: part.trim(), severity: sev, notes: notes.trim(), resolved: false });
+  saveInjuryLog(log);
+  if (document.getElementById('inj-body-part')) document.getElementById('inj-body-part').value = '';
+  if (document.getElementById('inj-notes')) document.getElementById('inj-notes').value = '';
+  renderInjuryLog();
+}
+
+function deleteInjuryEntry(id) {
+  if (!confirm('Remove this entry?')) return;
+  saveInjuryLog(getInjuryLog().filter(e => e.id !== id));
+  renderInjuryLog();
+}
+
+function toggleInjuryResolved(id) {
+  const log = getInjuryLog().map(e => e.id === id ? { ...e, resolved: !e.resolved } : e);
+  saveInjuryLog(log);
+  renderInjuryLog();
+}
+
+function renderInjuryLog() {
+  const el = document.getElementById('injury-log-list');
+  if (!el) return;
+  const log = getInjuryLog();
+  if (!log.length) { el.innerHTML = '<div style="text-align:center;color:#bbb;font-size:12px;padding:16px">No entries yet</div>'; return; }
+  const sevColor = { mild: '#f59e0b', moderate: '#f97316', severe: '#ef4444' };
+  el.innerHTML = log.map(e => `
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #f3f4f6;${e.resolved?'opacity:.5':''}">
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
+          <span style="font-weight:600;font-size:13px">${escHtml(e.part)}</span>
+          <span style="font-size:10px;padding:1px 7px;border-radius:99px;background:${sevColor[e.severity]||'#9ca3af'}22;color:${sevColor[e.severity]||'#9ca3af'};font-weight:700">${e.severity}</span>
+          ${e.resolved ? '<span style="font-size:10px;color:#6b9e7a;font-weight:700">✓ resolved</span>' : ''}
+        </div>
+        ${e.notes ? `<div style="font-size:12px;color:#6b7280">${escHtml(e.notes)}</div>` : ''}
+        <div style="font-size:10px;color:#bbb;margin-top:2px">${e.date}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button onclick="toggleInjuryResolved(${e.id})" style="background:none;border:1px solid #e5e7eb;border-radius:6px;padding:3px 7px;font-size:11px;cursor:pointer" title="${e.resolved?'Reopen':'Mark resolved'}">${e.resolved?'↩':'✓'}</button>
+        <button onclick="deleteInjuryEntry(${e.id})" style="background:none;border:1px solid #fee2e2;border-radius:6px;padding:3px 7px;font-size:11px;cursor:pointer;color:#ef4444">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+// Hook injury log render into training tab
+const _origTrainTabPending = pendingCharts['train-injuries'];
+pendingCharts['train-injuries'] = function() {
+  if (_origTrainTabPending) _origTrainTabPending();
+  renderInjuryLog();
+};
+// Also wire sub-tab clicks
+document.querySelectorAll('[data-subtab="train-injuries"]').forEach(btn => {
+  btn.addEventListener('click', () => setTimeout(renderInjuryLog, 50));
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK 7 — Smarter Nutrition: Strava calorie fallback
+// ═══════════════════════════════════════════════════════════════════════════
+const _origGetKcalTarget = getKcalTarget;
+getKcalTarget = function() {
+  const result = _origGetKcalTarget();
+  if (result.source === 'health') return result;
+  // Try Strava estimated calories for today
+  const today = nutrToday();
+  const todayActs = (_acts || []).filter(a => {
+    const d = new Date(a.start_local);
+    return d.toLocaleDateString('en-CA') === today;
+  });
+  const stravaKcal = todayActs.reduce((s, a) => s + (a.summary.kilojoules ? a.summary.kilojoules * 0.239006 : (a.summary.calories || 0)), 0);
+  if (stravaKcal > 200) {
+    // Add estimated BMR (~1800 kcal) to Strava active burn
+    const total = Math.round(stravaKcal + 1800);
+    return { kcal: total, source: 'strava' };
+  }
+  return result;
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK 8 — Study Question Tracker (Medicine tab)
+// ═══════════════════════════════════════════════════════════════════════════
+function getStudyQData() {
+  try { return JSON.parse(localStorage.getItem('study_q_data')) || {}; } catch { return {}; }
+}
+function saveStudyQData(d) { localStorage.setItem('study_q_data', JSON.stringify(d)); }
+
+function adjustQCount(delta) {
+  const data = getStudyQData();
+  const today = new Date().toLocaleDateString('en-CA');
+  if (!data.days) data.days = {};
+  data.days[today] = Math.max(0, (data.days[today] || 0) + delta);
+  saveStudyQData(data);
+  renderStudyQTracker();
+}
+
+function promptStudyGoal() {
+  const goal = prompt('Daily question goal:', localStorage.getItem('study_q_goal') || '50');
+  if (goal !== null && !isNaN(+goal) && +goal > 0) {
+    localStorage.setItem('study_q_goal', Math.round(+goal));
+    renderStudyQTracker();
+  }
+}
+
+function renderStudyQTracker() {
+  const countEl  = document.getElementById('study-q-count');
+  const goalEl   = document.getElementById('study-q-goal');
+  const barEl    = document.getElementById('study-q-bar');
+  const streakEl = document.getElementById('study-q-streak');
+  const dateEl   = document.getElementById('study-q-date');
+  const heatEl   = document.getElementById('study-q-heatmap');
+  if (!countEl) return;
+
+  const data  = getStudyQData();
+  const today = new Date().toLocaleDateString('en-CA');
+  const goal  = +(localStorage.getItem('study_q_goal') || 50);
+  const count = (data.days || {})[today] || 0;
+
+  countEl.textContent = count;
+  if (goalEl) goalEl.textContent = goal;
+  if (dateEl) dateEl.textContent = today;
+  if (barEl) barEl.style.width = Math.min(100, Math.round(count / goal * 100)) + '%';
+  if (barEl) barEl.style.background = count >= goal ? '#22c55e' : '#6b9e7a';
+
+  // Streak
+  if (streakEl && data.days) {
+    let streak = 0;
+    const d = new Date(); d.setHours(0,0,0,0);
+    // Don't penalise if today not yet done — check from yesterday
+    d.setDate(d.getDate() - 1);
+    while (true) {
+      const k = d.toLocaleDateString('en-CA');
+      if ((data.days[k] || 0) >= goal) { streak++; d.setDate(d.getDate()-1); }
+      else break;
+    }
+    streakEl.textContent = count >= goal ? `Streak: ${streak+1}d 🔥` : `Streak: ${streak}d`;
+  }
+
+  // 14-day heatmap
+  if (heatEl) {
+    const cells = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const k = d.toLocaleDateString('en-CA');
+      const v = (data.days || {})[k] || 0;
+      const pct = Math.min(1, v / goal);
+      const alpha = (0.1 + pct * 0.9).toFixed(2);
+      const isToday = k === today;
+      cells.push(`<div title="${k}: ${v} Qs" style="width:16px;height:16px;border-radius:3px;background:rgba(107,158,122,${alpha});${isToday?'outline:2px solid #374151':''}"></div>`);
+    }
+    heatEl.innerHTML = cells.join('');
+  }
+}
+
+// Render on page load and hook into Medicine sub-tab
+renderStudyQTracker();
+document.querySelectorAll('[data-subtab^="med"]').forEach(btn => {
+  btn.addEventListener('click', () => setTimeout(renderStudyQTracker, 50));
+});
 </script>
 </body>
 </html>

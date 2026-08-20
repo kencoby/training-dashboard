@@ -61,6 +61,11 @@ export async function onRequest(context) {
       return json(res.status, await res.json());
     }
 
+    if (action === 'client_id') {
+      if (!clientId) return json(500, { error: 'Not configured' });
+      return json(200, { client_id: clientId });
+    }
+
     return json(400, { error: 'Unknown action' });
   } catch (err) {
     return json(500, { error: err.message });
