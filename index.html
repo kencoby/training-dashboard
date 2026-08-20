@@ -11860,17 +11860,42 @@ function saveHydrationData(ml) {
 function addHydration(ml) {
   const d = getHydrationData();
   const newMl = Math.max(0, d.ml + ml);
+  const goal = +(localStorage.getItem('hydration_goal') || 3000);
+  const wasUnder = d.ml < goal;
+  const nowOver  = newMl >= goal;
   saveHydrationData(newMl);
+  // Auto-tick the "3L water" habit when goal first crossed
+  if (wasUnder && nowOver) {
+    const today = new Date().toLocaleDateString('en-CA');
+    const ticked = getHabits();
+    if (!ticked['h-water-3l']) {
+      ticked['h-water-3l'] = true;
+      saveHabits({ date: today, ticked });
+      recomputeAllStreaks();
+      if (typeof renderHabits === 'function') renderHabits();
+    }
+  }
+  // Auto-un-tick if they go back below goal
+  if (!wasUnder && newMl < goal) {
+    const today = new Date().toLocaleDateString('en-CA');
+    const ticked = getHabits();
+    if (ticked['h-water-3l']) {
+      ticked['h-water-3l'] = false;
+      saveHabits({ date: today, ticked });
+      recomputeAllStreaks();
+      if (typeof renderHabits === 'function') renderHabits();
+    }
+  }
   renderHydrationSection();
 }
 function renderHydrationSection() {
   const el = document.getElementById('hydration-section');
   if (!el) return;
   const { ml } = getHydrationData();
-  const goal = +(localStorage.getItem('hydration_goal') || 2500);
+  const goal = +(localStorage.getItem('hydration_goal') || 3000);
   const pct = Math.min(100, Math.round(ml / goal * 100));
   const cups = Math.floor(ml / 250);
-  const cupsHtml = Array.from({length: Math.min(10, Math.ceil(goal/250))}, (_, i) =>
+  const cupsHtml = Array.from({length: Math.min(12, Math.ceil(goal/250))}, (_, i) =>
     `<span style="font-size:18px;cursor:pointer;opacity:${i < cups ? 1 : 0.25}" onclick="addHydration(250)" title="Add 250ml">💧</span>`
   ).join('');
   el.innerHTML = `
@@ -11934,8 +11959,6 @@ function _pomoSaveSession() {
   const today = new Date().toLocaleDateString('en-CA');
   _pomoSessionsToday++;
   localStorage.setItem('pomo_sessions', JSON.stringify({ date: today, count: _pomoSessionsToday }));
-  // Auto-add 25 questions to study tracker
-  adjustQCount(25);
 }
 
 function pomoUpdateDisplay() {
