@@ -11745,18 +11745,39 @@ function renderPRTracker() {
   rows.forEach(r => { (bySport[r.t.sport] = bySport[r.t.sport] || []).push(r); });
 
   let html = '';
+  const prOverrides = JSON.parse(localStorage.getItem('pr_overrides') || '{}');
+
   Object.entries(bySport).forEach(([sport, sRows]) => {
     html += `<div style="margin-bottom:12px">
       <div style="font-size:11px;text-transform:uppercase;letter-spacing:.07em;font-weight:700;color:#9ca3af;margin-bottom:6px">${sportEmoji[sport]||''} ${sport}</div>
-      ${sRows.map(({ t, best, dateStr }) => `
-        <div style="display:flex;align-items:center;padding:6px 0;border-bottom:1px solid #f9fafb">
+      ${sRows.map(({ t, best, dateStr }) => {
+        const overrideKey = `${sport}_${t.label}`;
+        const override = prOverrides[overrideKey];
+        const displayTime = override ? override.time : fmtTime(best.summary.moving_time);
+        const isOverridden = !!override;
+        return `<div style="display:flex;align-items:center;padding:6px 0;border-bottom:1px solid #f9fafb">
           <div style="font-size:13px;font-weight:600;min-width:70px">${t.label}</div>
-          <div style="flex:1;font-size:14px;font-weight:700">${fmtTime(best.summary.moving_time)}</div>
-          <div style="font-size:11px;color:#9ca3af;text-align:right">${fmtPace(best.summary.avg_speed, sport)}<br>${dateStr}</div>
-        </div>`).join('')}
+          <div style="flex:1">
+            <span style="font-size:14px;font-weight:700">${displayTime}</span>
+            ${isOverridden ? `<span style="font-size:10px;color:#6366f1;margin-left:4px">✏️ manual</span>` : ''}
+          </div>
+          <div style="font-size:11px;color:#9ca3af;text-align:right;margin-right:8px">${fmtPace(best.summary.avg_speed, sport)}<br>${dateStr}</div>
+          <button onclick="setPROverride('${overrideKey}')" title="Set actual time" style="background:none;border:1px solid #e5e7eb;border-radius:6px;padding:2px 6px;font-size:11px;color:#6b7280;cursor:pointer">✏️</button>
+        </div>`;
+      }).join('')}
     </div>`;
   });
   el.innerHTML = html;
+}
+
+function setPROverride(key) {
+  const t = prompt('Enter your actual time for this PR (MM:SS or H:MM:SS):');
+  if (!t) return;
+  if (!/^\d{1,2}:\d{2}(:\d{2})?$/.test(t.trim())) { alert('Format must be MM:SS or H:MM:SS'); return; }
+  const overrides = JSON.parse(localStorage.getItem('pr_overrides') || '{}');
+  overrides[key] = { time: t.trim() };
+  localStorage.setItem('pr_overrides', JSON.stringify(overrides));
+  renderPRTracker();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
