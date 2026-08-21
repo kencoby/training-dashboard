@@ -248,6 +248,23 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
           </div>
         </div>
       </div>
+      <!-- QUICK-LOG SHORTCUTS -->
+      <div id="quick-log-bar" style="display:flex;gap:6px;padding:6px 14px;border-bottom:1px solid #f3f4f6;flex-shrink:0;flex-wrap:wrap">
+        <button onclick="addHydration(250)" style="background:#eff6ff;color:#3b82f6;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer">💧 +250ml</button>
+        <button onclick="showQuickFood()" style="background:#f0fdf4;color:#16a34a;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer">🍽️ Log food</button>
+        <button onclick="adjustQCount(1);renderStudyQTracker()" style="background:#faf5ff;color:#9333ea;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer">📚 +1 Q</button>
+        <button onclick="adjustQCount(10);renderStudyQTracker()" style="background:#faf5ff;color:#9333ea;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer">📚 +10 Qs</button>
+      </div>
+      <div id="quick-food-panel" style="display:none;padding:8px 14px;background:#f9fafb;border-bottom:1px solid #f3f4f6;flex-shrink:0">
+        <div style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;margin-bottom:6px">Quick food entry</div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <input id="qf-name" type="text" placeholder="Food name" style="flex:2;min-width:100px;border:1px solid #e5e7eb;border-radius:8px;padding:6px 8px;font-size:13px;font-family:inherit;outline:none">
+          <input id="qf-kcal" type="number" placeholder="kcal" style="width:60px;border:1px solid #e5e7eb;border-radius:8px;padding:6px 8px;font-size:13px;font-family:inherit;outline:none">
+          <input id="qf-protein" type="number" placeholder="P(g)" style="width:55px;border:1px solid #e5e7eb;border-radius:8px;padding:6px 8px;font-size:13px;font-family:inherit;outline:none">
+          <button onclick="submitQuickFood()" style="background:#1a1a1a;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer">Add</button>
+          <button onclick="hideQuickFood()" style="background:none;border:none;color:#9ca3af;font-size:13px;cursor:pointer">✕</button>
+        </div>
+      </div>
       <div id="today-sections" style="padding:10px 14px 6px;flex:1;overflow-y:auto;min-height:0"></div>
     </div>
   </div>
@@ -444,6 +461,16 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 <div class="card"><div class="cht-sm"><canvas id="whoop-fitness-trend-chart"></canvas></div></div>
 </div>
 
+<div class="section">
+<h2>RHR — 7-Day Rolling</h2>
+<div class="card"><div class="cht-sm"><canvas id="rhr-7day-chart"></canvas></div></div>
+</div>
+
+<div class="section">
+<h2>HRV — 7-Day Rolling</h2>
+<div class="card"><div class="cht-sm"><canvas id="hrv-7day-chart"></canvas></div></div>
+</div>
+
 </div><!-- /sub-tab-whoop-monitor -->
 
 <div class="sub-tab-pane" id="sub-tab-whoop-fitness">
@@ -483,6 +510,11 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 </div>
 </div>
 
+<div class="section">
+<h2>VO₂ Max Trend</h2>
+<div class="card"><div class="cht-sm"><canvas id="vo2max-trend-chart"></canvas></div></div>
+</div>
+
 </div><!-- /sub-tab-whoop-fitness -->
 
 </div><!-- /tab-whoop -->
@@ -497,6 +529,8 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
   <button class="sub-tab-btn" data-subtab="train-swimming">Swimming</button>
   <button class="sub-tab-btn" data-subtab="train-other">Other</button>
   <button class="sub-tab-btn" data-subtab="train-injuries">🩹 Injuries</button>
+  <button class="sub-tab-btn" data-subtab="train-shoes">👟 Shoes</button>
+  <button class="sub-tab-btn" data-subtab="train-races">🏅 Races</button>
 </nav>
 
 <div class="sub-tab-pane active" id="sub-tab-train-overview">
@@ -925,9 +959,53 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 </div>
 </div><!-- /sub-tab-train-injuries -->
 
+<!-- SHOE TRACKER -->
+<div class="sub-tab-pane" id="sub-tab-train-shoes">
+<div class="section">
+<h2>👟 Shoe Mileage</h2>
+<div class="card" style="padding:14px;margin-bottom:12px">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+    <input id="shoe-name-input" type="text" placeholder="Shoe name (e.g. Nike Vaporfly)" style="border:1px solid #e5e7eb;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none">
+    <input id="shoe-limit-input" type="number" placeholder="Max km (e.g. 800)" style="border:1px solid #e5e7eb;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none">
+  </div>
+  <input id="shoe-start-input" type="date" style="width:100%;border:1px solid #e5e7eb;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none;margin-bottom:8px">
+  <button onclick="addShoe()" style="background:#1a1a1a;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer">Add shoe</button>
+</div>
+<div id="shoe-list"></div>
+</div>
+</div><!-- /sub-tab-train-shoes -->
+
+<!-- RACE LOG -->
+<div class="sub-tab-pane" id="sub-tab-train-races">
+<div class="section">
+<h2>🏅 Race Results</h2>
+<div class="card" style="padding:14px;margin-bottom:12px">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+    <input id="race-name-input" type="text" placeholder="Event name" style="border:1px solid #e5e7eb;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none">
+    <input id="race-date-input" type="date" style="border:1px solid #e5e7eb;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none">
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+    <select id="race-dist-input" style="border:1px solid #e5e7eb;border-radius:8px;padding:7px 10px;font-size:13px;background:#fff;font-family:inherit;outline:none">
+      <option value="5">5 km</option>
+      <option value="10">10 km</option>
+      <option value="21.1">Half Marathon</option>
+      <option value="42.2">Marathon</option>
+      <option value="other">Other</option>
+    </select>
+    <input id="race-time-input" type="text" placeholder="Finish time (hh:mm:ss)" style="border:1px solid #e5e7eb;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none">
+  </div>
+  <button onclick="addRaceResult()" style="background:#1a1a1a;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer">Log race</button>
+</div>
+<div id="race-list"></div>
+</div>
+</div><!-- /sub-tab-train-races -->
+
 </div><!-- /tab-training -->
 
 <div id="tab-medicine" class="tab-pane">
+
+<!-- EXAM COUNTDOWN -->
+<div id="exam-countdown-chip" style="margin-bottom:12px"></div>
 
 <!-- STUDY STREAK -->
 <div class="card" style="margin-bottom:12px">
@@ -1681,6 +1759,14 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 <!-- NOTES LIST -->
 <div class="section">
   <div id="notes-list"></div>
+</div>
+
+<!-- SESSION NOTES SEARCH -->
+<div class="section">
+  <h2>Session Notes Search</h2>
+  <input id="session-notes-search" type="text" placeholder="Search your activity notes…" oninput="renderSessionNotesSearch()"
+    style="width:100%;border:1.5px solid #d1d5db;border-radius:10px;padding:9px 12px;font-size:14px;font-family:inherit;outline:none;margin-bottom:10px">
+  <div id="session-notes-results" style="font-size:13px;color:#9ca3af;text-align:center;padding:8px">Type to search session notes</div>
 </div>
 
 </div><!-- /tab-notes -->
@@ -12191,6 +12277,441 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK #21 — Shoe Mileage Tracker
+// ═══════════════════════════════════════════════════════════════════════════
+function getShoes() { try { return JSON.parse(localStorage.getItem('shoe_list')) || []; } catch { return []; } }
+function saveShoes(s) { localStorage.setItem('shoe_list', JSON.stringify(s)); }
+
+function addShoe() {
+  const name = (document.getElementById('shoe-name-input').value || '').trim();
+  if (!name) { alert('Shoe name required'); return; }
+  const limit = parseFloat(document.getElementById('shoe-limit-input').value) || 800;
+  const startDate = document.getElementById('shoe-start-input').value || new Date().toLocaleDateString('en-CA');
+  const shoes = getShoes();
+  shoes.push({ id: Date.now(), name, limit, startDate });
+  saveShoes(shoes);
+  document.getElementById('shoe-name-input').value = '';
+  document.getElementById('shoe-limit-input').value = '';
+  document.getElementById('shoe-start-input').value = '';
+  renderShoeList();
+}
+
+function shoeDeleteConfirm(id) {
+  if (!confirm('Delete this shoe?')) return;
+  saveShoes(getShoes().filter(s => s.id !== id));
+  renderShoeList();
+}
+
+function renderShoeList() {
+  const el = document.getElementById('shoe-list');
+  if (!el) return;
+  const shoes = getShoes();
+  if (!shoes.length) {
+    el.innerHTML = '<div style="font-size:13px;color:#9ca3af;text-align:center;padding:16px">No shoes added yet</div>';
+    return;
+  }
+  const acts = (typeof _acts !== 'undefined' ? _acts : []).filter(a => a.type === 'Run' || a.type === 'TrailRun' || a.type === 'Hike');
+  el.innerHTML = shoes.map(shoe => {
+    const km = acts.filter(a => a.start_local >= shoe.startDate)
+                   .reduce((s, a) => s + (a.distance || 0) / 1000, 0);
+    const pct = Math.min(100, (km / shoe.limit) * 100);
+    const barColor = pct >= 90 ? '#ef4444' : pct >= 70 ? '#f59e0b' : '#6b9e7a';
+    return `<div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:14px;font-weight:600">${escHtml(shoe.name)}</span>
+        <span style="font-size:12px;color:#6b7280">${km.toFixed(0)} / ${shoe.limit} km
+          <button onclick="shoeDeleteConfirm(${shoe.id})" style="background:none;border:none;color:#e05c5c;font-size:11px;cursor:pointer;margin-left:8px">✕</button>
+        </span>
+      </div>
+      <div style="background:#f3f4f6;border-radius:99px;height:8px">
+        <div style="width:${pct}%;background:${barColor};height:8px;border-radius:99px;transition:width .4s"></div>
+      </div>
+      <div style="font-size:11px;color:#9ca3af;margin-top:3px">Since ${shoe.startDate} · ${shoe.limit - km > 0 ? (shoe.limit - km).toFixed(0) + ' km left' : '🔴 REPLACE SOON'}</div>
+    </div>`;
+  }).join('');
+}
+
+pendingCharts['train-shoes'] = renderShoeList;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK #22 — Race Results Log
+// ═══════════════════════════════════════════════════════════════════════════
+function getRaceResults() { try { return JSON.parse(localStorage.getItem('race_results')) || []; } catch { return []; } }
+function saveRaceResults(r) { localStorage.setItem('race_results', JSON.stringify(r)); }
+
+function addRaceResult() {
+  const name = (document.getElementById('race-name-input').value || '').trim();
+  if (!name) { alert('Race name required'); return; }
+  const date = document.getElementById('race-date-input').value;
+  if (!date) { alert('Race date required'); return; }
+  const dist = parseFloat(document.getElementById('race-dist-input').value) || 0;
+  const time = (document.getElementById('race-time-input').value || '').trim();
+  const results = getRaceResults();
+  results.push({ id: Date.now(), name, date, dist, time });
+  results.sort((a, b) => b.date.localeCompare(a.date));
+  saveRaceResults(results);
+  ['race-name-input','race-date-input','race-time-input'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  renderRaceList();
+}
+
+function deleteRaceResult(id) {
+  if (!confirm('Delete this race result?')) return;
+  saveRaceResults(getRaceResults().filter(r => r.id !== id));
+  renderRaceList();
+}
+
+function _raceTimeToSecs(t) {
+  if (!t) return 0;
+  const parts = t.split(':').map(Number);
+  if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
+  if (parts.length === 2) return parts[0]*60 + parts[1];
+  return 0;
+}
+
+function _racePace(dist, time) {
+  const secs = _raceTimeToSecs(time);
+  if (!secs || !dist) return '';
+  const secPerKm = secs / dist;
+  const m = Math.floor(secPerKm / 60);
+  const s = Math.round(secPerKm % 60);
+  return `${m}:${String(s).padStart(2,'0')} /km`;
+}
+
+function _distLabel(d) {
+  if (d === 5) return '5K';
+  if (d === 10) return '10K';
+  if (d === 21.1) return 'Half Marathon';
+  if (d === 42.2) return 'Marathon';
+  return d + ' km';
+}
+
+function renderRaceList() {
+  const el = document.getElementById('race-list');
+  if (!el) return;
+  const races = getRaceResults();
+  if (!races.length) {
+    el.innerHTML = '<div style="font-size:13px;color:#9ca3af;text-align:center;padding:16px">No races logged yet</div>';
+    return;
+  }
+  el.innerHTML = races.map(r => {
+    const pace = r.time && r.dist ? `<span style="font-size:11px;color:#9ca3af;margin-left:6px">${_racePace(r.dist, r.time)}</span>` : '';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f3f4f6">
+      <div>
+        <div style="font-size:14px;font-weight:600">${escHtml(r.name)}</div>
+        <div style="font-size:12px;color:#6b7280">${r.date} · ${_distLabel(r.dist)}${pace}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:15px;font-weight:700;color:#1a1a1a">${escHtml(r.time || '—')}</span>
+        <button onclick="deleteRaceResult(${r.id})" style="background:none;border:none;color:#e05c5c;font-size:12px;cursor:pointer">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+pendingCharts['train-races'] = renderRaceList;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK #23 — Session RPE Logging
+// ═══════════════════════════════════════════════════════════════════════════
+function getActivityRPE() { try { return JSON.parse(localStorage.getItem('activity_rpe')) || {}; } catch { return {}; } }
+function saveActivityRPE(key, val) {
+  const d = getActivityRPE();
+  d[key] = parseInt(val);
+  localStorage.setItem('activity_rpe', JSON.stringify(d));
+}
+
+if (typeof _insightNotesHtml === 'function') {
+  const _origInsightNotesHtml = _insightNotesHtml;
+  _insightNotesHtml = function(a) {
+    const base = _origInsightNotesHtml.apply(this, arguments);
+    const key = noteKey(a);
+    const nid = noteId(a);
+    const saved = getActivityRPE()[key] || 0;
+    return base + `
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid #f0f0f0">
+        <div style="font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Session RPE</div>
+        <input type="range" min="1" max="10" value="${saved || 5}" style="width:100%;accent-color:#3b82f6"
+          oninput="saveActivityRPE(${JSON.stringify(key)}, this.value); document.getElementById('rpelbl-${nid}').textContent='RPE ' + this.value + '/10'">
+        <div id="rpelbl-${nid}" style="font-size:12px;color:#6b7280;margin-top:4px;text-align:center">${saved ? 'RPE ' + saved + '/10' : 'Drag to rate effort (1–10)'}</div>
+      </div>`;
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK #24 — VO₂ Max Trend Chart
+// ═══════════════════════════════════════════════════════════════════════════
+let _vo2Chart = null;
+
+function renderVo2MaxTrend() {
+  const canvas = document.getElementById('vo2max-trend-chart');
+  if (!canvas) return;
+  const pts = _healthSeries('vo2_max', 90);
+  if (!pts.length) {
+    canvas.parentElement.innerHTML = '<div style="font-size:13px;color:#9ca3af;text-align:center;padding:16px">No VO₂ Max data</div>';
+    return;
+  }
+  if (_vo2Chart) { _vo2Chart.destroy(); _vo2Chart = null; }
+  _vo2Chart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: pts.map(p => p.date.slice(5)),
+      datasets: [{
+        data: pts.map(p => p.value),
+        borderColor: '#6366f1',
+        backgroundColor: 'rgba(99,102,241,0.08)',
+        borderWidth: 2,
+        pointRadius: 3,
+        fill: true,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `VO₂ Max: ${ctx.parsed.y.toFixed(1)} ml/kg/min` } } },
+      scales: {
+        x: { ticks: { maxTicksLimit: 8, font: { size: 10 } } },
+        y: { ticks: { font: { size: 10 } }, title: { display: true, text: 'ml/kg/min', font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+const _origRenderFitSubTab3 = renderFitnessSubTab;
+renderFitnessSubTab = function() {
+  _origRenderFitSubTab3.apply(this, arguments);
+  renderVo2MaxTrend();
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK #25 — RHR + HRV 7-Day Rolling Charts
+// ═══════════════════════════════════════════════════════════════════════════
+let _rhrChart = null, _hrv7Chart = null;
+
+function _rolling7(series) {
+  return series.map((p, i) => {
+    const w = series.slice(Math.max(0, i - 6), i + 1);
+    return { date: p.date, value: w.reduce((s, x) => s + x.value, 0) / w.length };
+  });
+}
+
+function renderRhrHrvCharts() {
+  const rhrCanvas = document.getElementById('rhr-7day-chart');
+  if (rhrCanvas) {
+    const raw = _healthSeries('resting_heart_rate', 60);
+    if (raw.length) {
+      const pts = _rolling7(raw);
+      if (_rhrChart) { _rhrChart.destroy(); _rhrChart = null; }
+      _rhrChart = new Chart(rhrCanvas, {
+        type: 'line',
+        data: {
+          labels: pts.map(p => p.date.slice(5)),
+          datasets: [{ data: pts.map(p => p.value), borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.08)', borderWidth: 2, pointRadius: 2, fill: true, tension: 0.3 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `RHR: ${ctx.parsed.y.toFixed(0)} bpm` } } },
+          scales: { x: { ticks: { maxTicksLimit: 8, font: { size: 10 } } }, y: { ticks: { font: { size: 10 } }, title: { display: true, text: 'bpm', font: { size: 10 } } } }
+        }
+      });
+    } else {
+      rhrCanvas.parentElement.innerHTML = '<div style="font-size:13px;color:#9ca3af;text-align:center;padding:12px">No RHR data</div>';
+    }
+  }
+  const hrvCanvas = document.getElementById('hrv-7day-chart');
+  if (hrvCanvas) {
+    const raw = _healthSeries('heart_rate_variability', 60);
+    if (raw.length) {
+      const pts = _rolling7(raw);
+      if (_hrv7Chart) { _hrv7Chart.destroy(); _hrv7Chart = null; }
+      _hrv7Chart = new Chart(hrvCanvas, {
+        type: 'line',
+        data: {
+          labels: pts.map(p => p.date.slice(5)),
+          datasets: [{ data: pts.map(p => p.value), borderColor: '#6b9e7a', backgroundColor: 'rgba(107,158,122,0.08)', borderWidth: 2, pointRadius: 2, fill: true, tension: 0.3 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `HRV: ${ctx.parsed.y.toFixed(0)} ms` } } },
+          scales: { x: { ticks: { maxTicksLimit: 8, font: { size: 10 } } }, y: { ticks: { font: { size: 10 } }, title: { display: true, text: 'ms', font: { size: 10 } } } }
+        }
+      });
+    } else {
+      hrvCanvas.parentElement.innerHTML = '<div style="font-size:13px;color:#9ca3af;text-align:center;padding:12px">No HRV data</div>';
+    }
+  }
+}
+
+const _origRenderWhoopMon2 = renderWhoopMonitor;
+renderWhoopMonitor = function() {
+  _origRenderWhoopMon2.apply(this, arguments);
+  if (initialised['whoop-monitor']) {
+    renderRhrHrvCharts();
+  } else {
+    const _prevPendMon = pendingCharts['whoop-monitor'] || (() => {});
+    pendingCharts['whoop-monitor'] = () => { _prevPendMon(); renderRhrHrvCharts(); };
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK #27 — Exam Countdown Chip + TASK #28 — Revision Adherence %
+// ═══════════════════════════════════════════════════════════════════════════
+function renderExamCountdown() {
+  const el = document.getElementById('exam-countdown-chip');
+  if (!el) return;
+  const now = new Date(); now.setHours(0,0,0,0);
+  const exam = new Date(REV_EXAM); exam.setHours(0,0,0,0);
+  const daysLeft = Math.ceil((exam - now) / 86400000);
+
+  // Revision adherence since REV_START
+  const start = new Date(REV_START); start.setHours(0,0,0,0);
+  const totalDays = Math.max(1, Math.floor((now - start) / 86400000));
+  const log = getRevLog();
+  let doneDays = 0;
+  for (let i = 0; i < totalDays; i++) {
+    const d = new Date(start.getTime() + i * 86400000);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const entry = log[key];
+    if (entry && (entry.anki > 0 || entry.pm > 0)) doneDays++;
+  }
+  const adherePct = Math.round((doneDays / totalDays) * 100);
+  const adColor = adherePct >= 80 ? '#16a34a' : adherePct >= 60 ? '#d97706' : '#dc2626';
+
+  let countdownHtml;
+  if (daysLeft <= 0) {
+    countdownHtml = `<span style="background:#f3f4f6;color:#6b7280;border-radius:99px;padding:5px 14px;font-size:13px;font-weight:600">🎓 Exam complete!</span>`;
+  } else {
+    const urgColor = daysLeft <= 7 ? '#dc2626' : daysLeft <= 14 ? '#d97706' : '#6366f1';
+    countdownHtml = `<span style="background:${urgColor}18;color:${urgColor};border:1px solid ${urgColor}44;border-radius:99px;padding:5px 14px;font-size:13px;font-weight:700">📅 ${daysLeft} day${daysLeft===1?'':'s'} to exam</span>`;
+  }
+
+  el.innerHTML = `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
+    ${countdownHtml}
+    <span style="background:${adColor}18;color:${adColor};border:1px solid ${adColor}44;border-radius:99px;padding:5px 14px;font-size:13px;font-weight:700">✅ ${adherePct}% revision adherence (${doneDays}/${totalDays} days)</span>
+  </div>`;
+}
+
+const _origSwitchTab3 = switchTab;
+switchTab = function(name) {
+  _origSwitchTab3.apply(this, arguments);
+  if (name === 'medicine') renderExamCountdown();
+};
+
+// Call now if medicine tab already active
+if (document.getElementById('tab-medicine') && document.getElementById('tab-medicine').classList.contains('active')) {
+  renderExamCountdown();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK #29 — Morning Briefing Push Notifications
+// ═══════════════════════════════════════════════════════════════════════════
+function scheduleMorningNotif() {
+  if (!('Notification' in window)) { alert('Push notifications not supported in this browser.'); return; }
+  Notification.requestPermission().then(perm => {
+    if (perm !== 'granted') { alert('Notification permission denied.'); return; }
+    localStorage.setItem('morning_notif', '1');
+    _doMorningNotifLoop();
+    alert('Morning briefing notifications enabled — you\'ll get a 7:00 AM reminder daily.');
+  });
+}
+
+function disableMorningNotif() {
+  localStorage.removeItem('morning_notif');
+  alert('Morning notifications disabled.');
+}
+
+function _doMorningNotifLoop() {
+  if (localStorage.getItem('morning_notif') !== '1') return;
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const now = new Date();
+  const next = new Date(now);
+  next.setHours(7, 0, 0, 0);
+  if (next <= now) next.setDate(next.getDate() + 1);
+  setTimeout(() => {
+    if (localStorage.getItem('morning_notif') === '1' && Notification.permission === 'granted') {
+      const n = new Notification('Training Dashboard ☀️', {
+        body: 'Good morning! Check your readiness, sessions & nutrition.',
+        icon: '/icon-192.png'
+      });
+      n.onclick = () => { window.focus(); n.close(); };
+    }
+    _doMorningNotifLoop();
+  }, next - now);
+}
+
+if (localStorage.getItem('morning_notif') === '1') _doMorningNotifLoop();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK #30 — Activity Notes Search
+// ═══════════════════════════════════════════════════════════════════════════
+function renderSessionNotesSearch() {
+  const input = document.getElementById('session-notes-search');
+  const results = document.getElementById('session-notes-results');
+  if (!input || !results) return;
+  const query = input.value.trim().toLowerCase();
+  if (!query) {
+    results.innerHTML = '<div style="font-size:13px;color:#9ca3af;text-align:center;padding:8px">Type to search session notes</div>';
+    return;
+  }
+  const notes = getActivityNotes();
+  const acts = typeof _acts !== 'undefined' ? _acts : [];
+  const keyToAct = {};
+  acts.forEach(a => { keyToAct[noteKey(a)] = a; });
+
+  const escRe = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const matches = Object.entries(notes)
+    .filter(([k, v]) => v && (v.toLowerCase().includes(query) || k.toLowerCase().includes(query)))
+    .slice(0, 25);
+
+  if (!matches.length) {
+    results.innerHTML = '<div style="font-size:13px;color:#9ca3af;text-align:center;padding:8px">No matching notes found</div>';
+    return;
+  }
+  results.innerHTML = matches.map(([k, note]) => {
+    const act = keyToAct[k];
+    const title = act ? escHtml(act.name) : escHtml(k.slice(0, 50));
+    const date = act && act.start_local ? act.start_local.slice(0, 10) : '';
+    const highlighted = note.replace(new RegExp('(' + escRe + ')', 'gi'),
+      '<mark style="background:#fef9c3;border-radius:2px">$1</mark>');
+    return `<div style="padding:8px 0;border-bottom:1px solid #f3f4f6">
+      <div style="font-size:13px;font-weight:600;color:#1a1a1a">${title} <span style="font-size:11px;color:#9ca3af;font-weight:400">${date}</span></div>
+      <div style="font-size:12px;color:#4b5563;margin-top:2px;line-height:1.4">${highlighted}</div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TASK #31 — Quick-log Food Shortcuts
+// ═══════════════════════════════════════════════════════════════════════════
+function showQuickFood() {
+  const p = document.getElementById('quick-food-panel');
+  if (p) { p.style.display = 'block'; const n = document.getElementById('qf-name'); if (n) n.focus(); }
+}
+function hideQuickFood() {
+  const p = document.getElementById('quick-food-panel');
+  if (p) p.style.display = 'none';
+}
+function submitQuickFood() {
+  const name = (document.getElementById('qf-name').value || '').trim();
+  if (!name) { alert('Food name required'); return; }
+  const kcal = parseFloat(document.getElementById('qf-kcal').value) || 0;
+  const protein = parseFloat(document.getElementById('qf-protein').value) || 0;
+  addFoodEntry({ name, kcal, protein, carbs: 0, fat: 0 });
+  if (typeof renderNutrToday === 'function') safe(renderNutrToday);
+  if (typeof renderNutrDashboardCard === 'function') safe(renderNutrDashboardCard);
+  ['qf-name','qf-kcal','qf-protein'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  hideQuickFood();
+  // Brief confirmation banner
+  const bar = document.getElementById('quick-log-bar');
+  if (bar) {
+    const fb = document.createElement('div');
+    fb.textContent = `✓ ${name}${kcal ? ' (' + kcal + ' kcal)' : ''} logged`;
+    fb.style.cssText = 'font-size:12px;color:#16a34a;padding:2px 14px;font-weight:600';
+    bar.after(fb);
+    setTimeout(() => fb.remove(), 2000);
+  }
 }
 </script>
 </body>
