@@ -175,6 +175,26 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
   </div>
 </div>
 
+<!-- Global quick-capture: jot a stray thought from any tab without switching (saves to Notes) -->
+<div id="quick-capture-fab" onclick="openQuickCapture()" title="Quick capture — saves to Notes"
+  style="position:fixed;right:18px;bottom:18px;z-index:9000;width:44px;height:44px;border-radius:50%;
+  background:var(--accent,#16161a);color:#fff;display:flex;align-items:center;justify-content:center;
+  font-size:19px;cursor:pointer;box-shadow:var(--shadow-md,0 4px 14px rgba(0,0,0,.25));user-select:none;transition:transform .15s var(--ease,ease)"
+  onmouseover="this.style.transform='scale(1.06)'" onmouseout="this.style.transform='scale(1)'">✎</div>
+
+<div id="quick-capture-panel" style="display:none;position:fixed;right:18px;bottom:70px;z-index:9001;
+  background:var(--surface,#fff);border:1px solid var(--border,#e5e7eb);border-radius:var(--radius-md,12px);
+  box-shadow:var(--shadow-md,0 10px 30px rgba(0,0,0,.15));padding:12px;width:min(320px,calc(100vw - 36px))">
+  <textarea id="quick-capture-input" rows="3" placeholder="Jot it down — saved to Notes…"
+    style="width:100%;border:1px solid var(--border,#e5e7eb);border-radius:8px;padding:8px 10px;font-size:13px;
+    font-family:inherit;resize:vertical;outline:none;color:inherit;background:transparent"
+    onkeydown="if((event.metaKey||event.ctrlKey)&&event.key==='Enter'){submitQuickCapture();event.preventDefault()} if(event.key==='Escape'){closeQuickCapture();event.preventDefault()}"></textarea>
+  <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
+    <button onclick="closeQuickCapture()" style="background:none;border:none;color:#9ca3af;font-size:12px;cursor:pointer">Cancel</button>
+    <button onclick="submitQuickCapture()" style="background:var(--accent,#16161a);color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">Save ⌘↵</button>
+  </div>
+</div>
+
 <!-- Goal modal -->
 <div id="goal-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:10000;align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:16px;padding:24px;width:320px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,.2)">
@@ -218,6 +238,7 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 
   <!-- LEFT: Daily briefing (takes most of the width) -->
   <div class="home-briefing-col" style="display:flex;flex-direction:column;min-height:0">
+    <div id="system-alerts" style="flex-shrink:0"></div>
     <div id="warns" style="flex-shrink:0"></div>
     <div id="alerts-banner" style="display:none"></div>
     <div class="card" id="daily-briefing-body" style="padding:0;overflow:hidden;flex:1;min-height:0;display:flex;flex-direction:column">
@@ -1700,20 +1721,14 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 </div><!-- /tab-shopping -->
 
 <div class="tab-pane" id="tab-calendar">
-<div id="gcal-connect-banner" style="display:none;padding:24px;text-align:center">
-  <div style="font-size:36px;margin-bottom:12px">📅</div>
-  <h2 style="margin:0 0 8px">Connect Google Calendar</h2>
-  <p style="color:#888;font-size:14px;margin:0 0 20px">Sign in with Google to see your upcoming events.</p>
-  <button onclick="startGCalAuth()" style="background:#4285f4;color:#fff;border:none;border-radius:10px;padding:12px 28px;font-size:15px;font-weight:600;cursor:pointer">Sign in with Google</button>
-</div>
-<div id="gcal-main" style="display:none">
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0 10px">
-    <div style="display:flex;gap:8px;flex-wrap:wrap" id="gcal-legend"></div>
-    <button onclick="disconnectGCal()" style="font-size:11px;color:#bbb;background:none;border:none;cursor:pointer">Disconnect</button>
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0 4px">
+    <div style="font-weight:700;font-size:14px">📅 Today's Calendar</div>
+    <button onclick="loadTodayCalendar()" style="font-size:11px;color:#6b7280;background:none;border:1px solid #e5e7eb;border-radius:6px;padding:3px 9px;cursor:pointer">Refresh</button>
   </div>
-  <div id="gcal-agenda"></div>
-</div>
-<div id="gcal-loading" style="display:none;padding:40px;text-align:center;color:#bbb;font-size:14px">Loading calendar…</div>
+  <div class="sub" style="font-size:11px;color:#9ca3af;margin-bottom:12px">Synced hourly from Google Calendar — shows today only, no sign-in needed.</div>
+  <div class="card" id="gcal-tab-content" style="padding:14px">
+    <div class="sub">Loading…</div>
+  </div>
 </div><!-- /tab-calendar -->
 
 <div class="tab-pane" id="tab-notes">
@@ -1951,24 +1966,32 @@ async function loadTodayCalendar() {
     if (!res.ok) throw new Error(data.error || 'Failed to load calendar');
     renderTodayCalendar(data);
   } catch (e) {
-    setH('gcal-card', `<div class="sub">Couldn't load today's calendar — ${escHtml(e.message || 'unknown error')}.</div>`);
+    const msg = `<div class="sub">Couldn't load today's calendar — ${escHtml(e.message || 'unknown error')}.</div>`;
+    setH('gcal-card', msg);
+    setH('gcal-tab-content', msg);
+    _gcalStatus = 'error';
+    if (typeof renderSystemAlerts === 'function') renderSystemAlerts();
   }
 }
 
 function renderTodayCalendar(data) {
   const today = new Date().toLocaleDateString('en-CA');
   const fmtEventTime = iso => new Date(iso).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+  let bodyHtml;
 
-  // Update the standalone gcal-card
   if (!data || !Array.isArray(data.events)) {
-    setH('gcal-card', `<div class="sub" style="margin:0">No calendar data synced yet — check back within the hour.</div>`);
+    bodyHtml = `<div class="sub" style="margin:0">No calendar data synced yet — check back within the hour.</div>`;
+    _gcalStatus = 'none';
   } else if (data.date !== today) {
-    setH('gcal-card', `<div class="sub" style="margin:0">Calendar sync is stale (last synced for ${escHtml(data.date || 'an earlier day')}) — check back shortly.</div>`);
+    bodyHtml = `<div class="sub" style="margin:0">Calendar sync is stale (last synced for ${escHtml(data.date || 'an earlier day')}) — check back shortly.</div>`;
+    _gcalStatus = 'stale';
+    _gcalStaleDate = data.date || null;
   } else if (!data.events.length) {
-    setH('gcal-card', `<div class="sub" style="margin:0">Nothing on your calendar today 🎉</div>`);
+    bodyHtml = `<div class="sub" style="margin:0">Nothing on your calendar today 🎉</div>`;
     _gcalToday = [];
+    _gcalStatus = 'ok';
   } else {
-    const rows = data.events.map(ev => {
+    bodyHtml = data.events.map(ev => {
       const time = ev.allDay ? 'All day' : fmtEventTime(ev.start);
       return `
         <div class="whoop-contrib-row">
@@ -1976,13 +1999,17 @@ function renderTodayCalendar(data) {
           <span style="flex:1;font-weight:600">${escHtml(ev.summary || '(no title)')}</span>
         </div>`;
     }).join('');
-    setH('gcal-card', rows);
+    _gcalStatus = 'ok';
     // Cache for briefing
     if (data.date === today) {
       _gcalToday = data.events;
       renderDailyBriefing(); // refresh briefing with calendar data
     }
   }
+  // Update both the hidden home-card source and the visible Calendar tab
+  setH('gcal-card', bodyHtml);
+  setH('gcal-tab-content', bodyHtml);
+  if (typeof renderSystemAlerts === 'function') renderSystemAlerts();
 }
 
 // ── Strava data ──────────────────────────────────────────────────────────────
@@ -2922,6 +2949,36 @@ function addNote() {
   renderNotes();
 }
 
+// ── Global quick-capture (floating button, any tab) ──────────────────────────
+function openQuickCapture() {
+  const panel = document.getElementById('quick-capture-panel');
+  if (!panel) return;
+  panel.style.display = 'block';
+  const inp = document.getElementById('quick-capture-input');
+  if (inp) { inp.value = ''; inp.focus(); }
+}
+function closeQuickCapture() {
+  const panel = document.getElementById('quick-capture-panel');
+  if (panel) panel.style.display = 'none';
+}
+function submitQuickCapture() {
+  const inp = document.getElementById('quick-capture-input');
+  const text = (inp?.value || '').trim();
+  if (!text) { closeQuickCapture(); return; }
+  const notes = getNotes();
+  notes.unshift({ id: 'n' + Date.now(), text, label: 'General', pinned: false, ts: Date.now() });
+  saveNotes(notes);
+  if (typeof renderNotes === 'function') renderNotes();
+  closeQuickCapture();
+  const fab = document.getElementById('quick-capture-fab');
+  if (fab) {
+    const prevBg = fab.style.background;
+    fab.textContent = '✓';
+    fab.style.background = '#2d7a47';
+    setTimeout(() => { fab.textContent = '✎'; fab.style.background = prevBg; }, 1200);
+  }
+}
+
 function deleteNote(id) {
   saveNotes(getNotes().filter(n => n.id !== id));
   renderNotes();
@@ -3188,6 +3245,7 @@ function renderTasks() {
 
     initTaskDragDrop(listEl);
   });
+  if (typeof renderSystemAlerts === 'function') renderSystemAlerts();
 }
 
 let _dragTaskId = null;
@@ -7029,6 +7087,8 @@ function renderRaceCalendar() {
 // either one not having landed yet.
 let _briefingCall = null;
 let _gcalToday = null; // cached from loadTodayCalendar()
+let _gcalStatus = null; // 'ok' | 'stale' | 'none' | 'error' — for the system-alerts banner
+let _gcalStaleDate = null;
 
 // ── Weather (Open-Meteo, Swansea) ────────────────────────────────────────────
 let _weather = null;
@@ -7207,28 +7267,19 @@ function renderDailyBriefing() {
   const sections = [];
 
   // ── Training ──────────────────────────────────────────────────────────────
+  // Per-session AM/PM detail lives in the interactive "Today's Training" checklist
+  // card (renderTrainingTodo) — this just surfaces the load/intensity call and rest-day
+  // state so that info isn't lost, without repeating the same session list twice.
   const today = viewDate;
   const sessions = getTodaysSessions(viewDate);
   const todayDateStr = viewDate.toLocaleDateString('en-CA');
-  const manual = typeof getManual === 'function' ? getManual(todayDateStr) : {};
-  let trainingHtml = `<div style="${labelStyle}">🏋️ Training</div>`;
-  if (!sessions.length) {
-    trainingHtml += `<div style="font-size:13px;color:#9ca3af">Rest day 😴</div>`;
-  } else {
-    trainingHtml += sessions.map(({ slot, session }) => {
-      const stravaDetected = sessionDone(session, _acts, todayDateStr);
-      const done = stravaDetected || manual[slot] === 'done';
-      const icon = done ? '✅' : '⏳';
-      const slotLabel = slot === 'am' ? 'AM' : slot === 'pm' ? 'PM' : slot.replace('extra', 'Extra ');
-      const name = session ? `${session.emoji || ''} ${session.type || ''}`.trim() : '—';
-      return `<div style="${rowStyle}">${icon} <span style="color:#9ca3af;min-width:28px;font-size:11px">${slotLabel}</span> <span>${escHtml(name)}</span></div>`;
-    }).join('');
-  }
   if (_briefingCall) {
     const callCls = {easy:'b-sage',moderate:'b-amber',hard:'b-red'}[_briefingCall.lvl];
-    trainingHtml += `<div style="${rowStyle};margin-top:4px"><span class="badge ${callCls}" style="font-size:10px;padding:2px 7px">${_briefingCall.lvl.charAt(0).toUpperCase()+_briefingCall.lvl.slice(1)} intensity</span></div>`;
+    const lvlLabel = _briefingCall.lvl.charAt(0).toUpperCase() + _briefingCall.lvl.slice(1);
+    sections.push(`<div style="${sectionStyle}"><div style="${labelStyle}">🏋️ Training</div><div style="${rowStyle}"><span class="badge ${callCls}" style="font-size:10px;padding:2px 7px">${lvlLabel} intensity</span></div></div>`);
+  } else if (!sessions.length) {
+    sections.push(`<div style="${sectionStyle}"><div style="${labelStyle}">🏋️ Training</div><div style="font-size:13px;color:#9ca3af">Rest day 😴</div></div>`);
   }
-  sections.push(`<div style="${sectionStyle}">${trainingHtml}</div>`);
 
   // ── Revision ─────────────────────────────────────────────────────────────
   const studyLog = getStudyActivityLog();
@@ -8282,23 +8333,29 @@ async function syncGoogleSheet() {
   try {
     const proxyUrl = '/sheets-proxy?url=' + encodeURIComponent(csvUrl);
     const resp = await fetch(proxyUrl);
-    if (!resp.ok) throw new Error(`Server returned ${resp.status} — is the sheet published to web?`);
     const text = await resp.text();
+    if (!resp.ok) throw new Error(text || `Server returned ${resp.status} — is the sheet published to web?`);
     _financeUSDateFmt = true; // Emma Google Sheet always exports M/D/YYYY
     const rows = parseCSVStatement(text);
     if (!rows.length) {
       const firstLines = text.trim().split('\n').slice(0, 3).map(l => l.slice(0, 120)).join('\n');
       setH('gsheet-status', `<span style="color:#e05c5c">❌ No transactions parsed.</span><br><span style="font-size:11px;color:#888">First rows received:<br><pre style="font-size:10px;overflow:auto;background:#f5f5f5;padding:6px;border-radius:4px;white-space:pre-wrap">${escHtml(firstLines)}</pre></span>`);
+      localStorage.setItem('gsheet_last_error', 'No transactions parsed from the last sync.');
+      if (typeof renderSystemAlerts === 'function') renderSystemAlerts();
       return;
     }
     const flipSigns = document.getElementById('stmt-flip-signs')?.checked;
     rows.forEach(r => { r.account = r.account || 'Google Sheet'; if (flipSigns) r.amount = -r.amount; });
     finaliseImport(rows, [], 'gsheet-status');
     localStorage.setItem('gsheet_last_sync', new Date().toISOString());
+    localStorage.removeItem('gsheet_last_error');
+    if (typeof renderSystemAlerts === 'function') renderSystemAlerts();
     const lastEl = document.getElementById('gsheet-last-sync');
     if (lastEl) lastEl.textContent = 'Last synced: just now';
   } catch (e) {
     setH('gsheet-status', `<span style="color:#e05c5c">❌ ${escHtml(e.message)}</span>`);
+    localStorage.setItem('gsheet_last_error', e.message || 'Sync failed');
+    if (typeof renderSystemAlerts === 'function') renderSystemAlerts();
   }
 }
 
@@ -8994,7 +9051,7 @@ function switchTab(name) {
   if (name === 'notes') renderNotes();
   if (name === 'habits') { renderHabitHistory(); }
   if (name === 'year4') renderYear4Cal();
-  if (name === 'calendar') renderCalendarTab();
+  if (name === 'calendar' && typeof loadTodayCalendar === 'function') loadTodayCalendar();
   // Dashboard uses a fixed-height grid — override display:block
   if (name === 'dashboard') { pane.style.display = 'block'; document.body.style.overflow = 'hidden'; }
   else { document.body.style.overflow = ''; }
@@ -9111,202 +9168,12 @@ function setupSubTabs(paneId, storageKey) {
   }
 }
 
-// ── Google Calendar Tab ──────────────────────────────────────────────────────
-const GCAL_CALENDARS = [
-  { id: 'philipcobon@gmail.com',                                                                   name: 'Personal',        color: '#4285f4' },
-  { id: '7850b6e0251223b3c49f7da881654e7c4384dcb49425207d1737766f907cf12c@group.calendar.google.com', name: 'Uni',             color: '#7c3aed' },
-  { id: '4ab37acd43967e03536dc538241e8b47ab65dc91f1ce2d647ea1b597fe3cd6eb@group.calendar.google.com', name: 'Runna',           color: '#f59e0b' },
-  { id: '04eb942ee05b14a2180af794dd9aacd02d31029b3d7254b2174e053dc0614353@group.calendar.google.com', name: 'HCA',             color: '#10b981' },
-  { id: 'family13445373423551396351@group.calendar.google.com',                                    name: 'Family',          color: '#ec4899' },
-  { id: 'f7cbab6b4cd3fde31947806e797ccc2c4ec4fd9a28013bcae3d5bfcef15418ae@group.calendar.google.com', name: 'Durham Timetable', color: '#6366f1' },
-];
-const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
-const GCAL_STORAGE_KEY = 'gcal_tokens';
-
-const gcalGetTokens = () => { try { return JSON.parse(localStorage.getItem(GCAL_STORAGE_KEY)); } catch { return null; } };
-const gcalSetTokens = t => localStorage.setItem(GCAL_STORAGE_KEY, JSON.stringify(t));
-const gcalClearTokens = () => localStorage.removeItem(GCAL_STORAGE_KEY);
-
-async function gcalEnsureToken() {
-  let t = gcalGetTokens();
-  if (!t) return null;
-  if (Date.now() / 1000 > t.expires_at - 120) {
-    if (!t.refresh_token) { gcalClearTokens(); return null; }
-    const res = await fetch(`/api/google-calendar-auth?action=refresh&refresh_token=${encodeURIComponent(t.refresh_token)}`);
-    if (!res.ok) { gcalClearTokens(); return null; }
-    const data = await res.json();
-    t = { ...t, access_token: data.access_token, expires_at: data.expires_at };
-    gcalSetTokens(t);
-  }
-  return t.access_token;
-}
-
-async function startGCalAuth() {
-  let gClientId;
-  try {
-    const r = await fetch('/api/google-calendar-auth?action=client_id');
-    const d = await r.json();
-    gClientId = d.client_id;
-  } catch {}
-  if (!gClientId) {
-    alert('Google Calendar not configured — GOOGLE_CLIENT_ID is missing from Cloudflare env vars.');
-    return;
-  }
-  const redirect = window.location.origin + window.location.pathname;
-  localStorage.setItem('gcal_redirect', redirect);
-  const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-  url.searchParams.set('client_id', gClientId);
-  url.searchParams.set('redirect_uri', redirect);
-  url.searchParams.set('response_type', 'code');
-  url.searchParams.set('scope', GCAL_SCOPE);
-  url.searchParams.set('access_type', 'offline');
-  url.searchParams.set('prompt', 'consent');
-  url.searchParams.set('state', 'gcal');
-  window.location.href = url.toString();
-}
-
-function disconnectGCal() {
-  if (!confirm('Disconnect Google Calendar?')) return;
-  gcalClearTokens();
-  renderCalendarTab();
-}
-
-async function handleGCalOAuthReturn() {
-  const url = new URL(window.location.href);
-  if (url.searchParams.get('state') !== 'gcal') return false;
-  const code = url.searchParams.get('code');
-  if (!code) return false;
-  // Clean URL
-  url.searchParams.delete('code');
-  url.searchParams.delete('state');
-  url.searchParams.delete('scope');
-  history.replaceState({}, '', url.toString());
-
-  const redirect = localStorage.getItem('gcal_redirect') || (window.location.origin + window.location.pathname);
-  const res = await fetch(`/api/google-calendar-auth?action=exchange&code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(redirect)}`);
-  if (!res.ok) { alert('Google Calendar auth failed'); return false; }
-  const data = await res.json();
-  gcalSetTokens(data);
-  return true;
-}
-
-async function renderCalendarTab() {
-  const connect = document.getElementById('gcal-connect-banner');
-  const main = document.getElementById('gcal-main');
-  const loading = document.getElementById('gcal-loading');
-  if (!connect || !main) return;
-
-  // Handle OAuth return
-  const justAuthed = await handleGCalOAuthReturn();
-
-  const token = gcalGetTokens();
-  if (!token) {
-    connect.style.display = '';
-    main.style.display = 'none';
-    loading.style.display = 'none';
-    return;
-  }
-
-  connect.style.display = 'none';
-  loading.style.display = '';
-  main.style.display = 'none';
-
-  const accessToken = await gcalEnsureToken();
-  if (!accessToken) {
-    connect.style.display = '';
-    loading.style.display = 'none';
-    return;
-  }
-
-  // Fetch 35 days of events from all calendars in parallel
-  const now = new Date(); now.setHours(0,0,0,0);
-  const end = new Date(now.getTime() + 35 * 864e5);
-  const timeMin = now.toISOString(), timeMax = end.toISOString();
-
-  const results = await Promise.allSettled(
-    GCAL_CALENDARS.map(cal =>
-      fetch(`/api/google-calendar-auth?action=proxy&access_token=${encodeURIComponent(accessToken)}&path=${encodeURIComponent('/calendars/' + cal.id + '/events')}&timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime&maxResults=100`)
-        .then(r => r.json())
-        .then(d => ({ cal, events: d.items || [] }))
-    )
-  );
-
-  // Collect all events with calendar info
-  const allEvents = [];
-  results.forEach(r => {
-    if (r.status === 'fulfilled') {
-      const { cal, events } = r.value;
-      events.forEach(e => allEvents.push({ ...e, _cal: cal }));
-    }
-  });
-
-  // Group by day
-  const byDay = {};
-  allEvents.forEach(e => {
-    const dayKey = (e.start.dateTime || e.start.date).slice(0, 10);
-    if (!byDay[dayKey]) byDay[dayKey] = [];
-    byDay[dayKey].push(e);
-  });
-  // Sort each day's events by start time
-  Object.values(byDay).forEach(arr => arr.sort((a, b) => (a.start.dateTime || a.start.date).localeCompare(b.start.dateTime || b.start.date)));
-
-  // Build agenda
-  const fmtTime = dt => {
-    if (!dt) return '';
-    const d = new Date(dt);
-    return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-  };
-  const fmtDay = ds => {
-    const d = new Date(ds + 'T12:00:00');
-    const today = new Date(); today.setHours(12,0,0,0);
-    const diff = Math.round((d - today) / 864e5);
-    const dayName = diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : d.toLocaleDateString('en-GB', { weekday: 'long' });
-    const dateStr = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-    return `${dayName} · ${dateStr}`;
-  };
-
-  const todayStr = new Date().toLocaleDateString('en-CA');
-  let html = '';
-  for (let i = 0; i < 35; i++) {
-    const d = new Date(now.getTime() + i * 864e5);
-    const ds = d.toLocaleDateString('en-CA');
-    const events = byDay[ds];
-    if (!events && ds > todayStr) continue; // skip empty future days
-    const isToday = ds === todayStr;
-    html += `<div style="display:flex;gap:14px;margin-bottom:${events ? 16 : 0}px">
-      <div style="width:72px;flex-shrink:0;padding-top:2px">
-        <div style="font-size:11px;font-weight:${isToday?700:500};color:${isToday?'#4285f4':'#9ca3af'};text-transform:uppercase;letter-spacing:0.4px">${d.toLocaleDateString('en-GB',{weekday:'short'})}</div>
-        <div style="font-size:22px;font-weight:700;line-height:1;color:${isToday?'#4285f4':'#1f2937'}">${d.getDate()}</div>
-        <div style="font-size:10px;color:#bbb">${d.toLocaleDateString('en-GB',{month:'short'})}</div>
-      </div>
-      <div style="flex:1;min-width:0;${!events ? 'padding:6px 0' : ''}">
-        ${events ? events.map(e => {
-          const allDay = !!e.start.date && !e.start.dateTime;
-          const timeStr = allDay ? 'All day' : `${fmtTime(e.start.dateTime)}${e.end.dateTime ? ' – ' + fmtTime(e.end.dateTime) : ''}`;
-          return `<div style="background:#f9fafb;border-left:3px solid ${e._cal.color};border-radius:0 8px 8px 0;padding:8px 12px;margin-bottom:6px">
-            <div style="font-size:13px;font-weight:600;color:#1f2937">${e.summary || '(No title)'}</div>
-            <div style="font-size:11px;color:#9ca3af;margin-top:2px;display:flex;gap:8px;flex-wrap:wrap">
-              <span>${timeStr}</span>
-              ${e.location ? `<span>📍 ${e.location}</span>` : ''}
-              <span style="color:${e._cal.color}">${e._cal.name}</span>
-            </div>
-          </div>`;
-        }).join('') : `<div style="border-left:2px solid #f0f0f0;padding:4px 12px;color:#e5e7eb;font-size:12px">No events</div>`}
-      </div>
-    </div>`;
-  }
-
-  // Legend
-  const activeCals = [...new Set(allEvents.map(e => e._cal.name))];
-  setH('gcal-legend', GCAL_CALENDARS
-    .filter(c => activeCals.includes(c.name))
-    .map(c => `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#555;background:#f5f5f5;padding:3px 10px;border-radius:20px"><span style="width:8px;height:8px;border-radius:50%;background:${c.color};display:inline-block;flex-shrink:0"></span>${c.name}</span>`)
-    .join(''));
-
-  setH('gcal-agenda', html);
-  loading.style.display = 'none';
-  main.style.display = '';
-}
+// ── Google Calendar ──────────────────────────────────────────────────────────
+// The old client-side OAuth flow (sign-in button, token exchange, live 35-day
+// agenda fetch) was removed — it relied on a Google OAuth client that's no longer
+// configured on this domain and was the source of a stale 'redirect_uri invalid'
+// error. Calendar data now comes exclusively from the scheduled sync described
+// above (loadTodayCalendar / renderTodayCalendar), which needs no sign-in.
 
 // ── Nutrition Tab ───────────────────────────────────────────────────────────
 const NUTR_CALL_KCAL = { rest:2200, easy:2400, moderate:2700, hard:3100 };
@@ -11002,6 +10869,7 @@ renderTasks();
 renderDashTasks();
 renderShopping();
 renderNotes();
+renderSystemAlerts();
 if (localStorage.getItem('task_notif_enabled') === '1') checkUrgentTaskNotifications();
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -11010,9 +10878,7 @@ async function main() {
     loadStrengthPBs(); // fire-and-forget; falls back to static CSV embed if live fetch fails
     loadSessionAnalysis(); // fire-and-forget; live-only, shows a message if unavailable
     loadProgress(); // fire-and-forget; live-only — 1RM trend, weekly tonnage, rep PRs
-    loadTodayCalendar(); // fire-and-forget; separate OAuth flow from Strava, never blocks the page
-    // If returning from Google Calendar OAuth, switch to the calendar tab
-    if (new URL(window.location.href).searchParams.get('state') === 'gcal') switchTab('calendar');
+    loadTodayCalendar(); // fire-and-forget; reads the scheduled sync snapshot, no OAuth needed
     loadPlannerData(); // fire-and-forget; planned workouts + zones, feeds the Zones form + per-sport TSS
     loadPlannerHevyHistory(); // fire-and-forget; wider Hevy window for strength TSS in the PMC
 
@@ -12230,6 +12096,49 @@ function renderAlertsBanner() {
     <div style="background:${a.bg};border-left:4px solid ${a.color};padding:8px 14px;margin-bottom:4px;display:flex;align-items:center;gap:8px;border-radius:0 6px 6px 0">
       <span>${a.icon}</span>
       <span style="font-size:12px;font-weight:600;color:${a.color}">${a.text}</span>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// System alerts — a single "needs attention" banner for broken/stale plumbing
+// (sync failures, disconnected integrations, overdue tasks) rather than each
+// tab silently showing its own error. Separate from the training/readiness
+// alerts above, which are about today's training decision, not app health.
+// ═══════════════════════════════════════════════════════════════════════════
+function renderSystemAlerts() {
+  const el = document.getElementById('system-alerts');
+  if (!el) return;
+  const items = [];
+
+  // Finance: Google Sheets sync failing
+  const gsheetErr = localStorage.getItem('gsheet_last_error');
+  if (gsheetErr && localStorage.getItem('gsheet_url')) {
+    items.push({ icon: '💳', text: `Finance sync is failing: ${gsheetErr}`, action: `switchTab('finance');setTimeout(()=>document.querySelector('[data-subtab=\\'fin-statements\\']')?.click(),50)`, cta: 'Check Statements' });
+  }
+
+  // Calendar: never synced / stale / erroring
+  if (_gcalStatus === 'error') {
+    items.push({ icon: '📅', text: `Calendar sync couldn't be reached.`, action: `switchTab('calendar')`, cta: 'Open Calendar' });
+  } else if (_gcalStatus === 'stale') {
+    items.push({ icon: '📅', text: `Calendar sync is stale (last synced ${escHtml(_gcalStaleDate || 'a while ago')}).`, action: `switchTab('calendar')`, cta: 'Open Calendar' });
+  }
+
+  // Tasks: overdue critical items
+  const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+  const overdue = (typeof getTasks === 'function' ? getTasks() : []).filter(t =>
+    !t.done && t.dueDate && (new Date(t.dueDate + 'T00:00:00') - todayStart) < 0
+  );
+  if (overdue.length) {
+    items.push({ icon: '✅', text: `${overdue.length} task${overdue.length !== 1 ? 's are' : ' is'} overdue.`, action: `switchTab('planner')`, cta: 'Open Tasks' });
+  }
+
+  if (!items.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = 'block';
+  el.innerHTML = items.map(it => `
+    <div style="background:#fafaf9;border:1px solid #e8e7e2;border-radius:10px;padding:8px 12px;margin-bottom:6px;display:flex;align-items:center;gap:10px">
+      <span>${it.icon}</span>
+      <span style="flex:1;font-size:12px;color:#57534e">${it.text}</span>
+      <button onclick="${it.action}" style="background:none;border:1px solid #d6d3ce;border-radius:6px;padding:3px 9px;font-size:11px;color:#44403c;cursor:pointer;white-space:nowrap">${it.cta}</button>
     </div>`).join('');
 }
 
