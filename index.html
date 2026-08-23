@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Philip's Training Dashboard</title>
+<title>Life Dashboard</title>
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#1a1a1a">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -170,7 +170,7 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 <body>
 
 <div class="topbar">
-  <div class="topbar-title">Philip's Training Dashboard<span id="sync-dot" style="width:7px;height:7px;border-radius:50%;background:#d1d5db;display:inline-block;margin-left:6px;transition:background 0.3s" title="Sync status"></span></div>
+  <div class="topbar-title">Life Dashboard<span id="sync-dot" style="width:7px;height:7px;border-radius:50%;background:#d1d5db;display:inline-block;margin-left:6px;transition:background 0.3s" title="Sync status"></span></div>
   <div style="display:flex;gap:8px;align-items:center">
     <button onclick="toggleGoalModal()" title="Set race/goal" style="background:none;border:none;cursor:pointer;font-size:16px;padding:0;line-height:1" title="Set a target event">🎯</button>
     <button id="dark-mode-btn" onclick="toggleDarkMode()" title="Toggle dark mode" style="background:none;border:none;cursor:pointer;font-size:16px;padding:0;line-height:1">🌙</button>
@@ -1896,7 +1896,7 @@ function showConnectScreen() {
     + `&approval_prompt=auto&scope=activity:read_all`;
   const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
   document.body.innerHTML = `<div class="connect-screen">
-    <h1>Philip's Training Dashboard</h1>
+    <h1>Life Dashboard</h1>
     <p>Connect your Strava account to load your activities and generate today's training call.</p>
     <a class="connect-btn" href="${authUrl}">Connect with Strava</a>
     ${isLocal ? `<br><button onclick="localStorage.setItem('strava_preview','1');location.reload()"

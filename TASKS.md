@@ -1,6 +1,6 @@
 # Training Dashboard — Task History
 
-All 115 tasks completed across the full build.
+All 115 tasks completed across the full build. Now on Cloudflare Pages (https://training-dashboard-5qr.pages.dev/) with Supabase as the sync/storage backend — Netlify retired.
 
 | # | Status | Task |
 |---|--------|------|
@@ -118,3 +118,8 @@ All 115 tasks completed across the full build.
 | 113 | ✅ | Smart training suggestion on home card |
 | 114 | ✅ | Goal progress bars on home dashboard |
 | 115 | ✅ | Optimal wake time calculator |
+| 116 | ✅ | Confirmed live functions/api/* already migrated to Supabase (not @netlify/blobs) — sync.js, health-data.js etc. read/write via SUPABASE_URL/SUPABASE_KEY |
+| 117 | ✅ | Removed dead netlify/functions/ directory and netlify.toml (unused since move to Cloudflare Pages) |
+| 118 | ✅ | Removed @netlify/blobs dependency from package.json, regenerated package-lock.json |
+| 119 | ✅ | Updated deploy.bat messaging/URL from Netlify to Cloudflare Pages |
+| 120 | ✅ | Renamed app title "Philip's Training Dashboard" → "Life Dashboard" (index.html title/topbar/h1, manifest.json name/short_name) |

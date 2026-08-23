@@ -1,6 +1,6 @@
 {
-  "name": "Philip's Training Dashboard",
-  "short_name": "Training",
+  "name": "Life Dashboard",
+  "short_name": "Life",
   "description": "Personal training, health, and study dashboard",
   "start_url": "/",
   "display": "standalone",

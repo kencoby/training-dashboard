@@ -21,8 +21,8 @@ if errorlevel 1 (
   git commit -m "Dashboard update %dt:~6,2%/%dt:~4,2%/%dt:~0,4% %dt:~8,2%:%dt:~10,2%"
   git push origin main
   echo.
-  echo Done! Netlify will be live in ~30 seconds.
-  echo https://training-dashboard-philipcx.netlify.app
+  echo Done! Cloudflare Pages will be live in ~1 minute.
+  echo https://training-dashboard-5qr.pages.dev/
 ) else (
   echo No changes to deploy.
 )
