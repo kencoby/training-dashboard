@@ -123,3 +123,13 @@ All 115 tasks completed across the full build. Now on Cloudflare Pages (https://
 | 118 | ✅ | Removed @netlify/blobs dependency from package.json, regenerated package-lock.json |
 | 119 | ✅ | Updated deploy.bat messaging/URL from Netlify to Cloudflare Pages |
 | 120 | ✅ | Renamed app title "Philip's Training Dashboard" → "Life Dashboard" (index.html title/topbar/h1, manifest.json name/short_name) |
+| 121 | ✅ | UI modernization: token-based CSS system (Inter font, --bg/--surface/--text/--radius/--shadow vars), restyle-only pass across all tabs |
+| 122 | ✅ | Removed dead Google Calendar OAuth flow (sign-in button, token exchange, live 35-day agenda) — was the source of the "redirect_uri invalid" error and no longer had a configured OAuth client. Calendar tab now shows the same hourly-synced "today" snapshot as the Home card, no sign-in needed |
+| 123 | ✅ | Deleted unused functions/api/google-calendar-auth.js |
+| 124 | ✅ | Home: removed duplicate AM/PM training list from the top briefing card (kept in the interactive "Today's Training" checklist only); briefing now just shows the intensity call / rest-day state |
+| 125 | ✅ | Added system-alerts banner to Home: surfaces Finance sync failures, stale/broken Calendar sync, and overdue tasks in one place instead of each tab silently failing |
+| 126 | ✅ | Finance: sheets-proxy.js now retries up to 3x on Google Sheets edge-timeout errors ("error code: 524") and surfaces the real error message instead of a blank parse failure |
+| 127 | ✅ | Added global quick-capture (floating button, any tab) — saves straight to Notes without switching tabs |
+| 128 | ✅ | Notes: labeled the two untitled pasted links (Idea / Med) so they're not lost in the flat list |
+| 129 | ✅ | Bumped sw.js cache to v3 so today's changes aren't masked by the stale service-worker cache |
+| 130 | ⏳ | Tasks tab already has full priority tiers (critical/ondeck/someday/dashboard) with drag-drop + escalate/defer — just unused, everything currently sits in "critical". Left for Phil to re-triage himself; offered to help |
