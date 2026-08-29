@@ -40,13 +40,11 @@
   --primary:#6c5ce7;
   --primary-soft:#ece9fd;
   --primary-text:#5741d9;
-  /* Pastel accent chips for quick-log/stat tiles — soft fills with a bold
-     matching text color, used sparingly for small colorful tiles rather
-     than page-wide theming. */
-  --chip-blue:#e3ebff;   --chip-blue-text:#3355e0;
-  --chip-orange:#ffe9d1; --chip-orange-text:#c2650a;
-  --chip-pink:#fbe1ec;   --chip-pink-text:#c2185b;
-  --chip-purple:#ece5fd; --chip-purple-text:#6c3ce9;
+  /* One secondary stat color — decorative, not semantic, used for exactly
+     one thing (the Habits-today card) so it stays legible as "the other
+     number" rather than spreading meaning-free color everywhere. */
+  --lavender:#ded2fb;
+  --lavender-text:#5335c9;
   --radius-sm:8px;
   --radius-md:12px;
   --radius-lg:14px;
@@ -199,14 +197,15 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
     z-index:9005;padding-bottom:env(safe-area-inset-bottom,0);
   }
   .bn-fab-spacer{width:56px;flex-shrink:0}
-  .bn-btn{background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;
+  .bn-btn{background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:3px;
     color:var(--text-faint);font-size:9px;font-weight:700;padding:6px 4px;cursor:pointer;flex:1;
     transition:color .15s var(--ease)}
-  .bn-icon{font-size:19px;line-height:1}
+  .bn-icon{font-size:18px;line-height:1;display:inline-block;padding:3px 13px;border-radius:var(--radius-pill);transition:background .15s var(--ease)}
   .bn-btn.active{color:var(--primary);border-bottom-color:transparent}
+  .bn-btn.active .bn-icon{background:var(--primary-soft)}
   #quick-capture-fab{
-    right:50%;transform:translateX(50%);bottom:34px;z-index:9010;
-    width:52px;height:52px;font-size:21px;
+    right:50%;transform:translateX(50%);bottom:32px;z-index:9010;
+    width:54px;height:54px;font-size:21px;border:4px solid var(--bg);
     box-shadow:0 6px 16px rgba(108,92,231,.4);
   }
   #quick-capture-fab:hover{transform:translateX(50%) scale(1.06)}
@@ -351,10 +350,10 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
       </div>
       <!-- QUICK-LOG SHORTCUTS -->
       <div id="quick-log-bar" style="display:flex;gap:6px;padding:6px 14px;border-bottom:1px solid var(--border-soft);flex-shrink:0;flex-wrap:wrap">
-        <button onclick="addHydration(250)" style="background:var(--chip-blue);color:var(--chip-blue-text);border:none;border-radius:var(--radius-pill);padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">💧 +250ml</button>
-        <button onclick="showQuickFood()" style="background:var(--chip-orange);color:var(--chip-orange-text);border:none;border-radius:var(--radius-pill);padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">🍽️ Log food</button>
-        <button onclick="adjustQCount(1);renderStudyQTracker()" style="background:var(--chip-pink);color:var(--chip-pink-text);border:none;border-radius:var(--radius-pill);padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">📚 +1 Q</button>
-        <button onclick="adjustQCount(10);renderStudyQTracker()" style="background:var(--chip-purple);color:var(--chip-purple-text);border:none;border-radius:var(--radius-pill);padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">📚 +10 Qs</button>
+        <button onclick="addHydration(250)" style="background:var(--surface-hover);color:var(--text-muted);border:1px solid var(--border-soft);border-radius:var(--radius-pill);padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">💧 +250ml</button>
+        <button onclick="showQuickFood()" style="background:var(--surface-hover);color:var(--text-muted);border:1px solid var(--border-soft);border-radius:var(--radius-pill);padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">🍽️ Log food</button>
+        <button onclick="adjustQCount(1);renderStudyQTracker()" style="background:var(--surface-hover);color:var(--text-muted);border:1px solid var(--border-soft);border-radius:var(--radius-pill);padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">📚 +1 Q</button>
+        <button onclick="adjustQCount(10);renderStudyQTracker()" style="background:var(--surface-hover);color:var(--text-muted);border:1px solid var(--border-soft);border-radius:var(--radius-pill);padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">📚 +10 Qs</button>
       </div>
       <div id="quick-food-panel" style="display:none;padding:8px 14px;background:var(--surface-hover);border-bottom:1px solid var(--border-soft);flex-shrink:0">
         <div style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;margin-bottom:6px">Quick food entry</div>
@@ -372,6 +371,20 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 
   <!-- RIGHT: Tasks (top) + Habits (bottom) -->
   <div style="display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden">
+
+    <!-- Stat cards: readiness (semantic tier color) + habits done (fixed lavender) -->
+    <div id="home-stat-row" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;flex-shrink:0">
+      <div id="home-readiness-card" style="display:none;border-radius:var(--radius-md);padding:10px 12px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;opacity:.75">Readiness</div>
+        <div style="font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.15" id="home-readiness-card-num">—</div>
+        <div style="font-size:11px;font-weight:600;margin-top:1px" id="home-readiness-card-sub"></div>
+      </div>
+      <div style="border-radius:var(--radius-md);padding:10px 12px;background:var(--lavender);color:var(--lavender-text)">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;opacity:.75">Habits today</div>
+        <div style="font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.15" id="home-habits-card-num">—</div>
+        <div style="font-size:11px;font-weight:600;margin-top:1px" id="home-habits-card-sub"></div>
+      </div>
+    </div>
 
     <!-- Tasks card -->
     <div class="card" style="padding:14px;flex-shrink:0">
@@ -3565,6 +3578,7 @@ function renderHabits() {
   renderJournalPrompt();
   renderTrainingSuggestion();
   renderWakeTimes();
+  if (typeof renderHomeStatRow === 'function') renderHomeStatRow();
 }
 
 // ── Habit history reset point ────────────────────────────────────────────────
@@ -11294,6 +11308,57 @@ function renderReadinessChip() {
   const labelEl = document.getElementById('readiness-chip-label');
   if (scoreEl) { scoreEl.textContent = score; scoreEl.style.color = color; }
   if (labelEl) { labelEl.textContent = label; labelEl.style.color = color; }
+  renderHomeStatRow();
+}
+
+// Bold two-up stat cards at the top of Home's right column (visible on
+// mobile too, unlike the weather-bar readiness chip which is desktop-only).
+// Readiness keeps its real tier color; Habits-today is a fixed decorative
+// lavender since it has no inherent good/bad tiering.
+function renderHomeStatRow() {
+  const row = document.getElementById('home-stat-row');
+  if (!row) return;
+
+  try {
+    const ticked = getHabits();
+    const auto = getAutoHabitState();
+    const ordered = [...DAILY_HABITS.filter(h => h.auto), ...DAILY_HABITS.filter(h => !h.auto)];
+    const doneCount = ordered.filter(h => ticked[h.id] || (h.auto && auto[h.id])).length;
+    const total = ordered.length;
+    const numEl = document.getElementById('home-habits-card-num');
+    const subEl = document.getElementById('home-habits-card-sub');
+    if (numEl) numEl.textContent = total ? `${doneCount}/${total}` : '—';
+    let bestStreak = 0;
+    if (typeof getHabitStreaks === 'function') {
+      const streaks = getHabitStreaks();
+      Object.values(streaks || {}).forEach(s => { if (s && s.count > bestStreak) bestStreak = s.count; });
+    }
+    if (subEl) subEl.textContent = bestStreak >= 2 ? `🔥 ${bestStreak} day streak` : (total ? `${Math.round(doneCount / total * 100)}% done` : '');
+  } catch (e) { /* habits data not ready yet — leave placeholders */ }
+
+  try {
+    const card = document.getElementById('home-readiness-card');
+    const hasData = _healthLatest('heart_rate_variability', 1) != null || _healthLatest('resting_heart_rate', 1) != null;
+    if (card) {
+      if (!hasData) {
+        card.style.display = 'none';
+        row.style.gridTemplateColumns = '1fr';
+      } else {
+        const { score, label } = computeReadinessScore();
+        const tier = score >= 65 ? { bg: '#bfe3c9', text: '#1c6b3e' }
+                   : score >= 50 ? { bg: 'var(--surface-hover)', text: 'var(--text-muted)' }
+                   : { bg: '#f9d6d2', text: '#a3352b' };
+        card.style.display = 'block';
+        card.style.background = tier.bg;
+        card.style.color = tier.text;
+        row.style.gridTemplateColumns = '1fr 1fr';
+        const numEl = document.getElementById('home-readiness-card-num');
+        const subEl = document.getElementById('home-readiness-card-sub');
+        if (numEl) numEl.textContent = score;
+        if (subEl) subEl.textContent = label;
+      }
+    }
+  } catch (e) { /* health data not ready yet — leave placeholder */ }
 }
 
 // Hook readiness chip into daily briefing render
