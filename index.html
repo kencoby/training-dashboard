@@ -3447,6 +3447,11 @@ function renderHabits() {
   const sleepData = (typeof computeSleepForDate === 'function') ? computeSleepForDate(today) : null;
   const sleepTrackedButMissed = sleepData != null && sleepData.totalSleep < 8;
 
+  // Live step count, for the faint "x / 10,000" progress note next to that habit
+  const currentSteps = (typeof _healthValueOnDate === 'function')
+    ? (_healthValueOnDate('step_count', today) ?? _healthValueOnDate('steps', today) ?? _healthValueOnDate('step_count_total', today))
+    : null;
+
   // Auto-tracked habits at top, manual below
   const autoHabits   = DAILY_HABITS.filter(h => h.auto);
   const manualHabits = DAILY_HABITS.filter(h => !h.auto);
@@ -3462,9 +3467,11 @@ function renderHabits() {
     const missLabel = sleepMiss ? `<span style="font-size:11px;color:#ef4444;margin-left:5px">❌ missed</span>` : '';
     const s = streaks[h.id];
     const streakLabel = s && s.count >= 2 ? `<span style="font-size:10px;color:#f59e0b;margin-left:4px">🔥${s.count}</span>` : '';
+    const stepsProgress = (h.id === 'h-steps' && currentSteps != null)
+      ? `<span style="font-size:11px;color:#9ca3af;margin-left:5px">${Math.round(currentSteps).toLocaleString()} / 10,000</span>` : '';
     return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;${i<ordered.length-1?'border-bottom:1px solid #f5f5f5;':''}${isDone?'opacity:0.45':''}">
       <input type="checkbox" ${isDone?'checked':''} onchange="toggleHabit('${h.id}')" style="cursor:pointer;flex-shrink:0"/>
-      <span style="flex:1;font-size:13px;${isDone?'text-decoration:line-through;color:#bbb':''}">${h.label}${syncedLabel}${missLabel}${streakLabel}</span>
+      <span style="flex:1;font-size:13px;${isDone?'text-decoration:line-through;color:#bbb':''}">${h.label}${stepsProgress}${syncedLabel}${missLabel}${streakLabel}</span>
     </div>`;
   }).join(''));
   renderTrainingTodo();
