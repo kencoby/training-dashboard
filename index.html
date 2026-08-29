@@ -1206,10 +1206,8 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 
   <nav class="sub-tab-nav">
     <button class="sub-tab-btn active" data-subtab="med-signoffs">Signoffs</button>
-    <button class="sub-tab-btn" data-subtab="med-ukmla">UKMLA Revision</button>
-    <button class="sub-tab-btn" data-subtab="med-revschedule">Revision Schedule</button>
-    <button class="sub-tab-btn" data-subtab="med-ecg">ECG Quiz</button>
-    <button class="sub-tab-btn" data-subtab="med-research">Research & Conferences</button>
+    <button class="sub-tab-btn" data-subtab="med-revschedule">Anki & PassMed</button>
+    <button class="sub-tab-btn" data-subtab="med-assessments">Assessment Info</button>
   </nav>
 
   <div class="sub-tab-pane active" id="sub-tab-med-signoffs">
@@ -1223,51 +1221,7 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 
   </div>
 
-  <div class="sub-tab-pane" id="sub-tab-med-ukmla">
-
-<!-- UKMLA OVERALL PROGRESS -->
-<div class="section">
-<div class="card">
-  <div class="g2">
-    <div>
-      <div class="lbl">Overall Coverage</div>
-      <div class="sub" id="ukmla-overall-count" style="margin-bottom:6px">0 / 0 conditions (0%)</div>
-      <div style="background:#f3f4f6;border-radius:99px;height:8px;overflow:hidden">
-        <div id="ukmla-overall-bar" style="background:#6b9e7a;height:100%;width:0%;transition:width .3s"></div>
-      </div>
-    </div>
-    <div>
-      <div class="lbl">Avg Confidence</div>
-      <div class="sub" id="ukmla-conf-val" style="margin-bottom:6px">0.0 / 5</div>
-      <div style="background:#f3f4f6;border-radius:99px;height:8px;overflow:hidden">
-        <div id="ukmla-conf-bar" style="background:#d1d5db;height:100%;width:0%;transition:width .3s,background .3s"></div>
-      </div>
-    </div>
-  </div>
-</div>
-</div>
-
-<!-- UKMLA REVISION COVERAGE -->
-<div class="section">
-<div style="font-size:0.75rem;color:#64748b;margin-bottom:6px">Revision Coverage</div>
-<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;" id="ukmla-weak-spots"></div>
-</div>
-
-<!-- UKMLA SYSTEMS -->
-<div class="section">
-<h2>Systems</h2>
-<div class="sub" style="margin-bottom:12px">Tap a system to expand. Tick conditions you've covered and rate your confidence 1–5.</div>
-<div id="ukmla-accordions"></div>
-</div>
-
-  </div>
-
   <div class="sub-tab-pane" id="sub-tab-med-revschedule">
-
-<!-- CURRENT WEEK CARD -->
-<div class="section">
-<div class="card" id="rev-week-card" style="padding:16px"></div>
-</div>
 
 <!-- TODAY'S LOG -->
 <div class="section">
@@ -1302,13 +1256,6 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 </div>
 </div>
 
-<!-- 26-WEEK PHASE PLAN -->
-<div class="section">
-<h2>26-Week Plan</h2>
-<div class="sub" style="margin-bottom:12px">Jul 2026 → Jan 2027 · UKMLA AKT</div>
-<div id="rev-phases"></div>
-</div>
-
 <!-- PASSMED SYSTEM CHECKLIST -->
 <div class="section">
 <h2>PassMed System Checklist</h2>
@@ -1329,25 +1276,111 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 
   </div>
 
-  <div class="sub-tab-pane" id="sub-tab-med-ecg">
+  <div class="sub-tab-pane" id="sub-tab-med-assessments">
 
-<!-- DAILY ECG QUIZ -->
+<!-- PM-367C -->
 <div class="section">
-<h2>Daily ECG Quiz</h2>
-<div class="card">
-  <div id="ecg-quiz-content"></div>
-</div>
-</div>
-
+<h2>PM-367C — Doctor as a Scholar and a Scientist 4</h2>
+<div class="card" style="margin-bottom:10px">
+  <div class="lbl" style="margin-bottom:4px">Examination 1 — Medical Licensing Assessment (MLA — AKT)</div>
+  <div class="sub" style="margin-bottom:8px">Applied Knowledge Test (AKT) — Progress Test 5: 200 questions, 1 mark per question.</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <span class="badge b-grey">Summative</span>
+    <span class="badge b-amber">Resit: AKT — May</span>
   </div>
+</div>
+</div>
 
-  <div class="sub-tab-pane" id="sub-tab-med-research">
-    <!-- placeholder -->
-    <div class="card" style="text-align:center;padding:48px 24px;color:#bbb">
-      <div style="font-size:28px;margin-bottom:10px">🔬</div>
-      <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:#999">Research & Conferences</div>
-      <div style="font-size:12px">Coming soon — track publications, abstracts, and conference attendance.</div>
-    </div>
+<!-- PM-368C -->
+<div class="section">
+<h2>PM-368C — Doctor as a Practitioner 4</h2>
+<div class="card" style="margin-bottom:10px">
+  <div class="lbl" style="margin-bottom:4px">OSCE — CPSA / Objective Structured Clinical Examination 1 (OSCE1)</div>
+  <div class="sub" style="margin-bottom:8px">100% weighting · 15 stations, 5 stations/day over 3 consecutive days · 12 min/station, 180 min total · must score above the pass threshold.</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <span class="badge b-grey">Summative</span>
+    <span class="badge b-amber">Resit — May</span>
+  </div>
+</div>
+<div class="card" style="margin-bottom:10px">
+  <div class="lbl" style="margin-bottom:4px">Workplace Based Assessments — Mini-CEX</div>
+  <div class="sub" style="margin-bottom:8px">Must pass 6 mini-CEX in total (2 per JA placement) — mandatory completion. See the Junior Assistantship checklist under Signoffs.</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <span class="badge b-grey">Summative</span>
+    <span class="badge b-amber">Resubmission — supplementary period</span>
+  </div>
+</div>
+</div>
+
+<!-- PM-369C -->
+<div class="section">
+<h2>PM-369C — Doctor as a Professional 4</h2>
+<div class="card" style="margin-bottom:10px">
+  <div class="lbl" style="margin-bottom:4px">Prescribing Safety Assessment</div>
+  <div class="sub" style="margin-bottom:8px">Mandatory completion.</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <span class="badge b-grey">Summative</span>
+    <span class="badge b-amber">Resit opportunity — June</span>
+  </div>
+</div>
+<div class="card" style="margin-bottom:10px">
+  <div class="lbl" style="margin-bottom:4px">Elective Report</div>
+  <div class="sub" style="margin-bottom:8px">Mandatory completion.</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <span class="badge b-grey">Summative</span>
+    <span class="badge b-amber">Resubmission — supplementary period</span>
+  </div>
+</div>
+<div class="card" style="margin-bottom:10px">
+  <div class="lbl" style="margin-bottom:4px">Skills Log — GMC Practical Skills</div>
+  <div class="sub" style="margin-bottom:8px">Completion of all GMC practical skills.</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <span class="badge b-grey">Summative</span>
+    <span class="badge b-amber">Resubmission — supplementary period</span>
+  </div>
+</div>
+<div class="card" style="margin-bottom:10px">
+  <div class="lbl" style="margin-bottom:4px">Out of Hours Requirements</div>
+  <div class="sub" style="margin-bottom:8px">2 evening on-calls (5hrs+ each) and 2 weekend days (8hrs+ each, plus AM/PM ward round) across the whole year — see the Junior Assistantship handbook and the checklist under Signoffs.</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <span class="badge b-grey">Summative</span>
+    <span class="badge b-amber">Resubmission — supplementary period</span>
+  </div>
+</div>
+<div class="card" style="margin-bottom:10px">
+  <div class="lbl" style="margin-bottom:4px">SSA Clinician Assessment</div>
+  <div class="sub" style="margin-bottom:8px">Senior Student Assistantship clinician assessment.</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <span class="badge b-grey">Summative</span>
+    <span class="badge b-amber">Resubmission — supplementary period</span>
+  </div>
+</div>
+<div class="card" style="margin-bottom:10px">
+  <div class="lbl" style="margin-bottom:4px">SSA — 1 x DOPS</div>
+  <div class="sub" style="margin-bottom:8px">One Directly Observed Procedural Skill during the SSA.</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <span class="badge b-grey">Summative</span>
+    <span class="badge b-amber">Resubmission — supplementary period</span>
+  </div>
+</div>
+<div class="card" style="margin-bottom:10px">
+  <div class="lbl" style="margin-bottom:4px">SSA — My Practice</div>
+  <div class="sub" style="margin-bottom:8px">My Practice component of the SSA.</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <span class="badge b-grey">Summative</span>
+    <span class="badge b-amber">Resubmission — supplementary period</span>
+  </div>
+</div>
+<div class="card" style="margin-bottom:10px">
+  <div class="lbl" style="margin-bottom:4px">Completion of Mandatory Training Packages + Mid-Year Appraisal</div>
+  <div class="sub" style="margin-bottom:8px">Mandatory training including completion of mid-year appraisal.</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <span class="badge b-grey">Summative</span>
+    <span class="badge b-amber">Resubmission — supplementary period</span>
+  </div>
+</div>
+</div>
+
   </div>
 
 </div>
@@ -2638,12 +2671,11 @@ function buildDistChart(acts) {
 // ── Cross-device sync (Netlify Blobs) ───────────────────────────────────────
 const SYNC_KEYS = [
   'todo_items',
-  'signoff_mandatory', 'signoff_sa67', 'signoff_clinical',
-  'ukmla_progress',
+  'signoff_mandatory', 'signoff_sa67', 'signoff_clinical', 'signoff_ja',
   'gcal_events',
   'calendar_overrides',
   'activity_notes', 'daily_habits', 'habit_log', 'progress_log', 'monthly_km_goal', 'pb_log',
-  'ecg_quiz_log', 'finance_data', 'nutr_food_log', 'nutr_meal_plan', 'nutr_grocery', 'nutr_pantry',
+  'finance_data', 'nutr_food_log', 'nutr_meal_plan', 'nutr_grocery', 'nutr_pantry',
   'study_activity_log', 'finance_transactions', 'finance_accounts',
   'rev_schedule_log', 'rev_passmed_done', 'tasks_priority', 'passmed_category_snapshots',
   'shopping_items',
@@ -4050,6 +4082,28 @@ const ACCORDIONS = [
       'Use of local anaesthetics',
     ]
   },
+  {
+    id: 'ja',
+    title: 'Junior Assistantship (JA1–3)',
+    deadline: '2027-03-31', // GEM Portal deadline for "Six Mini-CEX Passed"
+    storageKey: 'signoff_ja',
+    items: [
+      'JA1 (1 Sep – 9 Oct 2026): Mini-CEX 1',
+      'JA1 (1 Sep – 9 Oct 2026): Mini-CEX 2',
+      'JA1 (1 Sep – 9 Oct 2026): End of placement clinician assessment',
+      'JA1 (1 Sep – 9 Oct 2026): Written student feedback',
+      'JA2 (19 Oct – 27 Nov 2026): Mini-CEX 1',
+      'JA2 (19 Oct – 27 Nov 2026): Mini-CEX 2',
+      'JA2 (19 Oct – 27 Nov 2026): End of placement clinician assessment',
+      'JA2 (19 Oct – 27 Nov 2026): Written student feedback',
+      'JA3 (15 Feb – 26 Mar 2027): Mini-CEX 1',
+      'JA3 (15 Feb – 26 Mar 2027): Mini-CEX 2',
+      'JA3 (15 Feb – 26 Mar 2027): End of placement clinician assessment',
+      'JA3 (15 Feb – 26 Mar 2027): Written student feedback',
+      'Out of hours: 2 evening on-calls, 5hrs+ each (across the year, not per JA)',
+      'Out of hours: 2 weekend days, 8hrs+ each (across the year, not per JA)',
+    ]
+  },
 ];
 
 function getSignoff(key) {
@@ -4224,175 +4278,6 @@ const UKMLA_SYSTEMS = [
   ]},
 ];
 
-const CONF_COLORS = {1:'#ef4444',2:'#f97316',3:'#eab308',4:'#84cc16',5:'#22c55e'};
-
-function getUkmlaProgress() {
-  try { return JSON.parse(localStorage.getItem('ukmla_progress')) || {}; } catch { return {}; }
-}
-function saveUkmlaProgress(progress) {
-  localStorage.setItem('ukmla_progress', JSON.stringify(progress));
-  syncPush('ukmla_progress', progress);
-}
-function ukmlaKey(systemId, idx) { return `${systemId}_${idx}`; }
-function getUkmlaEntry(progress, systemId, idx) {
-  return progress[ukmlaKey(systemId, idx)] || { done: false, confidence: 0 };
-}
-
-function ukmlaSystemStats(sys, progress) {
-  let covered = 0, confSum = 0, confCount = 0;
-  sys.conditions.forEach((_, idx) => {
-    const entry = getUkmlaEntry(progress, sys.id, idx);
-    if (entry.done) covered++;
-    if (entry.confidence > 0) { confSum += entry.confidence; confCount++; }
-  });
-  return { covered, total: sys.conditions.length, avgConfidence: confCount ? confSum/confCount : 0, ratedCount: confCount };
-}
-function confColor(c) {
-  if (!c) return '#d1d5db';
-  return CONF_COLORS[Math.max(1, Math.min(5, Math.round(c)))];
-}
-function getWeakestSystem() {
-  const progress = getUkmlaProgress();
-  const stats = UKMLA_SYSTEMS.map(sys => ({ sys, ...ukmlaSystemStats(sys, progress) }));
-  const rated = stats.filter(s => s.ratedCount > 0);
-  if (rated.length) {
-    return rated.slice().sort((a,b)=>a.avgConfidence-b.avgConfidence)[0].sys.title;
-  }
-  return stats.slice().sort((a,b)=>(a.covered/a.total)-(b.covered/b.total))[0].sys.title;
-}
-
-function ukmlaDotStyle(filled, level) {
-  return `width:12px;height:12px;border-radius:50%;display:inline-block;cursor:pointer;background:${filled?CONF_COLORS[level]:'#e5e7eb'};transition:background .15s`;
-}
-function ukmlaAccordionBodyHtml(sys) {
-  const progress = getUkmlaProgress();
-  return sys.conditions.map((cond, idx) => {
-    const entry = getUkmlaEntry(progress, sys.id, idx);
-    return `<div class="row ukmla-row ${entry.done?'done':''}" id="ukmla-row-${sys.id}-${idx}">
-      <input type="checkbox" ${entry.done?'checked':''} onchange="toggleUkmlaCondition(this,'${sys.id}',${idx})" style="width:16px;height:16px;flex-shrink:0;cursor:pointer">
-      <span class="ukmla-cond-name" style="flex:1;font-size:13px">${escHtml(cond)}</span>
-      <div class="ukmla-dots" data-sys="${sys.id}" data-idx="${idx}" style="display:flex;gap:4px;flex-shrink:0">
-        ${[1,2,3,4,5].map(n=>`<span class="ukmla-dot" data-level="${n}" onclick="setUkmlaConfidence('${sys.id}',${idx},${n})" style="${ukmlaDotStyle(n<=entry.confidence,n)}"></span>`).join('')}
-      </div>
-    </div>`;
-  }).join('');
-}
-function ukmlaAccordionHtml(sys) {
-  return `<div class="accordion closed" id="acc-ukmla-${sys.id}">
-    <div class="accordion-header" onclick="toggleAccordion('ukmla-${sys.id}')">
-      <div style="flex:1;min-width:0">
-        <div class="accordion-title">${sys.title}</div>
-        <div style="display:flex;gap:8px;margin-top:6px">
-          <div style="flex:1;background:#f3f4f6;border-radius:99px;height:4px;overflow:hidden">
-            <div id="ukmla-progress-${sys.id}" style="background:#6b9e7a;height:100%;width:0%;transition:width .3s"></div>
-          </div>
-          <div style="flex:1;background:#f3f4f6;border-radius:99px;height:4px;overflow:hidden">
-            <div id="ukmla-conf-${sys.id}" style="background:#d1d5db;height:100%;width:0%;transition:width .3s,background .3s"></div>
-          </div>
-        </div>
-      </div>
-      <span class="accordion-meta" id="ukmla-meta-${sys.id}" style="white-space:nowrap"></span>
-      <span class="accordion-chevron">▾</span>
-    </div>
-    <div class="accordion-body" id="acc-body-ukmla-${sys.id}"></div>
-  </div>`;
-}
-function renderUkmlaAccordionMeta(sys) {
-  const progress = getUkmlaProgress();
-  const s = ukmlaSystemStats(sys, progress);
-  set('ukmla-meta-'+sys.id, `${s.covered}/${s.total}`);
-  const bar = document.getElementById('ukmla-progress-'+sys.id);
-  if (bar) bar.style.width = (s.total ? s.covered/s.total*100 : 0)+'%';
-  const confBar = document.getElementById('ukmla-conf-'+sys.id);
-  if (confBar) { confBar.style.width = (s.avgConfidence/5*100)+'%'; confBar.style.background = confColor(s.avgConfidence); }
-}
-function renderUkmlaOverall() {
-  const progress = getUkmlaProgress();
-  let covered = 0, total = 0, confSum = 0, confCount = 0;
-  UKMLA_SYSTEMS.forEach(sys => {
-    const s = ukmlaSystemStats(sys, progress);
-    covered += s.covered; total += s.total;
-    confSum += s.avgConfidence * s.ratedCount; confCount += s.ratedCount;
-  });
-  const pct = total ? Math.round(covered/total*100) : 0;
-  const avgConf = confCount ? confSum/confCount : 0;
-  set('ukmla-overall-count', `${covered} / ${total} conditions (${pct}%)`);
-  const bar = document.getElementById('ukmla-overall-bar');
-  if (bar) bar.style.width = pct+'%';
-  set('ukmla-conf-val', `${avgConf.toFixed(1)} / 5`);
-  const confBar = document.getElementById('ukmla-conf-bar');
-  if (confBar) { confBar.style.width = (avgConf/5*100)+'%'; confBar.style.background = confColor(avgConf); }
-}
-function chipDotColor(avgConfidence, ratedCount) {
-  if (!ratedCount) return '#9ca3af';
-  if (avgConfidence < 2) return '#ef4444';
-  if (avgConfidence < 3) return '#f97316';
-  if (avgConfidence < 4) return '#eab308';
-  if (avgConfidence < 5) return '#84cc16';
-  return '#22c55e';
-}
-function ukmlaScrollToSystem(sysId) {
-  const acc = document.getElementById('acc-ukmla-'+sysId);
-  if (!acc) return;
-  acc.classList.remove('closed');
-  acc.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-function renderUkmlaWeakSpots() {
-  const progress = getUkmlaProgress();
-  const stats = UKMLA_SYSTEMS.map(sys=>({sys, ...ukmlaSystemStats(sys, progress)}));
-  const sorted = stats.slice().sort((a,b)=>a.avgConfidence-b.avgConfidence);
-  setH('ukmla-weak-spots', sorted.map(s=>{
-    const dotColor = chipDotColor(s.avgConfidence, s.ratedCount);
-    return `<span style="
-      display:inline-flex;align-items:center;gap:5px;
-      background:#1e293b;border:1px solid #334155;border-radius:20px;
-      padding:3px 10px;font-size:0.72rem;cursor:pointer;color:#e2e8f0;
-    " onclick="ukmlaScrollToSystem('${s.sys.id}')">
-      <span style="width:8px;height:8px;border-radius:50%;background:${dotColor}"></span>
-      ${s.sys.title}
-      <span style="opacity:0.5">${s.avgConfidence.toFixed(1)}</span>
-    </span>`;
-  }).join(''));
-}
-function refreshUkmlaStats() {
-  renderUkmlaOverall();
-  renderUkmlaWeakSpots();
-  UKMLA_SYSTEMS.forEach(renderUkmlaAccordionMeta);
-}
-function toggleUkmlaCondition(checkbox, systemId, idx) {
-  const progress = getUkmlaProgress();
-  const key = ukmlaKey(systemId, idx);
-  const entry = progress[key] || { done:false, confidence:0 };
-  entry.done = checkbox.checked;
-  progress[key] = entry;
-  saveUkmlaProgress(progress);
-  const row = document.getElementById(`ukmla-row-${systemId}-${idx}`);
-  if (row) row.classList.toggle('done', entry.done);
-  refreshUkmlaStats();
-  logStudyActivity();
-  renderStudyStreak();
-}
-function setUkmlaConfidence(systemId, idx, level) {
-  const progress = getUkmlaProgress();
-  const key = ukmlaKey(systemId, idx);
-  const entry = progress[key] || { done:false, confidence:0 };
-  entry.confidence = entry.confidence === level ? 0 : level;
-  progress[key] = entry;
-  saveUkmlaProgress(progress);
-  document.querySelectorAll(`.ukmla-dots[data-sys="${systemId}"][data-idx="${idx}"] .ukmla-dot`).forEach(dot=>{
-    const n = +dot.dataset.level;
-    dot.style.background = n <= entry.confidence ? CONF_COLORS[n] : '#e5e7eb';
-  });
-  refreshUkmlaStats();
-  logStudyActivity();
-  renderStudyStreak();
-}
-function renderUkmlaTracker() {
-  setH('ukmla-accordions', UKMLA_SYSTEMS.map(ukmlaAccordionHtml).join(''));
-  UKMLA_SYSTEMS.forEach(sys => setH(`acc-body-ukmla-${sys.id}`, ukmlaAccordionBodyHtml(sys)));
-  refreshUkmlaStats();
-}
-renderUkmlaTracker();
 
 // ── UKMLA Revision Schedule ───────────────────────────────────────────────────
 const REV_START = new Date('2026-07-26T00:00:00'); // restart from today
@@ -4476,7 +4361,6 @@ function logRevToday() {
   if (anki > 0 || pm > 0) logStudyActivity();
   const el = document.getElementById('rev-today-saved');
   if (el) el.textContent = `✓ Saved — ${anki} Anki cards · ${pm} PassMed Qs`;
-  renderRevWeekCard();
   renderRev7DayChart();
   if (typeof renderDailyBriefing === 'function') renderDailyBriefing();
 }
@@ -4491,9 +4375,7 @@ function toggleRevPassmed(sysId) {
 function initRevSchedule() { seedPmCatIfEmpty(); renderRevSchedule(); }
 
 function renderRevSchedule() {
-  renderRevWeekCard();
   renderRev7DayChart();
-  renderRevPhases();
   renderRevPassmedChecklist();
   renderPmCatChart();
   // Pre-fill today's logged values
@@ -4506,77 +4388,6 @@ function renderRevSchedule() {
     if (pi) pi.value = td.pm;
     if (si) si.textContent = `✓ Today: ${td.anki} Anki cards · ${td.pm} PassMed Qs`;
   }
-}
-
-function renderRevWeekCard() {
-  const el = document.getElementById('rev-week-card');
-  if (!el) return;
-  const now = new Date(); now.setHours(0,0,0,0);
-  const daysToExam = Math.ceil((REV_EXAM - now) / 86400000);
-
-  if (now < REV_START) {
-    el.innerHTML = `<div style="text-align:center;padding:20px;color:#6b9e7a;font-weight:700;font-size:16px">🎯 Revision starts tomorrow — you've got this!</div>`;
-    return;
-  }
-  if (now >= REV_EXAM) {
-    el.innerHTML = `<div style="text-align:center;padding:20px;font-weight:700;font-size:16px">🎓 Good luck today Phil!</div>`;
-    return;
-  }
-
-  const wi  = revCurrentWeekIdx();
-  const log = getRevLog();
-  const isWeekend = now.getDay() === 0 || now.getDay() === 6;
-  const isExclToday = isRevExcluded(now);
-  const todayTopic = isExclToday ? '✈️ Barcelona' : getRevTopicForDate(now);
-  const startOfWeek = new Date(REV_START.getTime() + wi * 7 * 86400000);
-  let weekAnki = 0, weekPm = 0;
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(startOfWeek.getTime() + i * 86400000);
-    const e = log[revDateKey(d)]; if (e) { weekAnki += e.anki||0; weekPm += e.pm||0; }
-  }
-  // Adjust weekly targets: subtract excluded days from the target
-  let activeDays = 7;
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(startOfWeek.getTime() + i * 86400000);
-    if (isRevExcluded(d)) activeDays--;
-  }
-  const weekAnkiTarget = REV_ANKI_TARGET * activeDays;
-  const weekPmTarget   = REV_PM_TARGET   * activeDays;
-  const ankiPct = Math.min(100, Math.round(weekAnki / Math.max(1, weekAnkiTarget) * 100));
-  const pmPct   = Math.min(100, Math.round(weekPm   / Math.max(1, weekPmTarget)   * 100));
-
-  el.innerHTML = `
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
-      <div>
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.07em;color:#6b9e7a;font-weight:700">${isExclToday ? 'Off — Enjoy Barcelona!' : isWeekend ? 'Weekend — General Review' : "Today's Topic"}</div>
-        <div style="font-size:18px;font-weight:700;margin-top:3px">${todayTopic}</div>
-        <div style="font-size:12px;color:#9ca3af;margin-top:2px">Week ${wi+1} of 6</div>
-      </div>
-      <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:30px;font-weight:800;color:${daysToExam<=14?'#ef4444':daysToExam<=60?'#f59e0b':'#374151'};line-height:1">${daysToExam}</div>
-        <div style="font-size:11px;color:#9ca3af">days to exam</div>
-      </div>
-    </div>
-    <div style="margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-        <span>🃏 Anki this week</span><span style="font-weight:600">${weekAnki} / ${weekAnkiTarget}</span>
-      </div>
-      <div style="background:#f3f4f6;border-radius:99px;height:7px;overflow:hidden">
-        <div style="background:#6b9e7a;height:100%;width:${ankiPct}%;transition:width .3s"></div>
-      </div>
-    </div>
-    <div style="margin-bottom:14px">
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-        <span>📝 PassMed this week</span><span style="font-weight:600">${weekPm} / ${weekPmTarget}</span>
-      </div>
-      <div style="background:#f3f4f6;border-radius:99px;height:7px;overflow:hidden">
-        <div style="background:#3b82f6;height:100%;width:${pmPct}%;transition:width .3s"></div>
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;padding-top:12px;border-top:1px solid #f3f4f6;font-size:11px;color:#6b7280">
-      <div style="flex:1"><span style="font-weight:600">📅 Daily target</span><br>${REV_ANKI_TARGET} Ankis · ${REV_PM_TARGET} PassMed Qs</div>
-      <div style="flex:1"><span style="font-weight:600">🗓️ Weekend</span><br>All Topics · ${REV_ANKI_TARGET} Ankis · ${REV_PM_TARGET} PassMed Qs</div>
-    </div>`;
 }
 
 function renderRev7DayChart() {
@@ -4599,50 +4410,6 @@ function renderRev7DayChart() {
       </div>
       <div style="font-size:10px;color:${d.isToday?'#374151':'#9ca3af'};font-weight:${d.isToday?'700':'400'}">${d.label}</div>
     </div>`).join('');
-}
-
-function renderRevPhases() {
-  const el = document.getElementById('rev-phases');
-  if (!el) return;
-  const wi  = revCurrentWeekIdx();
-  const log = getRevLog();
-  const todayKey = revDateKey(new Date());
-  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-
-  el.innerHTML = Array.from({length: 6}, (_, wIdx) => {
-    const weekStart = new Date(REV_START.getTime() + wIdx * 7 * 86400000);
-    const dateStr = `${weekStart.getDate()} ${MONTHS[weekStart.getMonth()]}`;
-    const isCurrent = wIdx === wi;
-    let wAnki = 0, wPm = 0;
-    for (let d = 0; d < 7; d++) {
-      const dd = new Date(weekStart.getTime() + d * 86400000);
-      const e = log[revDateKey(dd)]; if (e) { wAnki += e.anki||0; wPm += e.pm||0; }
-    }
-
-    const dayRows = Array.from({length: 7}, (_, di) => {
-      const dd = new Date(weekStart.getTime() + di * 86400000);
-      const dKey = revDateKey(dd);
-      const isToday = dKey === todayKey;
-      const isWkend = dd.getDay() === 0 || dd.getDay() === 6;
-      const isExcl = isRevExcluded(dd);
-      const topic = isExcl ? '✈️ Barcelona — Off' : getRevTopicForDate(dd);
-      const e = log[dKey];
-      return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f9fafb;${isToday?'background:#f0fdf4;margin:0 -12px;padding-left:12px;padding-right:12px':''}${isExcl?'opacity:0.45':''}">
-        <span style="font-size:11px;color:#9ca3af;width:28px;flex-shrink:0">${DAY_NAMES[dd.getDay()]}</span>
-        <span style="font-size:12px;flex:1;color:${isExcl?'#9ca3af':isWkend?'#9ca3af':'#374151'};font-weight:${isToday?'700':'400'}">${topic}${isToday?' ◀ today':''}</span>
-        ${!isExcl&&e&&(e.anki||e.pm)?`<span style="font-size:10px;color:#6b9e7a;flex-shrink:0">🃏${e.anki||0} 📝${e.pm||0}</span>`:''}
-      </div>`;
-    }).join('');
-
-    return `<div class="accordion ${isCurrent?'':'closed'}" id="acc-rev-phase-${wIdx}">
-      <div class="accordion-header" onclick="toggleAccordion('rev-phase-${wIdx}')" style="border-left:3px solid #6b9e7a;padding-left:12px">
-        <span style="font-weight:700;font-size:14px">Week ${wIdx+1}</span>
-        <span class="accordion-meta" style="font-size:12px;color:#9ca3af">${dateStr}${wAnki||wPm?' · 🃏'+wAnki+' 📝'+wPm:''}</span>
-      </div>
-      <div class="accordion-body" id="acc-body-rev-phase-${wIdx}" style="padding:0 12px 4px">${dayRows}</div>
-    </div>`;
-  }).join('');
 }
 
 function renderRevPassmedChecklist() {
@@ -7112,18 +6879,9 @@ const RACES = [
   { name: 'Half Ironman', date: '2027-03-01', type: 'Triathlon', distance: '70.3' },
 ];
 
-// ── ECG Quiz bank ───────────────────────────────────────────────────────────
-// Add one entry per ECG image you drop into the ecg-images/ folder. See
-// ecg-images/README.md for the exact format.
-const ECG_QUIZ_BANK = [
-  // { file: 'ecg-images/001.jpg', diagnosis: 'Atrial Fibrillation', explanation: 'Irregularly irregular rhythm, absent P waves.' },
-];
-
 // ── Study Streak Tracker ─────────────────────────────────────────────────────
-// Logs one date per day (deduped) whenever any study activity happens — a UKMLA
-// condition is toggled/rated, or an ECG quiz is answered. ukmla_progress has no
-// timestamp field of its own, so this is a separate date-stamped log purely for
-// streak purposes (mirrors the already date-stamped ecg_quiz_log shape).
+// Logs one date per day (deduped) whenever Anki/PassMed revision is logged for
+// the day. Separate date-stamped log purely for streak purposes.
 function getStudyActivityLog() {
   try { return JSON.parse(localStorage.getItem('study_activity_log')) || []; } catch (e) { return []; }
 }
@@ -7213,92 +6971,6 @@ function renderStudyHeatmap() {
     cells.push(`<span title="${label} — ${hit ? 'hit' : 'miss'}" onclick="toggleStudyDay('${dateStr}')" style="width:18px;height:18px;border-radius:4px;background:${bg};border:${border};cursor:pointer;display:inline-block"></span>`);
   }
   el.innerHTML = cells.join('');
-}
-
-function getEcgQuizLog() {
-  try { return JSON.parse(localStorage.getItem('ecg_quiz_log')) || []; } catch(e) { return []; }
-}
-function saveEcgQuizLog(log) { localStorage.setItem('ecg_quiz_log', JSON.stringify(log)); syncPush('ecg_quiz_log', log); }
-function ecgQuizStats(log) {
-  const total = log.length;
-  const correctCount = log.filter(e=>e.correct).length;
-  return { total, correctCount, pct: total ? Math.round(correctCount/total*100) : 0 };
-}
-function dailyEcgIndex(bank) {
-  const today = todayStr();
-  let hash = 0;
-  for (let i=0;i<today.length;i++) hash = (hash*31 + today.charCodeAt(i)) >>> 0;
-  return hash % bank.length;
-}
-
-function renderEcgQuiz() {
-  const el = document.getElementById('ecg-quiz-content');
-  if (!el) return;
-  const bank = ECG_QUIZ_BANK;
-  if (!bank.length) {
-    el.innerHTML = `
-      <div style="text-align:center;padding:24px;color:#bbb">
-        <div style="font-size:28px;margin-bottom:10px">📈</div>
-        <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:#999">No ECGs loaded yet</div>
-        <div style="font-size:12px;max-width:440px;margin:0 auto">
-          Drop ECG images into the <code>ecg-images</code> folder, then add an entry to
-          <code>ECG_QUIZ_BANK</code> near the top of the script in index.html, e.g.
-          <code style="display:block;text-align:left;background:#f8f8f8;padding:8px;border-radius:6px;margin-top:8px;white-space:pre-wrap">{ file: 'ecg-images/001.jpg', diagnosis: 'Atrial Fibrillation', explanation: 'Irregularly irregular rhythm, absent P waves.' }</code>
-        </div>
-      </div>`;
-    return;
-  }
-  const today = todayStr();
-  const ecg = bank[dailyEcgIndex(bank)];
-  const log = getEcgQuizLog();
-  const todays = log.find(e => e.date === today);
-  const stats = ecgQuizStats(log);
-  const statsLine = stats.total ? `<div class="sub" style="text-align:center;margin-top:8px">Running accuracy: ${stats.pct}% (${stats.correctCount}/${stats.total})</div>` : '';
-
-  if (todays) {
-    el.innerHTML = `
-      <div style="text-align:center;margin-bottom:14px"><img src="${ecg.file}" alt="ECG" style="max-width:100%;border-radius:8px;border:1px solid #e5e7eb"/></div>
-      <div style="font-weight:700;font-size:14px;margin-bottom:4px;text-align:center">${ecg.diagnosis}</div>
-      ${ecg.explanation ? `<div class="sub" style="text-align:center;margin-bottom:6px">${ecg.explanation}</div>` : ''}
-      <div class="sub" style="text-align:center;font-weight:600;color:${todays.correct?'#2d7a47':'#c53030'}">You marked this ${todays.correct?'correct':'incorrect'} today</div>
-      ${statsLine}`;
-    return;
-  }
-
-  el.innerHTML = `
-    <div style="text-align:center;margin-bottom:14px"><img src="${ecg.file}" alt="ECG" style="max-width:100%;border-radius:8px;border:1px solid #e5e7eb"/></div>
-    <div id="ecg-quiz-question" style="text-align:center">
-      <button class="badge b-blue" style="cursor:pointer;border:none;font-size:13px;padding:8px 16px" onclick="revealEcgAnswer()">Reveal Diagnosis</button>
-    </div>
-    ${statsLine}
-  `;
-}
-
-function revealEcgAnswer() {
-  const bank = ECG_QUIZ_BANK;
-  if (!bank.length) return;
-  const ecg = bank[dailyEcgIndex(bank)];
-  const qEl = document.getElementById('ecg-quiz-question');
-  if (!qEl) return;
-  qEl.innerHTML = `
-    <div style="font-weight:700;font-size:14px;margin-bottom:4px">${ecg.diagnosis}</div>
-    ${ecg.explanation ? `<div class="sub" style="margin-bottom:10px">${ecg.explanation}</div>` : ''}
-    <div style="display:flex;gap:8px;justify-content:center">
-      <button class="badge b-sage" style="cursor:pointer;border:none;font-size:13px;padding:6px 14px" onclick="markEcgQuiz(true)">Got it right</button>
-      <button class="badge b-red" style="cursor:pointer;border:none;font-size:13px;padding:6px 14px" onclick="markEcgQuiz(false)">Got it wrong</button>
-    </div>`;
-}
-
-function markEcgQuiz(correct) {
-  const log = getEcgQuizLog();
-  const today = todayStr();
-  if (!log.find(e=>e.date===today)) {
-    log.push({ date: today, correct });
-    saveEcgQuizLog(log);
-  }
-  renderEcgQuiz();
-  logStudyActivity();
-  renderStudyStreak();
 }
 
 // Pace check: compares current CTL (fitness) to CTL ~28 days ago to flag whether
@@ -9252,11 +8924,19 @@ function renderYear4Cal() {
     {start:437,end:437,label:'Vacation',color:'#D9D9D9',tc:'#555'},
     {start:438,end:442,label:'SSA',color:'#F5A623',tc:'#7a3f00'},
   ];
+  // Events column: travel/personal events plus assessment dates from the GEM Year 4
+  // Provisional Assessment Schedule (26/27). Resit/supplementary rows are deliberately
+  // excluded — only 1st-attempt/formative dates are shown here. Past events (Barcelona,
+  // Alex BBQ Notts — both before 29 Aug 2026) have been removed.
   const TRAVEL = [
-    {start:399,end:399,label:'Barcelona',color:'#4A90D9',tc:'#fff'},
-    {start:400,end:400,label:'Alex BBQ Notts',color:'#E67E22',tc:'#fff'},
     {start:406,end:407,label:'California',color:'#4A90D9',tc:'#fff'},
-    {start:429,end:429,label:'Swansea HM',color:'#9B59B6',tc:'#fff'},
+    {start:413,end:413,label:'Formative SBA',color:'#F4B183',tc:'#7a4010'},
+    {start:421,end:421,label:'CPSA (Pt 1–3)',color:'#F4B183',tc:'#7a4010'},
+    {start:423,end:423,label:'AKT (P1 & P2)',color:'#F4B183',tc:'#7a4010'},
+    {start:429,end:429,label:'Swansea HM · PSA',color:'#9B59B6',tc:'#fff'},
+    {start:431,end:431,label:'Portal deadlines',color:'#F4B183',tc:'#7a4010'},
+    {start:437,end:437,label:'Elective report due',color:'#F4B183',tc:'#7a4010'},
+    {start:441,end:441,label:'SA sign-off',color:'#F4B183',tc:'#7a4010'},
   ];
   const SHORT_DATES = ['29 Jul','08 Aug','31 Aug','07 Sep','14 Sep','21 Sep','28 Sep','05 Oct',
     '12 Oct','19 Oct','26 Oct','02 Nov','09 Nov','16 Nov','23 Nov',
@@ -11169,7 +10849,6 @@ function renderCardioFocus() {
 
 fetchHealthData();
 fetchWeather();
-renderEcgQuiz();
 renderStudyStreak();
 renderDailyBriefing(); // initial render from local data; re-fires after weather/health loads
 renderHomeGoals();
@@ -11289,7 +10968,6 @@ function applySyncUpdates(updated) {
   const safe = fn => { try { fn(); } catch (e) { console.warn('sync re-render failed', e); } };
   if (updated.includes('todo_items')) safe(renderTodos);
   if (updated.some(k => k.startsWith('signoff_'))) safe(renderAccordions);
-  if (updated.includes('ukmla_progress')) safe(renderUkmlaTracker);
   if (updated.includes('gcal_events')) safe(() => {
     try { gcalEvents = JSON.parse(localStorage.getItem('gcal_events')) || []; } catch {}
     renderTrainingCalendar(_acts);
@@ -11308,7 +10986,6 @@ function applySyncUpdates(updated) {
   if (updated.includes('progress_log')) safe(() => { renderWeightTrend(); buildWhoopWeightChart(); });
   if (updated.includes('monthly_km_goal')) safe(() => renderMonthlyGoal(_acts));
   if (updated.includes('pb_log')) safe(buildPBChart);
-  if (updated.includes('ecg_quiz_log')) safe(renderEcgQuiz);
   if (updated.includes('study_activity_log')) safe(renderStudyStreak);
   if (updated.includes('finance_data')) safe(() => { renderFinanceOverview(); renderFinanceIncomeExpenses(); renderFinanceDashboardCard(); });
   if (updated.includes('finance_transactions') || updated.includes('finance_accounts')) safe(refreshFinanceFromTransactions);
