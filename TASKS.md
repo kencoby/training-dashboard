@@ -133,3 +133,5 @@ All 115 tasks completed across the full build. Now on Cloudflare Pages (https://
 | 128 | ✅ | Notes: labeled the two untitled pasted links (Idea / Med) so they're not lost in the flat list |
 | 129 | ✅ | Bumped sw.js cache to v3 so today's changes aren't masked by the stale service-worker cache |
 | 130 | ⏳ | Tasks tab already has full priority tiers (critical/ondeck/someday/dashboard) with drag-drop + escalate/defer — just unused, everything currently sits in "critical". Left for Phil to re-triage himself; offered to help |
+| 131 | ✅ | Habits: added a "Reset history" control (and `habit_reset_date` floor used by the heatmap, daily-score chart, and streak recompute) so old days — including auto-tracked ones from Strava/Health data — stop appearing instead of destructively wiping habit_log, which is merge-synced across devices. Fired the reset live so the tracker now starts clean from today (29/08) |
+| 132 | ✅ | Bumped sw.js cache to v4 for this deploy |
