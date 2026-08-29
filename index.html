@@ -11171,12 +11171,14 @@ function computeReadinessScore() {
   }
 
   const composite = Math.round(hrvScore * 0.40 + rhrScore * 0.25 + sleepScore * 0.25 + tempScore * 0.10);
+  // Three color tiers, not five — the label carries the nuance, the color
+  // only needs to say "good / middling / needs attention".
   let label, color;
-  if (composite >= 80)       { label = 'Optimal';   color = '#22c55e'; }
-  else if (composite >= 65)  { label = 'Good';       color = '#84cc16'; }
-  else if (composite >= 50)  { label = 'Fair';       color = '#f59e0b'; }
-  else if (composite >= 35)  { label = 'Low';        color = '#f97316'; }
-  else                       { label = 'Poor';       color = '#ef4444'; }
+  if (composite >= 80)       { label = 'Optimal';   color = '#6b9e7a'; }
+  else if (composite >= 65)  { label = 'Good';       color = '#6b9e7a'; }
+  else if (composite >= 50)  { label = 'Fair';       color = '#767472'; }
+  else if (composite >= 35)  { label = 'Low';        color = '#767472'; }
+  else                       { label = 'Poor';       color = '#c53030'; }
 
   return { score: composite, label, color, components: { hrv: hrvScore, rhr: rhrScore, sleep: sleepScore, temp: tempScore } };
 }
@@ -11935,23 +11937,23 @@ function renderHydrationSection() {
     `<span style="font-size:18px;cursor:pointer;opacity:${i < cups ? 1 : 0.25}" onclick="addHydration(250)" title="Add 250ml">💧</span>`
   ).join('');
   el.innerHTML = `
-    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:#9ca3af;font-weight:700;margin-bottom:6px">💧 Hydration</div>
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint);font-weight:700;margin-bottom:6px">💧 Hydration</div>
     <div style="display:flex;align-items:center;gap:8px">
       <div style="flex:1">
         <div style="display:flex;flex-wrap:wrap;gap:2px;margin-bottom:6px">${cupsHtml}</div>
-        <div style="background:#f3f4f6;border-radius:99px;height:5px;overflow:hidden">
-          <div style="background:#3b82f6;height:100%;width:${pct}%;border-radius:99px;transition:width .3s"></div>
+        <div style="background:var(--surface-hover);border-radius:99px;height:5px;overflow:hidden">
+          <div style="background:var(--accent);height:100%;width:${pct}%;border-radius:99px;transition:width .3s"></div>
         </div>
       </div>
       <div style="text-align:right;flex-shrink:0">
         <div style="font-size:16px;font-weight:700">${ml} ml</div>
-        <div style="font-size:10px;color:#9ca3af">of ${goal} ml</div>
+        <div style="font-size:10px;color:var(--text-faint)">of ${goal} ml</div>
       </div>
     </div>
     <div style="display:flex;gap:6px;margin-top:8px">
-      <button onclick="addHydration(250)" style="flex:1;background:#eff6ff;color:#3b82f6;border:none;border-radius:8px;padding:5px;font-size:12px;font-weight:600;cursor:pointer">+250 ml</button>
-      <button onclick="addHydration(500)" style="flex:1;background:#eff6ff;color:#3b82f6;border:none;border-radius:8px;padding:5px;font-size:12px;font-weight:600;cursor:pointer">+500 ml</button>
-      <button onclick="addHydration(-250)" style="flex:1;background:#f3f4f6;color:#6b7280;border:none;border-radius:8px;padding:5px;font-size:12px;cursor:pointer">-250 ml</button>
+      <button onclick="addHydration(250)" style="flex:1;background:var(--surface-hover);color:var(--text-muted);border:1px solid var(--border-soft);border-radius:8px;padding:5px;font-size:12px;font-weight:600;cursor:pointer">+250 ml</button>
+      <button onclick="addHydration(500)" style="flex:1;background:var(--surface-hover);color:var(--text-muted);border:1px solid var(--border-soft);border-radius:8px;padding:5px;font-size:12px;font-weight:600;cursor:pointer">+500 ml</button>
+      <button onclick="addHydration(-250)" style="flex:1;background:var(--surface-hover);color:var(--text-faint);border:1px solid var(--border-soft);border-radius:8px;padding:5px;font-size:12px;cursor:pointer">-250 ml</button>
     </div>`;
 }
 
