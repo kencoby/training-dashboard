@@ -1316,6 +1316,17 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 <div id="rev-passmed-checklist"></div>
 </div>
 
+<!-- PASSMED CATEGORY PERFORMANCE -->
+<div class="section">
+<h2>PassMed Category Performance</h2>
+<div class="sub" style="margin-bottom:12px" id="pm-cat-updated">No snapshot yet</div>
+<div class="card">
+  <div id="pm-cat-chart"></div>
+  <button onclick="openPmCatForm()" id="pm-cat-edit-btn" style="width:100%;margin-top:12px;background:var(--surface-hover);color:var(--text-muted);border:1px solid var(--border-soft);border-radius:8px;padding:9px;font-size:13px;font-weight:600;cursor:pointer">📸 Update from PassMed snapshot</button>
+  <div id="pm-cat-form" style="display:none;margin-top:12px"></div>
+</div>
+</div>
+
   </div>
 
   <div class="sub-tab-pane" id="sub-tab-med-ecg">
@@ -2634,7 +2645,7 @@ const SYNC_KEYS = [
   'activity_notes', 'daily_habits', 'habit_log', 'progress_log', 'monthly_km_goal', 'pb_log',
   'ecg_quiz_log', 'finance_data', 'nutr_food_log', 'nutr_meal_plan', 'nutr_grocery', 'nutr_pantry',
   'study_activity_log', 'finance_transactions', 'finance_accounts',
-  'rev_schedule_log', 'rev_passmed_done', 'tasks_priority',
+  'rev_schedule_log', 'rev_passmed_done', 'tasks_priority', 'passmed_category_snapshots',
   'shopping_items',
   'notes_data',
   'mood_log', 'tutoring_log', 'habit_streaks', 'habit_reset_date'
@@ -4477,13 +4488,14 @@ function toggleRevPassmed(sysId) {
   renderRevPassmedChecklist();
 }
 
-function initRevSchedule() { renderRevSchedule(); }
+function initRevSchedule() { seedPmCatIfEmpty(); renderRevSchedule(); }
 
 function renderRevSchedule() {
   renderRevWeekCard();
   renderRev7DayChart();
   renderRevPhases();
   renderRevPassmedChecklist();
+  renderPmCatChart();
   // Pre-fill today's logged values
   const td = getRevLog()[revTodayKey()];
   const ai = document.getElementById('rev-anki-input');
@@ -4651,6 +4663,129 @@ function renderRevPassmedChecklist() {
           <span style="font-size:13px;${done[s.id]?'color:#6b9e7a;text-decoration:line-through':'color:#374151'}">${s.title}</span>
         </label>`).join('')}
     </div>`;
+}
+
+// ── PassMed Category Performance (manual snapshot tracker) ─────────────────
+// No public PassMed API and no live session access exists, so this is a
+// point-in-time snapshot: whenever you (or Claude, reading your screen with you
+// in a live session) look at PassMed's Performance → By category page, the
+// numbers get logged here. Because PassMed itself only shows your current
+// cumulative stats with no history, this becomes a trend the source site
+// doesn't give you.
+const PM_CAT_DEFAULT = ['Dermatology','Ear, nose and throat','Ethics and law','Medicine',
+  'Musculoskeletal','Obstetrics and gynaecology','Ophthalmology','Paediatrics',
+  'Pharmacology','Psychiatry','Statistics','Surgery'];
+
+function getPmCatSnapshots() { try { return JSON.parse(localStorage.getItem('passmed_category_snapshots'))||[]; } catch { return []; } }
+function savePmCatSnapshots(arr) { localStorage.setItem('passmed_category_snapshots', JSON.stringify(arr)); syncPush('passmed_category_snapshots', arr); }
+
+function seedPmCatIfEmpty() {
+  if (getPmCatSnapshots().length) return;
+  // Seeded from a live read of the user's PassMed "By category" chart on 2026-08-29.
+  // Values were read visually off an unlabeled bar chart (no numeric labels available),
+  // so treat as approximate — correct via "Update from PassMed snapshot" if needed.
+  savePmCatSnapshots([{ date: '2026-08-29', categories: [
+    { name: 'Dermatology', you: 67, avg: 57 },
+    { name: 'Ear, nose and throat', you: 100, avg: 59 },
+    { name: 'Ethics and law', you: 0, avg: 68 },
+    { name: 'Medicine', you: 62, avg: 60 },
+    { name: 'Musculoskeletal', you: 54, avg: 58 },
+    { name: 'Obstetrics and gynaecology', you: 67, avg: 59 },
+    { name: 'Ophthalmology', you: 50, avg: 59 },
+    { name: 'Paediatrics', you: 54, avg: 58 },
+    { name: 'Pharmacology', you: 80, avg: 55 },
+    { name: 'Psychiatry', you: 75, avg: 62 },
+    { name: 'Statistics', you: 100, avg: 50 },
+    { name: 'Surgery', you: 69, avg: 60 }
+  ]}]);
+}
+
+function renderPmCatChart() {
+  const el = document.getElementById('pm-cat-chart');
+  const upd = document.getElementById('pm-cat-updated');
+  if (!el) return;
+  const snaps = getPmCatSnapshots();
+  if (!snaps.length) {
+    el.innerHTML = `<div style="font-size:13px;color:var(--text-muted);text-align:center;padding:20px 0">No snapshot yet. Next time PassMed's "By category" page is open together, ask Claude to read it in — or tap "Update from PassMed snapshot" below to enter it yourself.</div>`;
+    if (upd) upd.textContent = 'No snapshot yet';
+    return;
+  }
+  const latest = snaps[snaps.length - 1];
+  const prev = snaps.length > 1 ? snaps[snaps.length - 2] : null;
+  if (upd) {
+    const days = Math.round((Date.now() - new Date(latest.date + 'T00:00:00').getTime()) / 86400000);
+    upd.textContent = `Last updated ${latest.date}${days > 0 ? ` (${days}d ago)` : ' (today)'} · weakest vs. peers first`;
+  }
+  const rows = [...latest.categories].sort((a, b) => (a.you - a.avg) - (b.you - b.avg));
+  el.innerHTML = rows.map(c => {
+    const prevC = prev ? prev.categories.find(p => p.name === c.name) : null;
+    const delta = prevC ? c.you - prevC.you : null;
+    const deltaColor = delta > 0 ? 'var(--accent-text)' : delta < 0 ? 'var(--danger)' : 'var(--text-muted)';
+    return `<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px;gap:8px">
+        <span style="font-size:12px;font-weight:600;color:var(--text)">${c.name}</span>
+        <span style="font-size:11px;color:var(--text-muted);white-space:nowrap;flex-shrink:0">${c.you}%${delta !== null && delta !== 0 ? ` <span style="color:${deltaColor}">${delta>0?'▲':'▼'}${Math.abs(delta)}</span>` : ''} <span style="opacity:.65">· avg ${c.avg}%</span></span>
+      </div>
+      <div style="position:relative;height:8px;background:var(--surface-hover);border-radius:99px;overflow:hidden">
+        <div style="position:absolute;left:0;top:0;bottom:0;width:${Math.min(100,Math.max(0,c.avg))}%;border-right:2px solid var(--border);opacity:.7"></div>
+        <div style="position:absolute;left:0;top:0;bottom:0;width:${Math.min(100,Math.max(0,c.you))}%;background:${c.you>=c.avg?'var(--accent)':'var(--primary)'};border-radius:99px"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openPmCatForm() {
+  const formEl = document.getElementById('pm-cat-form');
+  if (!formEl) return;
+  const willOpen = formEl.style.display === 'none';
+  if (!willOpen) { formEl.style.display = 'none'; return; }
+  const snaps = getPmCatSnapshots();
+  const latest = snaps.length ? snaps[snaps.length - 1].categories : PM_CAT_DEFAULT.map(name => ({ name, you: 0, avg: 0 }));
+  formEl.innerHTML = `
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">Enter today's numbers from PassMed → Performance → By category.</div>
+    <div id="pm-cat-form-rows" style="display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto">
+      ${latest.map((c, i) => `
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="text" value="${c.name}" data-pmcat-name style="flex:2;font-size:12px;border:1px solid var(--border-soft);border-radius:6px;padding:5px 7px;min-width:0">
+          <input type="number" min="0" max="100" value="${c.you}" data-pmcat-you placeholder="You" style="flex:1;font-size:12px;border:1px solid var(--border-soft);border-radius:6px;padding:5px 7px;text-align:center;min-width:0">
+          <input type="number" min="0" max="100" value="${c.avg}" data-pmcat-avg placeholder="Avg" style="flex:1;font-size:12px;border:1px solid var(--border-soft);border-radius:6px;padding:5px 7px;text-align:center;min-width:0">
+        </div>`).join('')}
+    </div>
+    <button onclick="addPmCatRow()" style="width:100%;margin-top:8px;background:none;border:1px dashed var(--border);border-radius:6px;padding:6px;font-size:12px;color:var(--text-muted);cursor:pointer">+ Add category</button>
+    <button onclick="savePmCatForm()" style="width:100%;margin-top:8px;background:var(--primary);color:#fff;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:600;cursor:pointer">Save Snapshot</button>
+  `;
+  formEl.style.display = 'block';
+}
+
+function addPmCatRow() {
+  const rows = document.getElementById('pm-cat-form-rows');
+  if (!rows) return;
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;gap:6px;align-items:center';
+  div.innerHTML = `
+    <input type="text" value="" data-pmcat-name placeholder="Category" style="flex:2;font-size:12px;border:1px solid var(--border-soft);border-radius:6px;padding:5px 7px;min-width:0">
+    <input type="number" min="0" max="100" value="" data-pmcat-you placeholder="You" style="flex:1;font-size:12px;border:1px solid var(--border-soft);border-radius:6px;padding:5px 7px;text-align:center;min-width:0">
+    <input type="number" min="0" max="100" value="" data-pmcat-avg placeholder="Avg" style="flex:1;font-size:12px;border:1px solid var(--border-soft);border-radius:6px;padding:5px 7px;text-align:center;min-width:0">`;
+  rows.appendChild(div);
+}
+
+function savePmCatForm() {
+  const rows = document.getElementById('pm-cat-form-rows');
+  if (!rows) return;
+  const categories = Array.from(rows.children).map(row => {
+    const name = row.querySelector('[data-pmcat-name]').value.trim();
+    const you  = Math.min(100, Math.max(0, parseInt(row.querySelector('[data-pmcat-you]').value) || 0));
+    const avg  = Math.min(100, Math.max(0, parseInt(row.querySelector('[data-pmcat-avg]').value) || 0));
+    return { name, you, avg };
+  }).filter(c => c.name);
+  if (!categories.length) return;
+  const snaps = getPmCatSnapshots();
+  const today = revDateKey(new Date());
+  const idx = snaps.findIndex(s => s.date === today);
+  if (idx >= 0) snaps[idx] = { date: today, categories }; else snaps.push({ date: today, categories });
+  savePmCatSnapshots(snaps);
+  document.getElementById('pm-cat-form').style.display = 'none';
+  renderPmCatChart();
 }
 
 // ── Training Calendar ───────────────────────────────────────────────────────
@@ -11177,7 +11312,7 @@ function applySyncUpdates(updated) {
   if (updated.includes('study_activity_log')) safe(renderStudyStreak);
   if (updated.includes('finance_data')) safe(() => { renderFinanceOverview(); renderFinanceIncomeExpenses(); renderFinanceDashboardCard(); });
   if (updated.includes('finance_transactions') || updated.includes('finance_accounts')) safe(refreshFinanceFromTransactions);
-  if (updated.includes('rev_schedule_log') || updated.includes('rev_passmed_done')) safe(renderRevSchedule);
+  if (updated.includes('rev_schedule_log') || updated.includes('rev_passmed_done') || updated.includes('passmed_category_snapshots')) safe(renderRevSchedule);
   if (updated.includes('tasks_priority')) safe(renderTasks);
   if (updated.includes('shopping_items')) safe(renderShopping);
   if (updated.includes('notes_data')) safe(renderNotes);
