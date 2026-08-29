@@ -17,21 +17,29 @@
 <style>
 :root{
   color-scheme:light;
-  --bg:#f4f3ef;
+  --bg:#f7f6f3;
   --surface:#ffffff;
-  --surface-hover:#fafaf9;
-  --text:#16161a;
-  --text-muted:#6b7280;
-  --text-faint:#9a9a9f;
-  --border:#e8e7e2;
-  --border-soft:#f0efeb;
-  --accent:#16161a;
+  --surface-hover:#f7f6f3;
+  --text:#1a1a1a;
+  --text-muted:#767472;
+  --text-faint:#adaba7;
+  --border:#eae8e3;
+  --border-soft:#f1f0ec;
+  /* One accent, used sparingly for positive/primary emphasis — the muted
+     sage already used informally throughout, now the single named color. */
+  --accent:#6b9e7a;
+  --accent-soft:#e6f4ea;
+  --accent-text:#2d7a47;
+  /* Reserved for genuinely important alerts only (overdue, sync failures,
+     missed targets) — deliberately the only other color in the palette. */
+  --danger:#c53030;
+  --danger-soft:#fef2f2;
   --radius-sm:8px;
   --radius-md:12px;
-  --radius-lg:16px;
+  --radius-lg:14px;
   --radius-pill:999px;
-  --shadow-sm:0 1px 2px rgba(15,15,15,.05);
-  --shadow-md:0 1px 3px rgba(15,15,15,.06),0 8px 24px rgba(15,15,15,.05);
+  --shadow-sm:0 1px 2px rgba(15,15,15,.04);
+  --shadow-md:0 2px 10px rgba(15,15,15,.06);
   --ease:cubic-bezier(.4,0,.2,1);
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -39,7 +47,7 @@ html,body{overflow-x:hidden;width:100%;max-width:100%}
 body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);padding:20px;min-height:100vh;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);margin-bottom:12px}
 .section{margin-bottom:28px}
-.card{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:18px;box-shadow:var(--shadow-sm);transition:box-shadow .2s var(--ease)}
+.card{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:18px;box-shadow:none;transition:border-color .2s var(--ease)}
 .g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
@@ -49,11 +57,11 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 .lbl{font-size:11px;font-weight:600;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:4px;margin-bottom:8px}
 .sub{font-size:12px;color:var(--text-muted);margin-top:4px;line-height:1.4}
 .badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:var(--radius-pill);font-size:11px;font-weight:700;letter-spacing:.02em}
-.b-sage{background:#e6f4ea;color:#2d7a47}
-.b-amber{background:#fffbeb;color:#92400e}
-.b-red{background:#fef2f2;color:#c53030}
-.b-blue{background:#eff6ff;color:#1d4ed8}
-.b-grey{background:#f3f4f6;color:#6b7280}
+.b-sage{background:var(--accent-soft);color:var(--accent-text)}
+.b-amber{background:var(--surface-hover);color:var(--text-muted)}
+.b-red{background:var(--danger-soft);color:var(--danger)}
+.b-blue{background:var(--surface-hover);color:var(--text-muted)}
+.b-grey{background:var(--surface-hover);color:var(--text-muted)}
 .info-i{background:none;border:none;cursor:pointer;color:#ccc;font-size:11px;padding:0 1px;line-height:1;transition:color .15s var(--ease);flex-shrink:0}
 .info-i:hover{color:#888}
 .pop{position:fixed;z-index:9999;background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-md);box-shadow:var(--shadow-md);padding:14px 16px;max-width:270px;font-size:12px;display:none;pointer-events:none}
@@ -64,14 +72,14 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 .row{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-soft)}
 .row:last-child{border-bottom:none}
 .warn{border-radius:var(--radius-md);padding:10px 14px;font-size:13px;margin-bottom:8px;display:flex;align-items:flex-start;gap:8px;line-height:1.4}
-.w-danger{background:#fef2f2;color:#b91c1c}
-.w-caution{background:#fffbeb;color:#92400e}
-.w-info{background:#eff6ff;color:#1e40af}
-.pc{border-radius:var(--radius-md);padding:12px 14px;margin-bottom:6px;border-left:4px solid transparent}
-.pc-easy{background:#f0faf2;border-color:#6b9e7a}
-.pc-moderate{background:#fffcf0;border-color:#d97706}
-.pc-hard{background:#fff5f5;border-color:#e05c5c}
-.pc-rest{background:#f9f9f9;border-color:#d1d5db}
+.w-danger{background:var(--danger-soft);color:var(--danger)}
+.w-caution{background:var(--surface-hover);color:var(--text-muted)}
+.w-info{background:var(--surface-hover);color:var(--text-muted)}
+.pc{border-radius:var(--radius-md);padding:12px 14px;margin-bottom:6px;border-left:3px solid transparent}
+.pc-easy{background:var(--accent-soft);border-color:var(--accent)}
+.pc-moderate{background:var(--surface-hover);border-color:var(--text-faint)}
+.pc-hard{background:var(--danger-soft);border-color:var(--danger)}
+.pc-rest{background:var(--surface-hover);border-color:var(--border)}
 .cht{position:relative;height:200px}
 .cht-sm{position:relative;height:160px}
 .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:0;position:sticky;top:0;background:var(--bg);z-index:100;padding-top:20px}
@@ -88,7 +96,7 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 .tab-btn.active{color:var(--text);border-bottom-color:var(--text)}
 .tab-pane{display:none;opacity:0;transition:opacity .18s var(--ease)}
 .tab-pane.active{display:block;opacity:1}
-.tab-nav{position:sticky;top:52px;background:var(--bg);z-index:99;display:flex;gap:4px;border-bottom:2px solid var(--border);margin-bottom:24px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+.tab-nav{position:sticky;top:52px;background:var(--bg);z-index:99;display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:24px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
 .tab-nav::-webkit-scrollbar{display:none}
 @media(max-width:640px){
   .tab-nav{overflow-x:visible;flex-wrap:wrap;top:44px;gap:2px;border-bottom:none;padding-bottom:2px}
@@ -166,7 +174,7 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 <body>
 
 <div class="topbar">
-  <div class="topbar-title">Life Dashboard<span id="sync-dot" style="width:7px;height:7px;border-radius:50%;background:#d1d5db;display:inline-block;margin-left:6px;transition:background 0.3s" title="Sync status"></span></div>
+  <div class="topbar-title">Life Dashboard<span id="sync-dot" style="width:6px;height:6px;border-radius:50%;background:var(--border);display:inline-block;margin-left:6px;transition:background 0.3s" title="Sync status"></span></div>
   <div style="display:flex;gap:8px;align-items:center">
     <button onclick="toggleGoalModal()" title="Set race/goal" style="background:none;border:none;cursor:pointer;font-size:16px;padding:0;line-height:1" title="Set a target event">🎯</button>
     <button id="dark-mode-btn" onclick="toggleDarkMode()" title="Toggle dark mode" style="background:none;border:none;cursor:pointer;font-size:16px;padding:0;line-height:1">🌙</button>
@@ -266,13 +274,13 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
         </div>
       </div>
       <!-- QUICK-LOG SHORTCUTS -->
-      <div id="quick-log-bar" style="display:flex;gap:6px;padding:6px 14px;border-bottom:1px solid #f3f4f6;flex-shrink:0;flex-wrap:wrap">
-        <button onclick="addHydration(250)" style="background:#eff6ff;color:#3b82f6;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer">💧 +250ml</button>
-        <button onclick="showQuickFood()" style="background:#f0fdf4;color:#16a34a;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer">🍽️ Log food</button>
-        <button onclick="adjustQCount(1);renderStudyQTracker()" style="background:#faf5ff;color:#9333ea;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer">📚 +1 Q</button>
-        <button onclick="adjustQCount(10);renderStudyQTracker()" style="background:#faf5ff;color:#9333ea;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer">📚 +10 Qs</button>
+      <div id="quick-log-bar" style="display:flex;gap:6px;padding:6px 14px;border-bottom:1px solid var(--border-soft);flex-shrink:0;flex-wrap:wrap">
+        <button onclick="addHydration(250)" style="background:var(--surface-hover);color:var(--text-muted);border:1px solid var(--border-soft);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer">💧 +250ml</button>
+        <button onclick="showQuickFood()" style="background:var(--surface-hover);color:var(--text-muted);border:1px solid var(--border-soft);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer">🍽️ Log food</button>
+        <button onclick="adjustQCount(1);renderStudyQTracker()" style="background:var(--surface-hover);color:var(--text-muted);border:1px solid var(--border-soft);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer">📚 +1 Q</button>
+        <button onclick="adjustQCount(10);renderStudyQTracker()" style="background:var(--surface-hover);color:var(--text-muted);border:1px solid var(--border-soft);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer">📚 +10 Qs</button>
       </div>
-      <div id="quick-food-panel" style="display:none;padding:8px 14px;background:#f9fafb;border-bottom:1px solid #f3f4f6;flex-shrink:0">
+      <div id="quick-food-panel" style="display:none;padding:8px 14px;background:var(--surface-hover);border-bottom:1px solid var(--border-soft);flex-shrink:0">
         <div style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;margin-bottom:6px">Quick food entry</div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
           <input id="qf-name" type="text" placeholder="Food name" style="flex:2;min-width:100px;border:1px solid #e5e7eb;border-radius:8px;padding:6px 8px;font-size:13px;font-family:inherit;outline:none">
@@ -2563,11 +2571,11 @@ async function syncPush(key, data) {
     });
     if (!res.ok) throw new Error('sync push failed');
     setSyncTs(key, ts);
-    if (dot) dot.style.background = '#22c55e';
+    if (dot) dot.style.background = 'var(--accent)';
   } catch {
-    if (dot) dot.style.background = '#ef4444';
+    if (dot) dot.style.background = 'var(--danger)';
   }
-  if (dot) setTimeout(() => { dot.style.background = '#d1d5db'; }, 2000);
+  if (dot) setTimeout(() => { dot.style.background = 'var(--border)'; }, 2000);
 }
 
 async function syncPull(key) {
@@ -2646,7 +2654,9 @@ function deleteTodo(id) {
 
 // ── Priority Tasks ────────────────────────────────────────────────────────────
 const TASK_TIERS = ['critical', 'ondeck', 'someday', 'dashboard'];
-const TASK_TIER_COLORS = { critical: '#dc2626', ondeck: '#d97706', someday: '#6b7280', dashboard: '#6366f1' };
+// Grayscale-by-urgency instead of a four-hue system — red reserved for the
+// one tier that's genuinely time-critical, everything else reads by weight.
+const TASK_TIER_COLORS = { critical: 'var(--danger)', ondeck: 'var(--text)', someday: 'var(--text-muted)', dashboard: 'var(--text-faint)' };
 const TASK_TIER_ACCENTS = { critical: '#fca5a5', ondeck: '#fcd34d', someday: '#d1d5db', dashboard: '#c7d2fe' };
 
 function getTasks() { try { return JSON.parse(localStorage.getItem('tasks_priority'))||[]; } catch { return []; } }
@@ -3134,14 +3144,14 @@ function renderDashTasks() {
     const deck = all.filter(t => !t.done && t.priority === 'ondeck').length;
     const some = all.filter(t => !t.done && t.priority === 'someday').length;
     if (!all.length) {
-      sumEl.innerHTML = `<span style="color:#bbb;font-style:italic">No tasks yet</span>`;
+      sumEl.innerHTML = `<span style="color:var(--text-faint);font-style:italic">No tasks yet</span>`;
     } else {
       const parts = [];
-      if (crit) parts.push(`<span style="color:#dc2626;font-weight:600">${crit} critical</span>`);
-      if (deck) parts.push(`<span style="color:#d97706">${deck} on deck</span>`);
-      if (some) parts.push(`<span style="color:#6b7280">${some} someday</span>`);
+      if (crit) parts.push(`<span style="color:var(--danger);font-weight:600">${crit} critical</span>`);
+      if (deck) parts.push(`<span style="color:var(--text)">${deck} on deck</span>`);
+      if (some) parts.push(`<span style="color:var(--text-muted)">${some} someday</span>`);
       const done = all.filter(t => t.done).length;
-      sumEl.innerHTML = parts.join(' · ') + (done ? `<span style="color:#bbb;font-size:11px;margin-left:6px">${done} done</span>` : '');
+      sumEl.innerHTML = parts.join(' · ') + (done ? `<span style="color:var(--text-faint);font-size:11px;margin-left:6px">${done} done</span>` : '');
     }
   }
 
@@ -3462,16 +3472,16 @@ function renderHabits() {
   setH('habit-list', ordered.map((h, i) => {
     const autoOn = h.auto ? (auto[h.id] || false) : false;
     const isDone = ticked[h.id] || autoOn;
-    const syncedLabel = autoOn && !ticked[h.id] ? `<span style="font-size:10px;color:#6b9e7a;margin-left:4px">⌚ synced</span>` : '';
+    const syncedLabel = autoOn && !ticked[h.id] ? `<span style="font-size:10px;color:var(--accent-text);margin-left:4px">⌚ synced</span>` : '';
     const sleepMiss = h.id === 'h-sleep' && sleepTrackedButMissed && !ticked[h.id];
-    const missLabel = sleepMiss ? `<span style="font-size:11px;color:#ef4444;margin-left:5px">❌ missed</span>` : '';
+    const missLabel = sleepMiss ? `<span style="font-size:11px;color:var(--danger);margin-left:5px">❌ missed</span>` : '';
     const s = streaks[h.id];
-    const streakLabel = s && s.count >= 2 ? `<span style="font-size:10px;color:#f59e0b;margin-left:4px">🔥${s.count}</span>` : '';
+    const streakLabel = s && s.count >= 2 ? `<span style="font-size:10px;color:var(--accent-text);margin-left:4px">🔥${s.count}</span>` : '';
     const stepsProgress = (h.id === 'h-steps' && currentSteps != null)
-      ? `<span style="font-size:11px;color:#9ca3af;margin-left:5px">${Math.round(currentSteps).toLocaleString()} / 10,000</span>` : '';
-    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;${i<ordered.length-1?'border-bottom:1px solid #f5f5f5;':''}${isDone?'opacity:0.45':''}">
-      <input type="checkbox" ${isDone?'checked':''} onchange="toggleHabit('${h.id}')" style="cursor:pointer;flex-shrink:0"/>
-      <span style="flex:1;font-size:13px;${isDone?'text-decoration:line-through;color:#bbb':''}">${h.label}${stepsProgress}${syncedLabel}${missLabel}${streakLabel}</span>
+      ? `<span style="font-size:11px;color:var(--text-faint);margin-left:5px">${Math.round(currentSteps).toLocaleString()} / 10,000</span>` : '';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;${i<ordered.length-1?'border-bottom:1px solid var(--border-soft);':''}${isDone?'opacity:0.45':''}">
+      <input type="checkbox" ${isDone?'checked':''} onchange="toggleHabit('${h.id}')" style="cursor:pointer;flex-shrink:0;accent-color:var(--accent)"/>
+      <span style="flex:1;font-size:13px;${isDone?'text-decoration:line-through;color:var(--text-faint)':''}">${h.label}${stepsProgress}${syncedLabel}${missLabel}${streakLabel}</span>
     </div>`;
   }).join(''));
   renderTrainingTodo();
@@ -3611,9 +3621,9 @@ function getTrainingSuggestion() {
   const sleepData = (typeof computeSleepForDate === 'function') ? computeSleepForDate(today) : null;
   if (!sleepData) return null;
   const h = sleepData.totalSleep;
-  if (h < 6)   return { verdict: 'Rest day 😴', color: '#ef4444', bg: '#fef2f2', detail: `Only ${fmtHrsMin(h)} sleep` };
-  if (h < 7.5) return { verdict: 'Take it easy ⚡', color: '#f59e0b', bg: '#fffbeb', detail: `${fmtHrsMin(h)} sleep` };
-  return { verdict: 'Ready to push 💪', color: '#6b9e7a', bg: '#f0fdf4', detail: `${fmtHrsMin(h)} sleep` };
+  if (h < 6)   return { verdict: 'Rest day 😴', color: 'var(--danger)', bg: 'var(--danger-soft)', detail: `Only ${fmtHrsMin(h)} sleep` };
+  if (h < 7.5) return { verdict: 'Take it easy ⚡', color: 'var(--text-muted)', bg: 'var(--surface-hover)', detail: `${fmtHrsMin(h)} sleep` };
+  return { verdict: 'Ready to push 💪', color: 'var(--accent-text)', bg: 'var(--accent-soft)', detail: `${fmtHrsMin(h)} sleep` };
 }
 function renderTrainingSuggestion() {
   const el = document.getElementById('home-suggestion');
@@ -3695,8 +3705,8 @@ function renderHomeGoals() {
         <span style="font-weight:700">🏃 Sub-19 5km</span>
         <span style="color:#9ca3af">${done ? '🎉 Done!' : `PB ${fmtRaceTime(fiveK.allTime.time)} · ${fmtMMSS(prog.remaining)} to go`}</span>
       </div>
-      <div style="background:#f3f4f6;border-radius:99px;height:7px;overflow:hidden">
-        <div style="background:${done?'#6b9e7a':'#3b82f6'};height:100%;width:${prog.pct.toFixed(1)}%;transition:width 0.5s"></div>
+      <div style="background:var(--surface-hover);border-radius:99px;height:7px;overflow:hidden">
+        <div style="background:${done?'var(--accent)':'var(--text-faint)'};height:100%;width:${prog.pct.toFixed(1)}%;transition:width 0.5s"></div>
       </div>
     </div>`;
   }
@@ -3709,8 +3719,8 @@ function renderHomeGoals() {
       <span style="font-weight:700">🏋️ 500kg Club</span>
       <span style="color:#9ca3af">${strDone ? '🎉 Done!' : `${pbData.currentTotal}kg / 500kg · ${strProg.remaining}kg to go`}</span>
     </div>
-    <div style="background:#f3f4f6;border-radius:99px;height:7px;overflow:hidden">
-      <div style="background:${strDone?'#6b9e7a':'#d97706'};height:100%;width:${strProg.pct.toFixed(1)}%;transition:width 0.5s"></div>
+    <div style="background:var(--surface-hover);border-radius:99px;height:7px;overflow:hidden">
+      <div style="background:${strDone?'var(--accent)':'var(--text-faint)'};height:100%;width:${strProg.pct.toFixed(1)}%;transition:width 0.5s"></div>
     </div>
   </div>`;
   el.innerHTML = html;
@@ -12133,25 +12143,26 @@ function renderAlertsBanner() {
   if (!el) return;
   const alerts = [];
 
-  // Readiness alert
+  // Readiness alert — one muted tone for both severities; the wording carries
+  // the urgency, not a red/orange traffic-light split.
   const hasHealthData = _healthLatest('heart_rate_variability', 1) != null || _healthLatest('resting_heart_rate', 1) != null;
   if (hasHealthData) {
     const { score, label } = computeReadinessScore();
-    if (score < 40) alerts.push({ color: '#ef4444', bg: '#fef2f2', icon: '🔴', text: `Readiness ${score} (${label}) — consider a rest day` });
-    else if (score < 55) alerts.push({ color: '#f97316', bg: '#fff7ed', icon: '🟠', text: `Readiness ${score} (${label}) — take it easy today` });
+    if (score < 40) alerts.push({ color: 'var(--danger)', bg: 'var(--danger-soft)', icon: '●', text: `Readiness ${score} (${label}) — consider a rest day` });
+    else if (score < 55) alerts.push({ color: 'var(--text-muted)', bg: 'var(--surface-hover)', icon: '●', text: `Readiness ${score} (${label}) — take it easy today` });
   }
 
   // ACWR alert (use acwr-run-val or recompute from series)
   const runValEl = document.getElementById('acwr-run-val');
   const runAcwr = runValEl ? parseFloat(runValEl.textContent) : NaN;
-  if (!isNaN(runAcwr) && runAcwr > 1.5) alerts.push({ color: '#ef4444', bg: '#fef2f2', icon: '⚠️', text: `Run ACWR ${runAcwr.toFixed(2)} — high injury risk. Back off intensity.` });
-  else if (!isNaN(runAcwr) && runAcwr > 1.3) alerts.push({ color: '#f97316', bg: '#fff7ed', icon: '⚠️', text: `Run ACWR ${runAcwr.toFixed(2)} — caution zone. Avoid adding load.` });
+  if (!isNaN(runAcwr) && runAcwr > 1.5) alerts.push({ color: 'var(--danger)', bg: 'var(--danger-soft)', icon: '●', text: `Run ACWR ${runAcwr.toFixed(2)} — high injury risk. Back off intensity.` });
+  else if (!isNaN(runAcwr) && runAcwr > 1.3) alerts.push({ color: 'var(--text-muted)', bg: 'var(--surface-hover)', icon: '●', text: `Run ACWR ${runAcwr.toFixed(2)} — caution zone. Avoid adding load.` });
 
   if (!alerts.length) { el.style.display = 'none'; return; }
   el.style.display = 'block';
   el.innerHTML = alerts.map(a => `
-    <div style="background:${a.bg};border-left:4px solid ${a.color};padding:8px 14px;margin-bottom:4px;display:flex;align-items:center;gap:8px;border-radius:0 6px 6px 0">
-      <span>${a.icon}</span>
+    <div style="background:${a.bg};border-left:3px solid ${a.color};padding:8px 14px;margin-bottom:4px;display:flex;align-items:center;gap:8px;border-radius:0 8px 8px 0">
+      <span style="color:${a.color};font-size:8px">${a.icon}</span>
       <span style="font-size:12px;font-weight:600;color:${a.color}">${a.text}</span>
     </div>`).join('');
 }
