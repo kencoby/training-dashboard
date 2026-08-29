@@ -3488,10 +3488,18 @@ function renderHabits() {
 // never look at anything before it, regardless of what's still sitting in
 // habit_log or in the auto-tracked Strava/Health data.
 function getHabitResetDate() {
-  try { return localStorage.getItem('habit_reset_date') || null; } catch { return null; }
+  // Stored JSON-encoded (a plain quoted string) so it round-trips correctly
+  // through the generic sync-pull path, which always does
+  // localStorage.setItem(key, JSON.stringify(remote.data)) for non-merge keys.
+  // Still falls back to a raw unquoted read for safety.
+  try {
+    const raw = localStorage.getItem('habit_reset_date');
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch { return raw; }
+  } catch { return null; }
 }
 function setHabitResetDate(dateStr) {
-  localStorage.setItem('habit_reset_date', dateStr);
+  localStorage.setItem('habit_reset_date', JSON.stringify(dateStr));
   syncPush('habit_reset_date', dateStr);
 }
 function resetHabitTracker() {
