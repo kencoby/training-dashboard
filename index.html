@@ -34,6 +34,19 @@
      missed targets) — deliberately the only other color in the palette. */
   --danger:#c53030;
   --danger-soft:#fef2f2;
+  /* Bold brand/primary — used for the FAB, bottom-nav active state, and
+     primary buttons. The base stays light/neutral; this is the one
+     saturated color allowed to do "look at me" work. */
+  --primary:#6c5ce7;
+  --primary-soft:#ece9fd;
+  --primary-text:#5741d9;
+  /* Pastel accent chips for quick-log/stat tiles — soft fills with a bold
+     matching text color, used sparingly for small colorful tiles rather
+     than page-wide theming. */
+  --chip-blue:#e3ebff;   --chip-blue-text:#3355e0;
+  --chip-orange:#ffe9d1; --chip-orange-text:#c2650a;
+  --chip-pink:#fbe1ec;   --chip-pink-text:#c2185b;
+  --chip-purple:#ece5fd; --chip-purple-text:#6c3ce9;
   --radius-sm:8px;
   --radius-md:12px;
   --radius-lg:14px;
@@ -169,6 +182,46 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 .stage-legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important;animation-duration:.01ms!important}}
+
+/* ── Mobile bottom nav + FAB ──────────────────────────────────────────── */
+#quick-capture-fab:hover{transform:scale(1.06)}
+.bottom-nav{display:none}
+#more-sheet-backdrop,#more-sheet{display:none}
+@media(max-width:640px){
+  .tab-nav{display:none}
+  body{padding-bottom:84px}
+  .bottom-nav{
+    display:flex;align-items:center;justify-content:space-around;
+    position:fixed;left:0;right:0;bottom:0;height:58px;
+    background:var(--surface);border-top:1px solid var(--border);
+    z-index:9005;padding-bottom:env(safe-area-inset-bottom,0);
+  }
+  .bn-fab-spacer{width:56px;flex-shrink:0}
+  .bn-btn{background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;
+    color:var(--text-faint);font-size:9px;font-weight:700;padding:6px 4px;cursor:pointer;flex:1;
+    transition:color .15s var(--ease)}
+  .bn-icon{font-size:19px;line-height:1}
+  .bn-btn.active{color:var(--primary);border-bottom-color:transparent}
+  #quick-capture-fab{
+    right:50%;transform:translateX(50%);bottom:34px;z-index:9010;
+    width:52px;height:52px;font-size:21px;
+    box-shadow:0 6px 16px rgba(108,92,231,.4);
+  }
+  #quick-capture-fab:hover{transform:translateX(50%) scale(1.06)}
+  #quick-capture-panel{right:auto;left:50%;transform:translateX(-50%);bottom:100px}
+}
+#more-sheet-backdrop.open{display:block;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:9006}
+#more-sheet.open{
+  display:block;position:fixed;left:0;right:0;bottom:0;background:var(--surface);
+  border-radius:18px 18px 0 0;z-index:9007;padding:10px 8px calc(14px + env(safe-area-inset-bottom,0));
+  box-shadow:0 -8px 30px rgba(0,0,0,.18);max-height:70vh;overflow-y:auto;
+}
+.more-sheet-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:4px auto 10px}
+.more-item{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;
+  border-bottom:none;margin-bottom:0;padding:12px 14px;font-size:14px;font-weight:600;color:var(--text);
+  text-align:left;cursor:pointer;border-radius:10px}
+.more-item:active{background:var(--surface-hover)}
+.more-item.active{background:var(--primary-soft);color:var(--primary-text);border-bottom-color:transparent}
 </style>
 </head>
 <body>
@@ -186,9 +239,8 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 <!-- Global quick-capture: jot a stray thought from any tab without switching (saves to Notes) -->
 <div id="quick-capture-fab" onclick="openQuickCapture()" title="Quick capture — saves to Notes"
   style="position:fixed;right:18px;bottom:18px;z-index:9000;width:44px;height:44px;border-radius:50%;
-  background:var(--accent,#16161a);color:#fff;display:flex;align-items:center;justify-content:center;
-  font-size:19px;cursor:pointer;box-shadow:var(--shadow-md,0 4px 14px rgba(0,0,0,.25));user-select:none;transition:transform .15s var(--ease,ease)"
-  onmouseover="this.style.transform='scale(1.06)'" onmouseout="this.style.transform='scale(1)'">✎</div>
+  background:var(--primary,#6c5ce7);color:#fff;display:flex;align-items:center;justify-content:center;
+  font-size:19px;cursor:pointer;box-shadow:0 4px 14px rgba(108,92,231,.35);user-select:none;transition:transform .15s var(--ease,ease)">✎</div>
 
 <div id="quick-capture-panel" style="display:none;position:fixed;right:18px;bottom:70px;z-index:9001;
   background:var(--surface,#fff);border:1px solid var(--border,#e5e7eb);border-radius:var(--radius-md,12px);
@@ -199,8 +251,30 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
     onkeydown="if((event.metaKey||event.ctrlKey)&&event.key==='Enter'){submitQuickCapture();event.preventDefault()} if(event.key==='Escape'){closeQuickCapture();event.preventDefault()}"></textarea>
   <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
     <button onclick="closeQuickCapture()" style="background:none;border:none;color:#9ca3af;font-size:12px;cursor:pointer">Cancel</button>
-    <button onclick="submitQuickCapture()" style="background:var(--accent,#16161a);color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">Save ⌘↵</button>
+    <button onclick="submitQuickCapture()" style="background:var(--primary,#6c5ce7);color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">Save ⌘↵</button>
   </div>
+</div>
+
+<!-- Mobile bottom nav (replaces the top tab row on narrow screens) -->
+<nav class="bottom-nav" id="bottom-nav">
+  <button class="tab-btn bn-btn active" data-tab="dashboard"><span class="bn-icon">🏠</span><span class="bn-lbl">Home</span></button>
+  <button class="tab-btn bn-btn" data-tab="whoop"><span class="bn-icon">❤️</span><span class="bn-lbl">Health</span></button>
+  <div class="bn-fab-spacer"></div>
+  <button class="tab-btn bn-btn" data-tab="training"><span class="bn-icon">🏃</span><span class="bn-lbl">Train</span></button>
+  <button class="bn-btn" id="bn-more-btn" onclick="toggleMoreSheet()"><span class="bn-icon">⋯</span><span class="bn-lbl">More</span></button>
+</nav>
+
+<div id="more-sheet-backdrop" onclick="toggleMoreSheet(false)"></div>
+<div id="more-sheet">
+  <div class="more-sheet-handle"></div>
+  <button class="more-item tab-btn" data-tab="medicine">🩺 Medicine</button>
+  <button class="more-item tab-btn" data-tab="finance">💰 Finance</button>
+  <button class="more-item tab-btn" data-tab="planner">✅ Tasks</button>
+  <button class="more-item tab-btn" data-tab="shopping">🛒 Shopping</button>
+  <button class="more-item tab-btn" data-tab="calendar">📅 Calendar</button>
+  <button class="more-item tab-btn" data-tab="notes">📝 Notes</button>
+  <button class="more-item tab-btn" data-tab="habits">🔥 Habits</button>
+  <button class="more-item tab-btn" data-tab="year4">📅 Year 4</button>
 </div>
 
 <!-- Goal modal -->
@@ -275,10 +349,10 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
       </div>
       <!-- QUICK-LOG SHORTCUTS -->
       <div id="quick-log-bar" style="display:flex;gap:6px;padding:6px 14px;border-bottom:1px solid var(--border-soft);flex-shrink:0;flex-wrap:wrap">
-        <button onclick="addHydration(250)" style="background:var(--surface-hover);color:var(--text-muted);border:1px solid var(--border-soft);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer">💧 +250ml</button>
-        <button onclick="showQuickFood()" style="background:var(--surface-hover);color:var(--text-muted);border:1px solid var(--border-soft);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer">🍽️ Log food</button>
-        <button onclick="adjustQCount(1);renderStudyQTracker()" style="background:var(--surface-hover);color:var(--text-muted);border:1px solid var(--border-soft);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer">📚 +1 Q</button>
-        <button onclick="adjustQCount(10);renderStudyQTracker()" style="background:var(--surface-hover);color:var(--text-muted);border:1px solid var(--border-soft);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer">📚 +10 Qs</button>
+        <button onclick="addHydration(250)" style="background:var(--chip-blue);color:var(--chip-blue-text);border:none;border-radius:var(--radius-pill);padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">💧 +250ml</button>
+        <button onclick="showQuickFood()" style="background:var(--chip-orange);color:var(--chip-orange-text);border:none;border-radius:var(--radius-pill);padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">🍽️ Log food</button>
+        <button onclick="adjustQCount(1);renderStudyQTracker()" style="background:var(--chip-pink);color:var(--chip-pink-text);border:none;border-radius:var(--radius-pill);padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">📚 +1 Q</button>
+        <button onclick="adjustQCount(10);renderStudyQTracker()" style="background:var(--chip-purple);color:var(--chip-purple-text);border:none;border-radius:var(--radius-pill);padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer">📚 +10 Qs</button>
       </div>
       <div id="quick-food-panel" style="display:none;padding:8px 14px;background:var(--surface-hover);border-bottom:1px solid var(--border-soft);flex-shrink:0">
         <div style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;margin-bottom:6px">Quick food entry</div>
@@ -313,7 +387,7 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
           onkeydown="if(event.key==='Enter')addTaskFromDash()"
           style="flex:1;border:1px solid #e5e7eb;border-radius:8px;padding:6px 8px;font-size:12px;outline:none;font-family:inherit"/>
         <button onclick="addTaskFromDash()"
-          style="background:#1a1a1a;color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:13px;font-weight:600;cursor:pointer">+</button>
+          style="background:var(--primary);color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:13px;font-weight:600;cursor:pointer">+</button>
       </div>
     </div>
 
@@ -9102,9 +9176,11 @@ function switchTab(name) {
     p.style.display = 'none';
     p.style.opacity = '0';
   });
-  const activeBtn = document.querySelector(`[data-tab="${name}"]`);
-  activeBtn.classList.add('active');
-  activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  // Multiple nav elements can share a data-tab (top nav, bottom nav, "More" sheet)
+  document.querySelectorAll(`[data-tab="${name}"]`).forEach(b => b.classList.add('active'));
+  const topBtn = document.querySelector(`.tab-nav .tab-btn[data-tab="${name}"]`);
+  if (topBtn) topBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  if (typeof updateBottomNavActive === 'function') updateBottomNavActive(name);
   const pane = document.getElementById('tab-' + name);
   pane.style.display = 'block';
   requestAnimationFrame(() => { pane.style.opacity = '1'; pane.classList.add('active'); });
@@ -9125,6 +9201,25 @@ function switchTab(name) {
 
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+// ── Mobile bottom nav + "More" sheet ─────────────────────────────────────────
+function updateBottomNavActive(name) {
+  const moreBtn = document.getElementById('bn-more-btn');
+  if (!moreBtn) return;
+  const primary = ['dashboard', 'whoop', 'training'];
+  moreBtn.classList.toggle('active', !primary.includes(name));
+}
+function toggleMoreSheet(force) {
+  const sheet = document.getElementById('more-sheet');
+  const backdrop = document.getElementById('more-sheet-backdrop');
+  if (!sheet || !backdrop) return;
+  const open = typeof force === 'boolean' ? force : !sheet.classList.contains('open');
+  sheet.classList.toggle('open', open);
+  backdrop.classList.toggle('open', open);
+}
+document.querySelectorAll('.more-item').forEach(btn => {
+  btn.addEventListener('click', () => toggleMoreSheet(false));
 });
 
 // Restore last active tab on load
