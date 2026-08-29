@@ -184,7 +184,9 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 @media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important;animation-duration:.01ms!important}}
 
 /* ── Mobile bottom nav + FAB ──────────────────────────────────────────── */
+#quick-capture-fab{position:fixed;right:18px;bottom:18px;width:44px;height:44px;font-size:19px;box-shadow:0 4px 14px rgba(108,92,231,.35)}
 #quick-capture-fab:hover{transform:scale(1.06)}
+#quick-capture-panel{position:fixed;right:18px;bottom:70px}
 .bottom-nav{display:none}
 #more-sheet-backdrop,#more-sheet{display:none}
 @media(max-width:640px){
@@ -238,11 +240,11 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 
 <!-- Global quick-capture: jot a stray thought from any tab without switching (saves to Notes) -->
 <div id="quick-capture-fab" onclick="openQuickCapture()" title="Quick capture — saves to Notes"
-  style="position:fixed;right:18px;bottom:18px;z-index:9000;width:44px;height:44px;border-radius:50%;
+  style="z-index:9000;border-radius:50%;
   background:var(--primary,#6c5ce7);color:#fff;display:flex;align-items:center;justify-content:center;
-  font-size:19px;cursor:pointer;box-shadow:0 4px 14px rgba(108,92,231,.35);user-select:none;transition:transform .15s var(--ease,ease)">✎</div>
+  cursor:pointer;user-select:none;transition:transform .15s var(--ease,ease)">✎</div>
 
-<div id="quick-capture-panel" style="display:none;position:fixed;right:18px;bottom:70px;z-index:9001;
+<div id="quick-capture-panel" style="display:none;z-index:9001;
   background:var(--surface,#fff);border:1px solid var(--border,#e5e7eb);border-radius:var(--radius-md,12px);
   box-shadow:var(--shadow-md,0 10px 30px rgba(0,0,0,.15));padding:12px;width:min(320px,calc(100vw - 36px))">
   <textarea id="quick-capture-input" rows="3" placeholder="Jot it down — saved to Notes…"
