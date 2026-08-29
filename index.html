@@ -1785,7 +1785,10 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 <div class="tab-pane" id="tab-habits">
 <div class="section">
   <div class="card" style="padding:16px">
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.07em;font-weight:700;color:#9ca3af;margin-bottom:10px">Daily score — last 30 days</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.07em;font-weight:700;color:#9ca3af">Daily score — last 30 days</div>
+      <button onclick="resetHabitTracker()" style="font-size:10px;padding:4px 9px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;color:#9ca3af;cursor:pointer">Reset history</button>
+    </div>
     <div id="habit-score-chart"></div>
     <div style="margin-top:22px;font-size:11px;text-transform:uppercase;letter-spacing:0.07em;font-weight:700;color:#9ca3af;margin-bottom:10px">Per-habit heatmap <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;color:#bbb">— tap a square to edit that day</span></div>
     <div id="habit-heatmap" style="overflow-x:auto"></div>
@@ -2537,7 +2540,7 @@ const SYNC_KEYS = [
   'rev_schedule_log', 'rev_passmed_done', 'tasks_priority',
   'shopping_items',
   'notes_data',
-  'mood_log', 'tutoring_log', 'habit_streaks'
+  'mood_log', 'tutoring_log', 'habit_streaks', 'habit_reset_date'
 ];
 
 function getSyncMeta() {
@@ -3469,6 +3472,28 @@ function renderHabits() {
   renderJournalPrompt();
   renderTrainingSuggestion();
   renderWakeTimes();
+}
+
+// ── Habit history reset point ────────────────────────────────────────────────
+// habit_log is merge-synced across devices (local-only dates are preserved on
+// pull), so wiping it outright can resurrect old entries from another device.
+// Instead we store a floor date: history, heatmap, and streak calculations
+// never look at anything before it, regardless of what's still sitting in
+// habit_log or in the auto-tracked Strava/Health data.
+function getHabitResetDate() {
+  try { return localStorage.getItem('habit_reset_date') || null; } catch { return null; }
+}
+function setHabitResetDate(dateStr) {
+  localStorage.setItem('habit_reset_date', dateStr);
+  syncPush('habit_reset_date', dateStr);
+}
+function resetHabitTracker() {
+  if (!confirm('Reset the habit tracker? Your streaks and history heatmap will start fresh from today — nothing before today will be shown.')) return;
+  const today = new Date().toLocaleDateString('en-CA');
+  setHabitResetDate(today);
+  recomputeAllStreaks();
+  renderHabits();
+  if (typeof renderHabitHistory === 'function') renderHabitHistory();
 }
 
 // ── Habit Streaks ────────────────────────────────────────────────────────────
@@ -8754,8 +8779,12 @@ function renderHabitHistory() {
   const DAYS = 30;
   const DAY_MS = 86400000;
 
-  // Build last-30-days array, floored to 2026-07-26 so no pre-history dates appear
-  const HISTORY_FLOOR = new Date('2026-07-26T00:00:00');
+  // Build last-30-days array, floored to 2026-07-26 (or the habit-tracker reset
+  // date, if later) so no pre-history/pre-reset dates appear
+  const DEFAULT_FLOOR = new Date('2026-07-26T00:00:00');
+  const resetDateStr = getHabitResetDate();
+  const resetFloor = resetDateStr ? new Date(resetDateStr + 'T00:00:00') : null;
+  const HISTORY_FLOOR = (resetFloor && resetFloor > DEFAULT_FLOOR) ? resetFloor : DEFAULT_FLOOR;
   const dates = [];
   for (let i = DAYS - 1; i >= 0; i--) {
     const d = new Date(today.getTime() - i * DAY_MS);
@@ -8875,6 +8904,10 @@ function toggleHabitDaySquare(habitId, dateStr) {
 function recomputeAllStreaks() {
   const log = getHabitLog();
   const today = new Date(); today.setHours(0,0,0,0);
+  // Never look before the habit-tracker reset date (if one is set) — keeps
+  // both manual and auto-tracked (Strava/Health-derived) streaks from
+  // reaching back into history the user asked to hide.
+  const resetDateStr = getHabitResetDate();
   const streaks = {};
   DAILY_HABITS.forEach(h => {
     const isDone = dStr => {
@@ -8887,6 +8920,7 @@ function recomputeAllStreaks() {
     const d = new Date(today);
     for (let i = 0; i < 365; i++) {
       const dStr = d.toLocaleDateString('en-CA');
+      if (resetDateStr && dStr < resetDateStr) break;
       if (isDone(dStr)) { lastDate = dStr; break; }
       d.setDate(d.getDate() - 1);
     }
@@ -8894,7 +8928,10 @@ function recomputeAllStreaks() {
     // Count consecutive days backward from lastDate
     let count = 0;
     const cur = new Date(lastDate + 'T12:00:00');
-    while (isDone(cur.toLocaleDateString('en-CA'))) {
+    while (true) {
+      const curStr = cur.toLocaleDateString('en-CA');
+      if (resetDateStr && curStr < resetDateStr) break;
+      if (!isDone(curStr)) break;
       count++;
       cur.setDate(cur.getDate() - 1);
     }
@@ -10992,6 +11029,11 @@ function applySyncUpdates(updated) {
     renderTrainingTodo();
   });
   if (updated.includes('daily_habits')) safe(renderHabits);
+  if (updated.includes('habit_reset_date') || updated.includes('habit_log') || updated.includes('habit_streaks')) safe(() => {
+    recomputeAllStreaks();
+    renderHabits();
+    if (typeof renderHabitHistory === 'function') renderHabitHistory();
+  });
   if (updated.includes('progress_log')) safe(() => { renderWeightTrend(); buildWhoopWeightChart(); });
   if (updated.includes('monthly_km_goal')) safe(() => renderMonthlyGoal(_acts));
   if (updated.includes('pb_log')) safe(buildPBChart);
