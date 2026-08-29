@@ -3,3 +3,7 @@ node_modules/
 .env
 .env.*
 .DS_Store
+
+# Retired — this project deploys to Cloudflare Pages only, not Netlify.
+netlify.toml
+netlify/
