@@ -350,20 +350,8 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
       </div>
       <!-- QUICK-LOG SHORTCUTS -->
       <div id="quick-log-bar" style="display:flex;gap:6px;padding:6px 14px;border-bottom:1px solid var(--border-soft);flex-shrink:0;flex-wrap:wrap">
-        <button onclick="addHydration(250)" style="background:var(--surface-hover);color:var(--text-muted);border:1px solid var(--border-soft);border-radius:var(--radius-pill);padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">💧 +250ml</button>
-        <button onclick="showQuickFood()" style="background:var(--surface-hover);color:var(--text-muted);border:1px solid var(--border-soft);border-radius:var(--radius-pill);padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">🍽️ Log food</button>
         <button onclick="adjustQCount(1);renderStudyQTracker()" style="background:var(--surface-hover);color:var(--text-muted);border:1px solid var(--border-soft);border-radius:var(--radius-pill);padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">📚 +1 Q</button>
         <button onclick="adjustQCount(10);renderStudyQTracker()" style="background:var(--surface-hover);color:var(--text-muted);border:1px solid var(--border-soft);border-radius:var(--radius-pill);padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">📚 +10 Qs</button>
-      </div>
-      <div id="quick-food-panel" style="display:none;padding:8px 14px;background:var(--surface-hover);border-bottom:1px solid var(--border-soft);flex-shrink:0">
-        <div style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;margin-bottom:6px">Quick food entry</div>
-        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-          <input id="qf-name" type="text" placeholder="Food name" style="flex:2;min-width:100px;border:1px solid #e5e7eb;border-radius:8px;padding:6px 8px;font-size:13px;font-family:inherit;outline:none">
-          <input id="qf-kcal" type="number" placeholder="kcal" style="width:60px;border:1px solid #e5e7eb;border-radius:8px;padding:6px 8px;font-size:13px;font-family:inherit;outline:none">
-          <input id="qf-protein" type="number" placeholder="P(g)" style="width:55px;border:1px solid #e5e7eb;border-radius:8px;padding:6px 8px;font-size:13px;font-family:inherit;outline:none">
-          <button onclick="submitQuickFood()" style="background:#1a1a1a;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer">Add</button>
-          <button onclick="hideQuickFood()" style="background:none;border:none;color:#9ca3af;font-size:13px;cursor:pointer">✕</button>
-        </div>
       </div>
       <div id="today-sections" style="padding:10px 14px 6px;flex:1;overflow-y:auto;min-height:0"></div>
     </div>
@@ -2675,7 +2663,7 @@ const SYNC_KEYS = [
   'gcal_events',
   'calendar_overrides',
   'activity_notes', 'daily_habits', 'habit_log', 'progress_log', 'monthly_km_goal', 'pb_log',
-  'finance_data', 'nutr_food_log', 'nutr_meal_plan', 'nutr_grocery', 'nutr_pantry',
+  'finance_data',
   'study_activity_log', 'finance_transactions', 'finance_accounts',
   'rev_schedule_log', 'rev_passmed_done', 'tasks_priority', 'passmed_category_snapshots',
   'shopping_items',
@@ -4054,11 +4042,10 @@ try { gcalEvents = JSON.parse(localStorage.getItem('gcal_events')) || []; } catc
 })();
 
 // _healthData is declared up here (not down by the Apple Health section below,
-// where it's populated) because the Nutrition tab's top-level init call
-// (renderNutrDashboardCard() → getMacroTargets() → _healthValueOnDate()) reads
-// it synchronously during initial script execution — declaring it later caused
-// a "Cannot access '_healthData' before initialization" TDZ error there, which
-// halted the whole script (and broke every tab, not just Nutrition).
+// where it's populated) because other top-level init calls read it
+// synchronously during initial script execution — declaring it later caused
+// a "Cannot access '_healthData' before initialization" TDZ error, which
+// halted the whole script (and broke every tab, not just the one reading it).
 let _healthData = null;
 
 // ── Signoffs & Training accordions ───────────────────────────────────────────
@@ -4092,18 +4079,18 @@ const ACCORDIONS = [
     deadline: '2027-03-31', // GEM Portal deadline for "Six Mini-CEX Passed"
     storageKey: 'signoff_ja',
     items: [
-      'JA1 (1 Sep – 9 Oct 2026): Mini-CEX 1',
-      'JA1 (1 Sep – 9 Oct 2026): Mini-CEX 2',
-      'JA1 (1 Sep – 9 Oct 2026): End of placement clinician assessment',
-      'JA1 (1 Sep – 9 Oct 2026): Written student feedback',
-      'JA2 (19 Oct – 27 Nov 2026): Mini-CEX 1',
-      'JA2 (19 Oct – 27 Nov 2026): Mini-CEX 2',
-      'JA2 (19 Oct – 27 Nov 2026): End of placement clinician assessment',
-      'JA2 (19 Oct – 27 Nov 2026): Written student feedback',
-      'JA3 (15 Feb – 26 Mar 2027): Mini-CEX 1',
-      'JA3 (15 Feb – 26 Mar 2027): Mini-CEX 2',
-      'JA3 (15 Feb – 26 Mar 2027): End of placement clinician assessment',
-      'JA3 (15 Feb – 26 Mar 2027): Written student feedback',
+      'JA1 – Haematology, Singleton (1 Sep – 9 Oct 2026): Mini-CEX 1',
+      'JA1 – Haematology, Singleton (1 Sep – 9 Oct 2026): Mini-CEX 2',
+      'JA1 – Haematology, Singleton (1 Sep – 9 Oct 2026): End of placement clinician assessment',
+      'JA1 – Haematology, Singleton (1 Sep – 9 Oct 2026): Written student feedback',
+      'JA2 – T&O, Glangwili (19 Oct – 27 Nov 2026): Mini-CEX 1',
+      'JA2 – T&O, Glangwili (19 Oct – 27 Nov 2026): Mini-CEX 2',
+      'JA2 – T&O, Glangwili (19 Oct – 27 Nov 2026): End of placement clinician assessment',
+      'JA2 – T&O, Glangwili (19 Oct – 27 Nov 2026): Written student feedback',
+      'JA3 – Cardiff GP (15 Feb – 26 Mar 2027): Mini-CEX 1',
+      'JA3 – Cardiff GP (15 Feb – 26 Mar 2027): Mini-CEX 2',
+      'JA3 – Cardiff GP (15 Feb – 26 Mar 2027): End of placement clinician assessment',
+      'JA3 – Cardiff GP (15 Feb – 26 Mar 2027): Written student feedback',
       'Out of hours: 2 evening on-calls, 5hrs+ each (across the year, not per JA)',
       'Out of hours: 2 weekend days, 8hrs+ each (across the year, not per JA)',
     ]
@@ -7365,17 +7352,6 @@ function renderDailyBriefing() {
     sections.push(`<div style="${sectionStyle}">${recapHtml}</div>`);
   }
 
-  // ── Nutrition ────────────────────────────────────────────────────────────
-  const nutrTargets = getMacroTargets();
-  const nutrTotals = (typeof _healthDietaryToday === 'function' && _healthDietaryToday()) || foodTotals(getTodayFood());
-  const nutrPct = nutrTargets.kcal ? (nutrTotals.kcal / nutrTargets.kcal * 100) : 0;
-  const nutrOver = nutrTotals.kcal > nutrTargets.kcal;
-  sections.push(`<div style="${sectionStyle}">
-    <div style="${labelStyle}">🍎 Nutrition</div>
-    <div style="${rowStyle}">${nutrOver ? '⚠️' : '🥗'} <span>${Math.round(nutrTotals.kcal)} / ${nutrTargets.kcal} kcal · P${Math.round(nutrTotals.protein)}g · C${Math.round(nutrTotals.carbs)}g · F${Math.round(nutrTotals.fat)}g</span></div>
-    <div style="background:#f3f4f6;border-radius:99px;height:5px;overflow:hidden;margin-top:6px"><div style="background:${nutrOver?'#e05c5c':'#6b9e7a'};height:100%;width:${Math.min(100,nutrPct)}%"></div></div>
-  </div>`);
-
   setH('today-sections', sections.join(''));
 }
 
@@ -7584,32 +7560,6 @@ async function renderPlan(acts, acwr, call) {
       </div>`).join(''));
   } catch(e) {
     set('plan-sum','Could not load plan: '+e.message);
-  }
-}
-
-// ── AI: Nutrition ─────────────────────────────────────────────────────────────
-async function renderNutr(acts, acwr, call) {
-  const ws=weekStart();
-  const wkCal=acts.filter(a=>new Date(a.start_local)>=ws)
-    .reduce((s,a)=>s+(a.summary.total_calories||0),0);
-  const ctx=JSON.stringify({acwr:acwr.ratio,todaysCall:call.lvl,weeklyCalBurned:wkCal,
-    recentSports:[...new Set(acts.slice(0,7).map(a=>a.sport_type))].join(', ')});
-  const prompt=`You are a sports nutritionist. Philip is a 26yo male, 87kg, triathlon/running focus, training intensity today: ${call.lvl} (ACWR ${acwr.ratio}).
-
-Write exactly 140 words in 4 sections, separated by a blank line each:
-
-1. Daily anchors — 2–3 non-negotiable daily habits
-2. Pre/post fueling — specific timing and foods for today's ${call.lvl} session
-3. One meal to make — a recipe name + 1-line description
-4. One grocery item — best single purchase this week and why
-
-No markdown symbols, no asterisks. Use only these section labels as plain text on their own line. Practical, specific, training-aware.`;
-  try {
-    const text=await callClaude(prompt, ctx);
-    const formatted=text.replace(/\n\n/g,'</p><p style="margin-top:14px">').replace(/\n/g,'<br>');
-    setH('nutr-card',`<p>${formatted}</p>`);
-  } catch(e) {
-    setH('nutr-card',`<span style="color:#e05c5c">Nutrition unavailable: ${e.message}</span>`);
   }
 }
 
@@ -8911,9 +8861,9 @@ function renderYear4Cal() {
   const totalW = teachW + wcW + travelW + blockW; // 486
 
   const BLOCKS = [
-    {start:401,end:406,label:'Haematology · Singleton',color:'#2E9E4F',tc:'#fff'},
+    {start:401,end:406,label:'JA1 · Haematology · Singleton',color:'#2E9E4F',tc:'#fff'},
     {start:407,end:407,label:'SDL / Clinical Consolidation',color:'#A6A6A6',tc:'#000'},
-    {start:408,end:413,label:'T&O · Glangwili',color:'#2E9E4F',tc:'#fff'},
+    {start:408,end:413,label:'JA2 · T&O · Glangwili',color:'#2E9E4F',tc:'#fff'},
     {start:414,end:415,label:'Transition to Practice (in person)',color:'#FFC000',tc:'#000'},
     {start:416,end:416,label:'Reading Week',color:'#808080',tc:'#fff'},
     {start:417,end:418,label:'Vacation',color:'#D9D9D9',tc:'#555'},
@@ -8922,7 +8872,7 @@ function renderYear4Cal() {
     {start:422,end:422,label:'Reading Week',color:'#808080',tc:'#fff'},
     {start:423,end:423,label:'AKT Week',color:'#F4B183',tc:'#7a4010'},
     {start:424,end:424,label:'Vacation',color:'#D9D9D9',tc:'#555'},
-    {start:425,end:430,label:'Cardiff GP',color:'#2E9E4F',tc:'#fff'},
+    {start:425,end:430,label:'JA3 · Cardiff GP',color:'#2E9E4F',tc:'#fff'},
     {start:431,end:431,label:'Vacation',color:'#D9D9D9',tc:'#555'},
     {start:432,end:436,label:'Elective',color:'#A6A6A6',tc:'#000'},
     {start:437,end:437,label:'Vacation',color:'#D9D9D9',tc:'#555'},
@@ -9167,424 +9117,10 @@ function setupSubTabs(paneId, storageKey) {
 // error. Calendar data now comes exclusively from the scheduled sync described
 // above (loadTodayCalendar / renderTodayCalendar), which needs no sign-in.
 
-// ── Nutrition Tab ───────────────────────────────────────────────────────────
-const NUTR_CALL_KCAL = { rest:2200, easy:2400, moderate:2700, hard:3100 };
-const NUTR_PROTEIN_TARGET = 175;
-
-const nutrToday = () => new Date().toLocaleDateString('en-CA');
-
-// Prefers your actual measured burn from Apple Health (active + basal energy,
-// summed for today and converted kJ→kcal) over the fixed training-intensity
-// lookup table. Falls back to the lookup if today's Health Auto Export data
-// hasn't synced yet (e.g. first thing in the morning).
-function getKcalTarget() {
-  const today = nutrToday();
-  const activeKJ = _healthValueOnDate('active_energy', today);
-  const basalKJ = _healthValueOnDate('basal_energy_burned', today);
-  if (activeKJ != null || basalKJ != null) {
-    const totalKcal = Math.round(((activeKJ || 0) + (basalKJ || 0)) * 0.239006);
-    if (totalKcal > 0) return { kcal: totalKcal, source: 'health' };
-  }
-  const lvl = localStorage.getItem('todays_call');
-  return { kcal: NUTR_CALL_KCAL[lvl] || 2400, source: 'estimate' };
-}
-function getMacroTargets() {
-  const { kcal, source } = getKcalTarget();
-  return { kcal, source, protein: NUTR_PROTEIN_TARGET, carbs: Math.round(kcal*0.45/4), fat: Math.round(kcal*0.30/9) };
-}
-
-// Dietary intake synced from Apple Health (Health Auto Export), for days
-// where food was logged via a HealthKit-connected app (e.g. MyFitnessPal)
-// instead of manually here. Tries a few plausible Health Auto Export metric
-// names per nutrient since the exact key depends on its export config —
-// check a day's raw payload at /api/health-data if these need adjusting.
-function _healthDietaryToday() {
-  const today = nutrToday();
-  const tryKeys = (...keys) => {
-    for (const k of keys) {
-      const v = _healthValueOnDate(k, today);
-      if (v != null) return v;
-    }
-    return null;
-  };
-  const kcal = tryKeys('dietary_energy', 'dietary_energy_consumed', 'energy_consumed', 'active_energy_consumed');
-  const protein = tryKeys('protein', 'dietary_protein');
-  const carbs = tryKeys('carbohydrates', 'dietary_carbohydrates');
-  const fat = tryKeys('total_fat', 'dietary_fat_total', 'fat_total', 'dietary_fat');
-  if (kcal == null && protein == null && carbs == null && fat == null) return null;
-  return { kcal: kcal || 0, protein: protein || 0, carbs: carbs || 0, fat: fat || 0 };
-}
-
-// Food log
-function getFoodLog() {
-  try { return JSON.parse(localStorage.getItem('nutr_food_log')) || {}; } catch { return {}; }
-}
-function saveFoodLog(log) { localStorage.setItem('nutr_food_log', JSON.stringify(log)); syncPush('nutr_food_log', log); }
-function getTodayFood() { return getFoodLog()[nutrToday()] || []; }
-function foodTotals(entries) {
-  return entries.reduce((t,e)=>({
-    kcal:t.kcal+(+e.kcal||0), protein:t.protein+(+e.protein||0),
-    carbs:t.carbs+(+e.carbs||0), fat:t.fat+(+e.fat||0)
-  }), {kcal:0,protein:0,carbs:0,fat:0});
-}
-function addFoodEntry(entry) {
-  const log = getFoodLog(); const d = nutrToday();
-  if (!log[d]) log[d]=[];
-  log[d].push(entry);
-  saveFoodLog(log);
-}
-function removeFoodEntry(idx) {
-  const log = getFoodLog(); const d = nutrToday();
-  if (log[d]) { log[d].splice(idx,1); saveFoodLog(log); }
-  renderNutrToday();
-}
-
-function nutrBarColor(pct) {
-  if (pct>100) return '#e05c5c';
-  if (pct>=90) return '#d97706';
-  return '#6b9e7a';
-}
-function renderNutrBars() {
-  const targets = getMacroTargets();
-  const healthIntake = _healthDietaryToday();
-  const totals = healthIntake || foodTotals(getTodayFood());
-  const sourceLabel = targets.source === 'health'
-    ? '<span style="color:#aaa;font-weight:500"> · target from Apple Health</span>'
-    : '<span style="color:#aaa;font-weight:500;font-style:italic"> · target estimated (no Apple Health burn data for today yet)</span>';
-  const intakeLabel = healthIntake
-    ? '<span style="color:#aaa;font-weight:500"> · intake synced from Apple Health</span>'
-    : '<span style="color:#aaa;font-weight:500;font-style:italic"> · intake from manual log</span>';
-  setH('nutr-target-label', `Target: ${targets.kcal} kcal · ${targets.protein}g protein · ${targets.carbs}g carbs · ${targets.fat}g fat${sourceLabel}${intakeLabel}`);
-  const bars = [
-    ['Calories','kcal',totals.kcal,targets.kcal],
-    ['Protein','g',totals.protein,targets.protein],
-    ['Carbs','g',totals.carbs,targets.carbs],
-    ['Fat','g',totals.fat,targets.fat],
-  ];
-  setH('nutr-bars', bars.map(([label,unit,val,target])=>{
-    const pct = target ? (val/target*100) : 0;
-    return `<div style="margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;font-size:12px;color:#555;margin-bottom:4px">
-        <span>${label}</span><span>${Math.round(val)} / ${target} ${unit}</span>
-      </div>
-      <div style="background:#f3f4f6;border-radius:99px;height:8px;overflow:hidden">
-        <div style="background:${nutrBarColor(pct)};height:100%;width:${Math.min(pct,100)}%;transition:width .3s"></div>
-      </div>
-    </div>`;
-  }).join(''));
-}
-
-function renderFoodLog() {
-  const entries = getTodayFood();
-  const syncNote = _healthDietaryToday()
-    ? `<div class="sub" style="font-style:italic;margin-bottom:8px">Today's totals above are synced from Apple Health. Anything you add below is kept for your records but won't double up in the totals.</div>`
-    : '';
-  if (!entries.length) {
-    setH('nutr-food-log', `${syncNote}<div class="sub" style="font-style:italic;color:#bbb">No food logged yet today.</div>`);
-    return;
-  }
-  setH('nutr-food-log', syncNote + entries.map((e,i)=>`
-    <div class="row" style="padding:6px 0;border-bottom:1px solid #f3f4f6">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600">${escHtml(e.name)}</div>
-        <div class="sub">${e.qty}${e.unit} · ${Math.round(e.kcal)} kcal · P${Math.round(e.protein)} C${Math.round(e.carbs)} F${Math.round(e.fat)}</div>
-      </div>
-      <button onclick="removeFoodEntry(${i})" style="background:none;border:none;color:#bbb;font-size:15px;cursor:pointer;padding:4px 8px">✕</button>
-    </div>`).join(''));
-}
-
-// Open Food Facts
-async function offSearch(q) {
-  const res = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&json=1&page_size=5&fields=product_name,nutriments,serving_size`);
-  const data = await res.json();
-  return data.products || [];
-}
-function offToEntry(p) {
-  const n = p.nutriments||{};
-  return {
-    name: p.product_name||'',
-    qty: 100, unit: 'g',
-    kcal: Math.round(n['energy-kcal_100g']??n['energy-kcal']??0),
-    protein: Math.round((n.proteins_100g??0)*10)/10,
-    carbs: Math.round((n.carbohydrates_100g??0)*10)/10,
-    fat: Math.round((n.fat_100g??0)*10)/10,
-  };
-}
-function fillFoodForm(e) {
-  document.getElementById('food-name').value = e.name||'';
-  document.getElementById('food-qty').value = e.qty??100;
-  document.getElementById('food-unit').value = e.unit||'g';
-  document.getElementById('food-kcal').value = e.kcal??'';
-  document.getElementById('food-protein').value = e.protein??'';
-  document.getElementById('food-carbs').value = e.carbs??'';
-  document.getElementById('food-fat').value = e.fat??'';
-}
-async function nutrSearch() {
-  const q = document.getElementById('food-search').value.trim();
-  if (!q) return;
-  setH('food-search-results', `<div class="sub" style="font-style:italic;color:#bbb">Searching…</div>`);
-  try {
-    const products = await offSearch(q);
-    if (!products.length) { setH('food-search-results', `<div class="sub" style="font-style:italic;color:#bbb">No results.</div>`); return; }
-    window._nutrSearchResults = products.slice(0,5);
-    setH('food-search-results', window._nutrSearchResults.map((p,i)=>`
-      <div onclick="nutrPickResult(${i})" style="padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:6px;cursor:pointer;font-size:13px">
-        <div style="font-weight:600">${escHtml(p.product_name||'Unnamed product')}</div>
-        <div class="sub">${Math.round(p.nutriments?.['energy-kcal_100g']||0)} kcal / 100g</div>
-      </div>`).join(''));
-  } catch(e) {
-    setH('food-search-results', `<div class="sub" style="color:#e05c5c">Search failed: ${e.message}</div>`);
-  }
-}
-function nutrPickResult(i) {
-  fillFoodForm(offToEntry(window._nutrSearchResults[i]));
-  setH('food-search-results','');
-  document.getElementById('food-search').value='';
-}
-
-function addFoodFromForm() {
-  const name = document.getElementById('food-name').value.trim();
-  if (!name) return;
-  addFoodEntry({
-    name,
-    qty: +document.getElementById('food-qty').value || 0,
-    unit: document.getElementById('food-unit').value,
-    kcal: +document.getElementById('food-kcal').value || 0,
-    protein: +document.getElementById('food-protein').value || 0,
-    carbs: +document.getElementById('food-carbs').value || 0,
-    fat: +document.getElementById('food-fat').value || 0,
-  });
-  ['food-name','food-kcal','food-protein','food-carbs','food-fat'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('food-qty').value=100;
-  setH('food-search-results','');
-  renderNutrToday();
-}
-
-// AI daily advice (lazy)
-let _nutrAdviceLoaded = false;
-function loadNutrAdvice() {
-  if (_nutrAdviceLoaded) return;
-  _nutrAdviceLoaded = true;
-  const acwr = calcACWR(_acts);
-  renderNutr(_acts, acwr, todaysCall(_acts, acwr));
-}
-
-// Meal plan
-const NUTR_WEEKDAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-const NUTR_MEALS = ['breakfast','lunch','dinner'];
-
-function getMealPlan() {
-  try { return JSON.parse(localStorage.getItem('nutr_meal_plan')) || {}; } catch { return {}; }
-}
-function saveMealPlan(p) { localStorage.setItem('nutr_meal_plan', JSON.stringify(p)); syncPush('nutr_meal_plan', p); }
-function nutrWeekDates() {
-  const ws = weekStart();
-  return NUTR_WEEKDAYS.map((label,i)=>{
-    const d = new Date(ws); d.setDate(ws.getDate()+i);
-    return { label, date: d.toLocaleDateString('en-CA') };
-  });
-}
-function autoResize(el) {
-  el.style.height='auto';
-  el.style.height=el.scrollHeight+'px';
-}
-function nutrMealInput(el) {
-  autoResize(el);
-  const plan = getMealPlan();
-  const date = el.dataset.date, meal = el.dataset.meal;
-  if (!plan[date]) plan[date]={breakfast:'',lunch:'',dinner:''};
-  plan[date][meal] = el.value;
-  saveMealPlan(plan);
-}
-function renderMealPlan() {
-  const plan = getMealPlan();
-  setH('nutr-mealplan-grid', nutrWeekDates().map(({label,date})=>{
-    const day = plan[date]||{};
-    return `<div class="card" style="padding:12px">
-      <div class="lbl" style="margin-bottom:8px">${label} <span class="sub" style="font-weight:400">${date}</span></div>
-      ${NUTR_MEALS.map(meal=>`
-        <div style="margin-bottom:8px">
-          <div class="sub" style="margin-bottom:2px;text-transform:capitalize">${meal}</div>
-          <textarea data-date="${date}" data-meal="${meal}" oninput="nutrMealInput(this)" rows="1" style="width:100%;border:1px solid #e5e7eb;border-radius:8px;padding:6px 8px;font-size:12px;font-family:inherit;resize:none;overflow:hidden;min-height:32px;box-sizing:border-box">${escHtml(day[meal]||'')}</textarea>
-        </div>`).join('')}
-    </div>`;
-  }).join(''));
-  document.querySelectorAll('#nutr-mealplan-grid textarea').forEach(autoResize);
-}
-
-async function generateMealPlan() {
-  const btn = document.getElementById('nutr-mealplan-gen-btn');
-  btn.disabled = true; btn.textContent='Generating…';
-  try {
-    const lvl = localStorage.getItem('todays_call')||'moderate';
-    const targets = getMacroTargets();
-    const prompt = `Generate a 7-day meal plan for Philip (26yo male, 87kg, triathlon training, today's call: ${lvl}).
-Daily protein target 175g, calorie target ~${targets.kcal}kcal.
-Return ONLY a JSON object: { "Mon": {"breakfast":"...","lunch":"...","dinner":"..."}, "Tue": {...}, ... }
-Use simple, cheap student-friendly meals. Include calorie and protein estimate in brackets after each meal e.g. "Oats with banana (450kcal, 15g protein)".`;
-    const raw = await callClaude(prompt);
-    const m = raw.match(/\{[\s\S]*\}/);
-    const data = JSON.parse(m?m[0]:raw);
-    const plan = getMealPlan();
-    nutrWeekDates().forEach(({label,date})=>{
-      const day = data[label];
-      if (day) plan[date] = { breakfast: day.breakfast||'', lunch: day.lunch||'', dinner: day.dinner||'' };
-    });
-    saveMealPlan(plan);
-    renderMealPlan();
-    document.getElementById('nutr-mealplan-copy-btn').style.display='inline-block';
-  } catch(e) {
-    alert('Meal plan generation failed: '+e.message);
-  } finally {
-    btn.disabled=false; btn.textContent='Generate with Claude';
-  }
-}
-function copyMealPlanToGrocery() {
-  document.querySelector('#tab-nutrition [data-subtab="nutr-grocery"]').click();
-  syncGroceryFromMealPlan();
-}
-
-// Grocery list
-function getGrocery() {
-  try { return JSON.parse(localStorage.getItem('nutr_grocery')) || {items:[],synced:null}; } catch { return {items:[],synced:null}; }
-}
-function saveGrocery(g) { localStorage.setItem('nutr_grocery', JSON.stringify(g)); syncPush('nutr_grocery', g); }
-function renderGrocery() {
-  const g = getGrocery();
-  setH('nutr-grocery-synced', g.synced ? `Last synced from meal plan: ${g.synced}` : 'Not synced from meal plan yet.');
-  if (!g.items.length) {
-    setH('nutr-grocery-list', `<div class="sub" style="font-style:italic;color:#bbb">No items yet.</div>`);
-    return;
-  }
-  setH('nutr-grocery-list', g.items.map((item,i)=>`
-    <div class="row" style="padding:5px 0;border-bottom:1px solid #f3f4f6">
-      <input type="checkbox" ${item.checked?'checked':''} onchange="toggleGroceryItem(${i})" style="margin-right:10px">
-      <span style="flex:1;font-size:13px;${item.checked?'text-decoration:line-through;color:#bbb':''}">${escHtml(item.text)}</span>
-      <button onclick="removeGroceryItem(${i})" style="background:none;border:none;color:#bbb;font-size:15px;cursor:pointer;padding:4px 8px">✕</button>
-    </div>`).join(''));
-}
-function toggleGroceryItem(i) {
-  const g = getGrocery(); g.items[i].checked = !g.items[i].checked; saveGrocery(g); renderGrocery();
-}
-function removeGroceryItem(i) {
-  const g = getGrocery(); g.items.splice(i,1); saveGrocery(g); renderGrocery();
-}
-function addGroceryItem() {
-  const input = document.getElementById('grocery-add-input');
-  const text = input.value.trim();
-  if (!text) return;
-  const g = getGrocery(); g.items.push({text, checked:false}); saveGrocery(g);
-  input.value=''; renderGrocery();
-}
-function clearTickedGrocery() {
-  const g = getGrocery(); g.items = g.items.filter(i=>!i.checked); saveGrocery(g); renderGrocery();
-}
-async function syncGroceryFromMealPlan() {
-  const btn = document.getElementById('nutr-grocery-sync-btn');
-  btn.disabled = true; btn.textContent='Syncing…';
-  try {
-    const plan = getMealPlan();
-    const mealPlanText = nutrWeekDates().map(({label,date})=>{
-      const day = plan[date]||{};
-      return `${label}: Breakfast - ${day.breakfast||'(none)'}; Lunch - ${day.lunch||'(none)'}; Dinner - ${day.dinner||'(none)'}`;
-    }).join('\n');
-    const prompt = `Extract a shopping list from this meal plan. Return ONLY a JSON array of strings, each item being "quantity ingredient" e.g. ["500g chicken breast", "6 eggs", "2 bananas"]. Group similar items.
-Meal plan: ${mealPlanText}`;
-    const raw = await callClaude(prompt);
-    const m = raw.match(/\[[\s\S]*\]/);
-    const items = JSON.parse(m?m[0]:raw);
-    const g = getGrocery();
-    items.forEach(text=>g.items.push({text, checked:false}));
-    g.synced = nutrToday();
-    saveGrocery(g);
-    renderGrocery();
-  } catch(e) {
-    alert('Grocery sync failed: '+e.message);
-  } finally {
-    btn.disabled=false; btn.textContent='Sync from meal plan';
-  }
-}
-
-// Pantry
-function getPantry() {
-  try { return JSON.parse(localStorage.getItem('nutr_pantry')) || []; } catch { return []; }
-}
-function savePantry(items) { localStorage.setItem('nutr_pantry', JSON.stringify(items)); syncPush('nutr_pantry', items); }
-function pantryDaysLeft(bestBefore) {
-  return Math.ceil((new Date(bestBefore)-new Date())/864e5);
-}
-function pantryExpiryStyle(days) {
-  if (days<0) return {bg:'#fef2f2',col:'#c53030',label:'Expired'};
-  if (days<=2) return {bg:'#fff8e1',col:'#b45309',label:`${days}d`};
-  if (days<=5) return {bg:'#fefce8',col:'#a16207',label:`${days}d`};
-  return {bg:'#e6f4ea',col:'#2d7a47',label:`${days}d`};
-}
-function addPantryItem() {
-  const name = document.getElementById('pantry-name').value.trim();
-  const category = document.getElementById('pantry-category').value;
-  const bestBefore = document.getElementById('pantry-best-before').value;
-  if (!name || !bestBefore) return;
-  const items = getPantry();
-  items.push({id: Date.now()+'-'+Math.random().toString(36).slice(2), name, category, addedDate: nutrToday(), bestBefore});
-  savePantry(items);
-  document.getElementById('pantry-name').value='';
-  document.getElementById('pantry-best-before').value='';
-  renderPantry();
-}
-function removePantryItem(id) {
-  savePantry(getPantry().filter(i=>i.id!==id));
-  renderPantry();
-}
-function renderPantry() {
-  const items = getPantry().slice().sort((a,b)=>new Date(a.bestBefore)-new Date(b.bestBefore));
-  const expiringSoon = items.filter(i=>pantryDaysLeft(i.bestBefore)<=2);
-  setH('pantry-alert', expiringSoon.length
-    ? `<div class="warn w-caution">⚠️ ${expiringSoon.length} item${expiringSoon.length>1?'s':''} expiring soon</div>`
-    : '');
-  if (!items.length) {
-    setH('nutr-pantry-list', `<div class="sub" style="font-style:italic;color:#bbb">Pantry is empty.</div>`);
-  } else {
-    setH('nutr-pantry-list', items.map(i=>{
-      const days = pantryDaysLeft(i.bestBefore);
-      const s = pantryExpiryStyle(days);
-      return `<div class="row" style="padding:8px 0;border-bottom:1px solid #f3f4f6">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600">${escHtml(i.name)} <span class="badge b-grey" style="margin-left:6px;font-size:10px;padding:2px 7px">${escHtml(i.category)}</span></div>
-          <div class="sub">Best before ${i.bestBefore}</div>
-        </div>
-        <span class="badge" style="background:${s.bg};color:${s.col};margin-right:8px">${s.label}</span>
-        <button onclick="removePantryItem('${i.id}')" style="background:none;border:none;color:#bbb;font-size:15px;cursor:pointer;padding:4px 8px">✕</button>
-      </div>`;
-    }).join(''));
-  }
-  renderNutrDashboardCard();
-}
-
-// Dashboard card + master render
-function renderNutrDashboardCard() {
-  const targets = getMacroTargets();
-  const totals = _healthDietaryToday() || foodTotals(getTodayFood());
-  set('dash-nutr-cal', `Calories: ${Math.round(totals.kcal)} / ${targets.kcal} kcal`);
-  set('dash-nutr-protein', `Protein target: ${targets.protein}g (${Math.round(totals.protein)}g logged)`);
-  const expiringSoon = getPantry().filter(i=>pantryDaysLeft(i.bestBefore)<=2);
-  setH('dash-nutr-alert', expiringSoon.length
-    ? `<div class="sub" style="color:#b45309;font-weight:600;margin-top:6px">⚠️ ${expiringSoon.length} pantry item${expiringSoon.length>1?'s':''} expiring soon</div>`
-    : '');
-}
-function renderNutrToday() {
-  renderNutrBars();
-  renderFoodLog();
-  renderMealPlan();
-  renderGrocery();
-  renderPantry();
-  renderNutrDashboardCard();
-}
-
 setupSubTabs('tab-whoop', 'active_whoop_subtab');
 setupSubTabs('tab-medicine', 'active_med_subtab');
 setupSubTabs('tab-training', 'active_train_subtab');
 setupSubTabs('tab-finance', 'active_finance_subtab');
-setupSubTabs('tab-nutrition', 'active_nutr_subtab');
 setupSubTabs('tab-planner', 'active_planner_subtab');
 
 // ── Finance lazy init ────────────────────────────────────────────────────────
@@ -9595,10 +9131,6 @@ if (initialised['fin-statements']) initFinanceStatements(); else pendingCharts['
 
 // ── Revision Schedule lazy init ──────────────────────────────────────────────
 if (initialised['med-revschedule']) initRevSchedule(); else pendingCharts['med-revschedule'] = initRevSchedule;
-
-// ── Nutrition lazy init ─────────────────────────────────────────────────────
-renderNutrDashboardCard();
-if (initialised.nutrition) renderNutrToday(); else pendingCharts.nutrition = renderNutrToday;
 
 // ── Weight trend lazy init ──────────────────────────────────────────────────
 if (initialised.dashboard) renderWeightTrend(); else pendingCharts.dashboard = renderWeightTrend;
@@ -9623,7 +9155,6 @@ async function fetchHealthData() {
       else pendingCharts['whoop-fitness'] = renderFitnessSubTab;
       renderDailyBriefing();
       renderSleepPerformanceLink();
-      renderNutrToday(); // recalc calorie target now that today's Apple Health burn data is in
       renderHabits(); // re-render with updated auto habit state + sleep suggestion/wake times
     }
   } catch (e) {
@@ -10997,10 +10528,6 @@ function applySyncUpdates(updated) {
   if (updated.includes('tasks_priority')) safe(renderTasks);
   if (updated.includes('shopping_items')) safe(renderShopping);
   if (updated.includes('notes_data')) safe(renderNotes);
-  if (updated.includes('nutr_food_log')) safe(() => { renderFoodLog(); renderNutrToday(); renderNutrDashboardCard(); });
-  if (updated.includes('nutr_meal_plan')) safe(renderMealPlan);
-  if (updated.includes('nutr_grocery')) safe(renderGrocery);
-  if (updated.includes('nutr_pantry')) safe(() => { renderPantry(); renderNutrDashboardCard(); });
   // activity_notes intentionally not force-rendered here — it's spread across
   // many per-sport activity lists; it'll pick up the synced value next time
   // that list is rendered (those lists already read from localStorage fresh).
@@ -11488,28 +11015,6 @@ document.querySelectorAll('[data-subtab="train-injuries"]').forEach(btn => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TASK 7 — Smarter Nutrition: Strava calorie fallback
-// ═══════════════════════════════════════════════════════════════════════════
-const _origGetKcalTarget = getKcalTarget;
-getKcalTarget = function() {
-  const result = _origGetKcalTarget();
-  if (result.source === 'health') return result;
-  // Try Strava estimated calories for today
-  const today = nutrToday();
-  const todayActs = (_acts || []).filter(a => {
-    const d = new Date(a.start_local);
-    return d.toLocaleDateString('en-CA') === today;
-  });
-  const stravaKcal = todayActs.reduce((s, a) => s + (a.summary.kilojoules ? a.summary.kilojoules * 0.239006 : (a.summary.calories || 0)), 0);
-  if (stravaKcal > 200) {
-    // Add estimated BMR (~1800 kcal) to Strava active burn
-    const total = Math.round(stravaKcal + 1800);
-    return { kcal: total, source: 'strava' };
-  }
-  return result;
-};
-
-// ═══════════════════════════════════════════════════════════════════════════
 // TASK 8 — Study Question Tracker (Medicine tab)
 // ═══════════════════════════════════════════════════════════════════════════
 function getStudyQData() {
@@ -11859,97 +11364,11 @@ function renderWeightTrendChart() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TASK 14 — Hydration Tracker (Home tab, injected into sections)
+// System alerts banner (Home) — runs after every daily-briefing render
 // ═══════════════════════════════════════════════════════════════════════════
-function getHydrationData() {
-  const today = new Date().toLocaleDateString('en-CA');
-  try {
-    const d = JSON.parse(localStorage.getItem('hydration_data') || '{}');
-    if (d.date !== today) return { date: today, ml: 0 };
-    return d;
-  } catch { return { date: today, ml: 0 }; }
-}
-function saveHydrationData(ml) {
-  const today = new Date().toLocaleDateString('en-CA');
-  localStorage.setItem('hydration_data', JSON.stringify({ date: today, ml }));
-}
-function addHydration(ml) {
-  const d = getHydrationData();
-  const newMl = Math.max(0, d.ml + ml);
-  const goal = +(localStorage.getItem('hydration_goal') || 3000);
-  const wasUnder = d.ml < goal;
-  const nowOver  = newMl >= goal;
-  saveHydrationData(newMl);
-  // Auto-tick the "3L water" habit when goal first crossed
-  if (wasUnder && nowOver) {
-    const today = new Date().toLocaleDateString('en-CA');
-    const ticked = getHabits();
-    if (!ticked['h-water-3l']) {
-      ticked['h-water-3l'] = true;
-      saveHabits({ date: today, ticked });
-      recomputeAllStreaks();
-      if (typeof renderHabits === 'function') renderHabits();
-    }
-  }
-  // Auto-un-tick if they go back below goal
-  if (!wasUnder && newMl < goal) {
-    const today = new Date().toLocaleDateString('en-CA');
-    const ticked = getHabits();
-    if (ticked['h-water-3l']) {
-      ticked['h-water-3l'] = false;
-      saveHabits({ date: today, ticked });
-      recomputeAllStreaks();
-      if (typeof renderHabits === 'function') renderHabits();
-    }
-  }
-  renderHydrationSection();
-}
-function renderHydrationSection() {
-  const el = document.getElementById('hydration-section');
-  if (!el) return;
-  const { ml } = getHydrationData();
-  const goal = +(localStorage.getItem('hydration_goal') || 3000);
-  const pct = Math.min(100, Math.round(ml / goal * 100));
-  const cups = Math.floor(ml / 250);
-  const cupsHtml = Array.from({length: Math.min(12, Math.ceil(goal/250))}, (_, i) =>
-    `<span style="font-size:18px;cursor:pointer;opacity:${i < cups ? 1 : 0.25}" onclick="addHydration(250)" title="Add 250ml">💧</span>`
-  ).join('');
-  el.innerHTML = `
-    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint);font-weight:700;margin-bottom:6px">💧 Hydration</div>
-    <div style="display:flex;align-items:center;gap:8px">
-      <div style="flex:1">
-        <div style="display:flex;flex-wrap:wrap;gap:2px;margin-bottom:6px">${cupsHtml}</div>
-        <div style="background:var(--surface-hover);border-radius:99px;height:5px;overflow:hidden">
-          <div style="background:var(--accent);height:100%;width:${pct}%;border-radius:99px;transition:width .3s"></div>
-        </div>
-      </div>
-      <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:16px;font-weight:700">${ml} ml</div>
-        <div style="font-size:10px;color:var(--text-faint)">of ${goal} ml</div>
-      </div>
-    </div>
-    <div style="display:flex;gap:6px;margin-top:8px">
-      <button onclick="addHydration(250)" style="flex:1;background:var(--surface-hover);color:var(--text-muted);border:1px solid var(--border-soft);border-radius:8px;padding:5px;font-size:12px;font-weight:600;cursor:pointer">+250 ml</button>
-      <button onclick="addHydration(500)" style="flex:1;background:var(--surface-hover);color:var(--text-muted);border:1px solid var(--border-soft);border-radius:8px;padding:5px;font-size:12px;font-weight:600;cursor:pointer">+500 ml</button>
-      <button onclick="addHydration(-250)" style="flex:1;background:var(--surface-hover);color:var(--text-faint);border:1px solid var(--border-soft);border-radius:8px;padding:5px;font-size:12px;cursor:pointer">-250 ml</button>
-    </div>`;
-}
-
-// Inject hydration into home sections via override of renderDailyBriefing
-const _origSetHTodaySections = setH;
-// Patch: append hydration section after today-sections renders
 const _origRenderDailyBriefing2 = renderDailyBriefing;
 renderDailyBriefing = function() {
   _origRenderDailyBriefing2.apply(this, arguments);
-  // Inject hydration card below today-sections
-  const parent = document.getElementById('today-sections');
-  if (parent && !document.getElementById('hydration-section')) {
-    const div = document.createElement('div');
-    div.id = 'hydration-section';
-    div.style.cssText = 'padding-top:12px;border-top:1px solid #f3f4f6;margin-top:4px';
-    parent.appendChild(div);
-  }
-  renderHydrationSection();
   renderAlertsBanner();
 };
 
@@ -12201,15 +11620,6 @@ function downloadCSV(filename, rows) {
   a.click();
 }
 
-function exportFoodLog() {
-  const log = getFoodLog();
-  const rows = [['Date','Name','Calories','Protein (g)','Carbs (g)','Fat (g)']];
-  Object.entries(log).sort().forEach(([date, entries]) => {
-    entries.forEach(e => rows.push([date, e.name||'', e.kcal||0, e.protein||0, e.carbs||0, e.fat||0]));
-  });
-  downloadCSV('food_log.csv', rows);
-}
-
 function exportInjuryLog() {
   const log = getInjuryLog();
   const rows = [['Date','Body Part','Severity','Notes','Resolved']];
@@ -12226,10 +11636,9 @@ function exportStudyLog() {
 
 function showExportMenu() {
   // Simple choice prompt — could be a modal but keep it minimal
-  const choice = prompt('Export which dataset?\n1 = Food log\n2 = Injury log\n3 = Study log\nType 1, 2, or 3:');
-  if (choice === '1') exportFoodLog();
-  else if (choice === '2') exportInjuryLog();
-  else if (choice === '3') exportStudyLog();
+  const choice = prompt('Export which dataset?\n1 = Injury log\n2 = Study log\nType 1 or 2:');
+  if (choice === '1') exportInjuryLog();
+  else if (choice === '2') exportStudyLog();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -12606,7 +12015,7 @@ function _doMorningNotifLoop() {
   setTimeout(() => {
     if (localStorage.getItem('morning_notif') === '1' && Notification.permission === 'granted') {
       const n = new Notification('Training Dashboard ☀️', {
-        body: 'Good morning! Check your readiness, sessions & nutrition.',
+        body: 'Good morning! Check your readiness & sessions.',
         icon: '/icon-192.png'
       });
       n.onclick = () => { window.focus(); n.close(); };
@@ -12656,37 +12065,6 @@ function renderSessionNotesSearch() {
   }).join('');
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// TASK #31 — Quick-log Food Shortcuts
-// ═══════════════════════════════════════════════════════════════════════════
-function showQuickFood() {
-  const p = document.getElementById('quick-food-panel');
-  if (p) { p.style.display = 'block'; const n = document.getElementById('qf-name'); if (n) n.focus(); }
-}
-function hideQuickFood() {
-  const p = document.getElementById('quick-food-panel');
-  if (p) p.style.display = 'none';
-}
-function submitQuickFood() {
-  const name = (document.getElementById('qf-name').value || '').trim();
-  if (!name) { alert('Food name required'); return; }
-  const kcal = parseFloat(document.getElementById('qf-kcal').value) || 0;
-  const protein = parseFloat(document.getElementById('qf-protein').value) || 0;
-  addFoodEntry({ name, kcal, protein, carbs: 0, fat: 0 });
-  if (typeof renderNutrToday === 'function') safe(renderNutrToday);
-  if (typeof renderNutrDashboardCard === 'function') safe(renderNutrDashboardCard);
-  ['qf-name','qf-kcal','qf-protein'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  hideQuickFood();
-  // Brief confirmation banner
-  const bar = document.getElementById('quick-log-bar');
-  if (bar) {
-    const fb = document.createElement('div');
-    fb.textContent = `✓ ${name}${kcal ? ' (' + kcal + ' kcal)' : ''} logged`;
-    fb.style.cssText = 'font-size:12px;color:#16a34a;padding:2px 14px;font-weight:600';
-    bar.after(fb);
-    setTimeout(() => fb.remove(), 2000);
-  }
-}
 </script>
 </body>
 </html>

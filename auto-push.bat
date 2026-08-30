@@ -1,6 +1,6 @@
 @echo off
 cd /d C:\Users\admin\training-dashboard
-git add functions/ _routes.json index.html TASKS.md
+git add functions/ _routes.json index.html sw.js TASKS.md
 git diff --cached --quiet
 if errorlevel 1 (
     for /f "tokens=1-3 delims=/ " %%a in ("%date%") do set d=%%c-%%b-%%a
