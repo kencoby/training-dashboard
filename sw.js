@@ -1,4 +1,4 @@
-const CACHE = 'training-dash-v16';
+const CACHE = 'training-dash-v17';
 const PRECACHE = [
   '/',
   '/index.html',

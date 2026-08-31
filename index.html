@@ -3481,25 +3481,28 @@ function reorderTask(srcId, dstId, priority) {
   renderTasks();
 }
 
+// Grouped for display (see HABIT_GROUP_ORDER in renderHabits) — group is purely
+// cosmetic, doesn't affect storage/streak keys, so re-grouping is always safe.
 const DAILY_HABITS = [
-  { id: 'h-water-plants', label: 'Water plants' },
-  { id: 'h-skincare-am', label: 'Skin care AM' },
-  { id: 'h-creatine',    label: 'Creatine' },
-  { id: 'h-minoxidil',   label: 'Minoxidil' },
-  { id: 'h-skincare-pm', label: 'Skin care PM' },
-  { id: 'h-journal',     label: 'Journal' },
-  { id: 'h-read',        label: 'Read' },
-  { id: 'h-water-3l',    label: '3L water' },
-  { id: 'h-anki-100',    label: '100 Anki cards' },
-  { id: 'h-passmed-50',  label: '50 PassMed Qs' },
-  { id: 'h-osce-2',      label: '2 OSCE prep' },
-  { id: 'h-driving-theory', label: 'Driving/Theory' },
-  { id: 'h-cardio',      label: 'Cardio',   auto: 'strava-cardio' },
-  { id: 'h-strength',   label: 'Strength', auto: 'strava-strength' },
-  { id: 'h-steps',       label: '10,000 steps', auto: 'steps' },
-  { id: 'h-sleep',       label: '8h sleep',     auto: 'sleep' },
-  { id: 'h-weight',      label: 'Weigh in',     auto: 'weight' },
+  { id: 'h-cardio',    label: 'Cardio',   auto: 'strava-cardio',   group: 'Tracked automatically' },
+  { id: 'h-strength',  label: 'Strength', auto: 'strava-strength', group: 'Tracked automatically' },
+  { id: 'h-steps',     label: '10,000 steps', auto: 'steps',       group: 'Tracked automatically' },
+  { id: 'h-sleep',     label: '8h sleep',     auto: 'sleep',       group: 'Tracked automatically' },
+  { id: 'h-weight',    label: 'Weigh in',     auto: 'weight',      group: 'Tracked automatically' },
+  { id: 'h-anki-100',       label: '100 Anki cards',   group: 'Study' },
+  { id: 'h-passmed-50',     label: '50 PassMed Qs',    group: 'Study' },
+  { id: 'h-osce-2',         label: '2 OSCE prep',      group: 'Study' },
+  { id: 'h-driving-theory', label: 'Driving/Theory',   group: 'Study' },
+  { id: 'h-journal',   label: 'Journal',   group: 'Wellness' },
+  { id: 'h-read',      label: 'Read',      group: 'Wellness' },
+  { id: 'h-water-3l',  label: '3L water',  group: 'Wellness' },
+  { id: 'h-skincare-am', label: 'Skin care AM', group: 'Personal care' },
+  { id: 'h-creatine',    label: 'Creatine',     group: 'Personal care' },
+  { id: 'h-minoxidil',   label: 'Minoxidil',    group: 'Personal care' },
+  { id: 'h-skincare-pm', label: 'Skin care PM', group: 'Personal care' },
+  { id: 'h-water-plants', label: 'Water plants', group: 'Home' },
 ];
+const HABIT_GROUP_ORDER = ['Tracked automatically', 'Study', 'Wellness', 'Personal care', 'Home'];
 
 function getHabitLog() { try { return JSON.parse(localStorage.getItem('habit_log')) || {}; } catch { return {}; } }
 function saveHabitLog(log) { localStorage.setItem('habit_log', JSON.stringify(log)); syncPush('habit_log', log); }
@@ -3586,13 +3589,16 @@ function renderHabits() {
     ? (_healthValueOnDate('step_count', today) ?? _healthValueOnDate('steps', today) ?? _healthValueOnDate('step_count_total', today))
     : null;
 
-  // Auto-tracked habits at top, manual below
-  const autoHabits   = DAILY_HABITS.filter(h => h.auto);
-  const manualHabits = DAILY_HABITS.filter(h => !h.auto);
-  const ordered = [...autoHabits, ...manualHabits];
+  // Grouped by HABIT_GROUP_ORDER (see DAILY_HABITS) so the list reads as
+  // sections — auto-tracked first, then Study/Wellness/Personal care/Home —
+  // instead of one long undifferentiated 17-item list.
+  const byGroup = {};
+  DAILY_HABITS.forEach(h => { (byGroup[h.group] ||= []).push(h); });
+  const ordered = HABIT_GROUP_ORDER.flatMap(g => byGroup[g] || []);
 
   const streaks = getHabitStreaks();
 
+  let lastGroup = null;
   setH('habit-list', ordered.map((h, i) => {
     const autoOn = h.auto ? (auto[h.id] || false) : false;
     const isDone = ticked[h.id] || autoOn;
@@ -3603,7 +3609,13 @@ function renderHabits() {
     const streakLabel = s && s.count >= 2 ? `<span style="font-size:10px;color:var(--accent-text);margin-left:4px">🔥${s.count}</span>` : '';
     const stepsProgress = (h.id === 'h-steps' && currentSteps != null)
       ? `<span style="font-size:11px;color:var(--text-faint);margin-left:5px">${Math.round(currentSteps).toLocaleString()} / 10,000</span>` : '';
-    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;${i<ordered.length-1?'border-bottom:1px solid var(--border-soft);':''}${isDone?'opacity:0.45':''}">
+    const isNewGroup = h.group !== lastGroup;
+    const headerHtml = isNewGroup
+      ? `<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-faint);font-weight:700;${lastGroup===null?'':'margin-top:12px;'}margin-bottom:2px">${h.group}</div>`
+      : '';
+    lastGroup = h.group;
+    const sameGroupNext = i < ordered.length - 1 && ordered[i+1].group === h.group;
+    return `${headerHtml}<div style="display:flex;align-items:center;gap:10px;padding:8px 0;${sameGroupNext?'border-bottom:1px solid var(--border-soft);':''}${isDone?'opacity:0.45':''}">
       <input type="checkbox" ${isDone?'checked':''} onchange="toggleHabit('${h.id}')" style="cursor:pointer;flex-shrink:0;accent-color:var(--accent)"/>
       <span style="flex:1;font-size:13px;${isDone?'text-decoration:line-through;color:var(--text-faint)':''}">${h.label}${stepsProgress}${syncedLabel}${missLabel}${streakLabel}</span>
     </div>`;
