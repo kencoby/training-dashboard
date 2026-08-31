@@ -2831,7 +2831,7 @@ function buildDistChart(acts) {
 // ── Cross-device sync (Netlify Blobs) ───────────────────────────────────────
 const SYNC_KEYS = [
   'todo_items',
-  'signoff_mandatory', 'signoff_sa67', 'signoff_clinical', 'signoff_ja',
+  'signoff_mandatory', 'signoff_sa67', 'signoff_clinical', 'signoff_ja1', 'signoff_ja2', 'signoff_ja3',
   'gcal_events',
   'calendar_overrides',
   'activity_notes', 'daily_habits', 'habit_log', 'progress_log', 'monthly_km_goal', 'pb_log',
@@ -4286,7 +4286,7 @@ const ACCORDIONS = [
   {
     id: 'clinical',
     title: 'Clinical Skills Signoff',
-    deadline: '2026-07-24',
+    deadline: '2027-03-31',
     storageKey: 'signoff_clinical',
     items: [
       'Taking blood cultures via peripheral venepuncture',
@@ -4307,25 +4307,43 @@ const ACCORDIONS = [
     ]
   },
   {
-    id: 'ja',
-    title: 'Junior Assistantship (JA1–3)',
+    id: 'ja1',
+    title: 'JA1 – Haematology, Singleton (1 Sep – 9 Oct 2026)',
     deadline: '2027-03-31', // GEM Portal deadline for "Six Mini-CEX Passed"
-    storageKey: 'signoff_ja',
+    storageKey: 'signoff_ja1',
     items: [
-      'JA1 – Haematology, Singleton (1 Sep – 9 Oct 2026): Mini-CEX 1',
-      'JA1 – Haematology, Singleton (1 Sep – 9 Oct 2026): Mini-CEX 2',
-      'JA1 – Haematology, Singleton (1 Sep – 9 Oct 2026): End of placement clinician assessment',
-      'JA1 – Haematology, Singleton (1 Sep – 9 Oct 2026): Written student feedback',
-      'JA2 – T&O, Glangwili (19 Oct – 27 Nov 2026): Mini-CEX 1',
-      'JA2 – T&O, Glangwili (19 Oct – 27 Nov 2026): Mini-CEX 2',
-      'JA2 – T&O, Glangwili (19 Oct – 27 Nov 2026): End of placement clinician assessment',
-      'JA2 – T&O, Glangwili (19 Oct – 27 Nov 2026): Written student feedback',
-      'JA3 – Cardiff GP (15 Feb – 26 Mar 2027): Mini-CEX 1',
-      'JA3 – Cardiff GP (15 Feb – 26 Mar 2027): Mini-CEX 2',
-      'JA3 – Cardiff GP (15 Feb – 26 Mar 2027): End of placement clinician assessment',
-      'JA3 – Cardiff GP (15 Feb – 26 Mar 2027): Written student feedback',
-      'Out of hours: 2 evening on-calls, 5hrs+ each (across the year, not per JA)',
-      'Out of hours: 2 weekend days, 8hrs+ each (across the year, not per JA)',
+      'Mini-CEX 1',
+      'Mini-CEX 2',
+      'End of placement clinician assessment',
+      'Written student feedback',
+      'Out of hours: 1 evening on-call, 5hrs+',
+      'Out of hours: 1 weekend day, 8hrs+ (AM/PM ward round)',
+    ]
+  },
+  {
+    id: 'ja2',
+    title: 'JA2 – T&O, Glangwili (19 Oct – 27 Nov 2026)',
+    deadline: '2027-03-31', // GEM Portal deadline for "Six Mini-CEX Passed"
+    storageKey: 'signoff_ja2',
+    items: [
+      'Mini-CEX 1',
+      'Mini-CEX 2',
+      'End of placement clinician assessment',
+      'Written student feedback',
+      'Out of hours: 1 evening on-call, 5hrs+',
+      'Out of hours: 1 weekend day, 8hrs+ (AM/PM ward round)',
+    ]
+  },
+  {
+    id: 'ja3',
+    title: 'JA3 – Cardiff GP (15 Feb – 26 Mar 2027)',
+    deadline: '2027-03-31', // GEM Portal deadline for "Six Mini-CEX Passed"
+    storageKey: 'signoff_ja3',
+    items: [
+      'Mini-CEX 1',
+      'Mini-CEX 2',
+      'End of placement clinician assessment',
+      'Written student feedback',
     ]
   },
 ];
