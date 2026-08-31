@@ -1196,6 +1196,7 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
     <button class="sub-tab-btn active" data-subtab="med-signoffs">Signoffs</button>
     <button class="sub-tab-btn" data-subtab="med-revschedule">Anki & PassMed</button>
     <button class="sub-tab-btn" data-subtab="med-assessments">Assessment Info</button>
+    <button class="sub-tab-btn" data-subtab="med-calculators">Calculators</button>
   </nav>
 
   <div class="sub-tab-pane active" id="sub-tab-med-signoffs">
@@ -1366,6 +1367,177 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
     <span class="badge b-grey">Summative</span>
     <span class="badge b-amber">Resubmission — supplementary period</span>
   </div>
+</div>
+</div>
+
+  </div>
+
+  <div class="sub-tab-pane" id="sub-tab-med-calculators">
+
+<!-- CLINICAL CALCULATORS -->
+<div class="section">
+<h2>🧮 Calculators</h2>
+<div class="sub" style="margin-bottom:12px">Quick-reference clinical scores for placement — not a substitute for local trust guidance or clinical judgement.</div>
+</div>
+
+<!-- WELLS SCORE -->
+<div class="section">
+<h2>Wells Score</h2>
+<div class="card" style="margin-bottom:10px">
+  <div style="display:flex;gap:6px;margin-bottom:10px">
+    <button id="calc-wells-btn-dvt" onclick="setWellsType('dvt')" style="flex:1;background:#1a1a1a;color:#fff;border:none;border-radius:8px;padding:7px;font-size:12px;font-weight:600;cursor:pointer">DVT</button>
+    <button id="calc-wells-btn-pe" onclick="setWellsType('pe')" style="flex:1;background:var(--surface-hover);color:var(--text-muted);border:1px solid var(--border-soft);border-radius:8px;padding:7px;font-size:12px;font-weight:600;cursor:pointer">PE</button>
+  </div>
+  <div id="calc-wells-dvt-crit">
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-wells-dvt-cancer" onchange="calcWells()"> Active cancer (treatment/palliative, within 6mo) <span style="margin-left:auto;color:#9ca3af">+1</span></label>
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-wells-dvt-paralysis" onchange="calcWells()"> Paralysis/paresis or recent leg plaster <span style="margin-left:auto;color:#9ca3af">+1</span></label>
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-wells-dvt-bedridden" onchange="calcWells()"> Bedridden &gt;3 days or major surgery &lt;12wk <span style="margin-left:auto;color:#9ca3af">+1</span></label>
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-wells-dvt-tender" onchange="calcWells()"> Localized tenderness along deep veins <span style="margin-left:auto;color:#9ca3af">+1</span></label>
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-wells-dvt-swollen" onchange="calcWells()"> Entire leg swollen <span style="margin-left:auto;color:#9ca3af">+1</span></label>
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-wells-dvt-calf" onchange="calcWells()"> Calf swelling &gt;3cm vs other leg <span style="margin-left:auto;color:#9ca3af">+1</span></label>
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-wells-dvt-pitting" onchange="calcWells()"> Pitting oedema, symptomatic leg only <span style="margin-left:auto;color:#9ca3af">+1</span></label>
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-wells-dvt-collateral" onchange="calcWells()"> Collateral superficial veins (non-varicose) <span style="margin-left:auto;color:#9ca3af">+1</span></label>
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-wells-dvt-prevdvt" onchange="calcWells()"> Previously documented DVT <span style="margin-left:auto;color:#9ca3af">+1</span></label>
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-wells-dvt-altdx" onchange="calcWells()"> Alternative diagnosis at least as likely <span style="margin-left:auto;color:#9ca3af">−2</span></label>
+  </div>
+  <div id="calc-wells-pe-crit" style="display:none">
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-wells-pe-dvtsigns" onchange="calcWells()"> Clinical signs/symptoms of DVT <span style="margin-left:auto;color:#9ca3af">+3</span></label>
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-wells-pe-altdx" onchange="calcWells()"> PE is #1 diagnosis, or equally likely <span style="margin-left:auto;color:#9ca3af">+3</span></label>
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-wells-pe-hr" onchange="calcWells()"> Heart rate &gt;100 <span style="margin-left:auto;color:#9ca3af">+1.5</span></label>
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-wells-pe-immob" onchange="calcWells()"> Immobilisation ≥3d or surgery &lt;4wk <span style="margin-left:auto;color:#9ca3af">+1.5</span></label>
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-wells-pe-prevpe" onchange="calcWells()"> Previous objectively-diagnosed PE/DVT <span style="margin-left:auto;color:#9ca3af">+1.5</span></label>
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-wells-pe-haemoptysis" onchange="calcWells()"> Haemoptysis <span style="margin-left:auto;color:#9ca3af">+1</span></label>
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-wells-pe-malignancy" onchange="calcWells()"> Malignancy, treated &lt;6mo or palliative <span style="margin-left:auto;color:#9ca3af">+1</span></label>
+  </div>
+  <div id="calc-wells-result" style="margin-top:8px;padding-top:10px;border-top:1px solid #f3f4f6;text-align:center">
+    <div style="font-size:22px;font-weight:800;color:#6b9e7a">0</div>
+    <div style="font-size:13px;color:#6b9e7a;font-weight:600">DVT unlikely (≤0)</div>
+  </div>
+</div>
+</div>
+
+<!-- CURB-65 -->
+<div class="section">
+<h2>CURB-65</h2>
+<div class="sub" style="margin-bottom:8px">Community-acquired pneumonia severity</div>
+<div class="card" style="margin-bottom:10px">
+  <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-curb-confusion" onchange="calcCurb65()"> New confusion <span style="margin-left:auto;color:#9ca3af">+1</span></label>
+  <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-curb-urea" onchange="calcCurb65()"> Urea &gt;7 mmol/L <span style="margin-left:auto;color:#9ca3af">+1</span></label>
+  <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-curb-rr" onchange="calcCurb65()"> Respiratory rate ≥30/min <span style="margin-left:auto;color:#9ca3af">+1</span></label>
+  <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-curb-bp" onchange="calcCurb65()"> BP: systolic &lt;90 or diastolic ≤60 <span style="margin-left:auto;color:#9ca3af">+1</span></label>
+  <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-curb-age" onchange="calcCurb65()"> Age ≥65 <span style="margin-left:auto;color:#9ca3af">+1</span></label>
+  <div id="calc-curb-result" style="margin-top:8px;padding-top:10px;border-top:1px solid #f3f4f6;text-align:center">
+    <div style="font-size:22px;font-weight:800;color:#6b9e7a">0</div>
+    <div style="font-size:13px;color:#6b9e7a;font-weight:600">Low severity — likely suitable for outpatient treatment</div>
+  </div>
+</div>
+</div>
+
+<!-- CHA2DS2-VASc -->
+<div class="section">
+<h2>CHA₂DS₂-VASc</h2>
+<div class="sub" style="margin-bottom:8px">AF stroke risk / anticoagulation decision</div>
+<div class="card" style="margin-bottom:10px">
+  <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-chads-chf" onchange="calcChadsVasc()"> Congestive heart failure / LV dysfunction <span style="margin-left:auto;color:#9ca3af">+1</span></label>
+  <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-chads-htn" onchange="calcChadsVasc()"> Hypertension <span style="margin-left:auto;color:#9ca3af">+1</span></label>
+  <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-chads-dm" onchange="calcChadsVasc()"> Diabetes <span style="margin-left:auto;color:#9ca3af">+1</span></label>
+  <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-chads-stroke" onchange="calcChadsVasc()"> Prior stroke/TIA/thromboembolism <span style="margin-left:auto;color:#9ca3af">+2</span></label>
+  <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-chads-vasc" onchange="calcChadsVasc()"> Vascular disease (MI, PAD, aortic plaque) <span style="margin-left:auto;color:#9ca3af">+1</span></label>
+  <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-chads-female" onchange="calcChadsVasc()"> Female sex <span style="margin-left:auto;color:#9ca3af">+1</span></label>
+  <div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px">
+    <span>Age</span>
+    <input type="number" id="calc-chads-age" min="0" max="120" placeholder="yrs" oninput="calcChadsVasc()" style="width:70px;border:1px solid #e5e7eb;border-radius:6px;padding:4px 8px;font-size:13px;font-family:inherit">
+    <span style="margin-left:auto;color:#9ca3af">65–74: +1, ≥75: +2</span>
+  </div>
+  <div id="calc-chads-result" style="margin-top:8px;padding-top:10px;border-top:1px solid #f3f4f6;text-align:center">
+    <div style="font-size:22px;font-weight:800;color:#6b9e7a">0</div>
+    <div style="font-size:13px;color:#6b9e7a;font-weight:600">Low risk — anticoagulation not recommended</div>
+  </div>
+</div>
+</div>
+
+<!-- GCS -->
+<div class="section">
+<h2>Glasgow Coma Scale</h2>
+<div class="card" style="margin-bottom:10px">
+  <div class="lbl" style="margin-bottom:4px">Eye opening</div>
+  <select id="calc-gcs-eye" onchange="calcGCS()" style="width:100%;border:1px solid #e5e7eb;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;margin-bottom:10px">
+    <option value="4">Spontaneous (4)</option>
+    <option value="3">To speech (3)</option>
+    <option value="2">To pain (2)</option>
+    <option value="1">None (1)</option>
+  </select>
+  <div class="lbl" style="margin-bottom:4px">Verbal response</div>
+  <select id="calc-gcs-verbal" onchange="calcGCS()" style="width:100%;border:1px solid #e5e7eb;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;margin-bottom:10px">
+    <option value="5">Oriented (5)</option>
+    <option value="4">Confused (4)</option>
+    <option value="3">Inappropriate words (3)</option>
+    <option value="2">Incomprehensible sounds (2)</option>
+    <option value="1">None (1)</option>
+  </select>
+  <div class="lbl" style="margin-bottom:4px">Motor response</div>
+  <select id="calc-gcs-motor" onchange="calcGCS()" style="width:100%;border:1px solid #e5e7eb;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit">
+    <option value="6">Obeys commands (6)</option>
+    <option value="5">Localizes pain (5)</option>
+    <option value="4">Withdraws from pain (4)</option>
+    <option value="3">Abnormal flexion (3)</option>
+    <option value="2">Extension (2)</option>
+    <option value="1">None (1)</option>
+  </select>
+  <div id="calc-gcs-result" style="margin-top:8px;padding-top:10px;border-top:1px solid #f3f4f6;text-align:center">
+    <div style="font-size:22px;font-weight:800;color:#6b9e7a">15</div>
+    <div style="font-size:13px;color:#6b9e7a;font-weight:600">Mild / normal (13–15)</div>
+  </div>
+</div>
+</div>
+
+<!-- NEWS2 -->
+<div class="section">
+<h2>NEWS2</h2>
+<div class="sub" style="margin-bottom:8px">National Early Warning Score 2 — SpO₂ Scale 1 (standard). For patients with target sats 88–92% (e.g. COPD), use Scale 2 and trust guidance instead.</div>
+<div class="card" style="margin-bottom:10px">
+  <div class="g2" style="margin-bottom:8px">
+    <div><div class="lbl" style="margin-bottom:4px">Resp. rate /min</div><input type="number" id="calc-news-rr" oninput="calcNews2()" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:13px;font-family:inherit;box-sizing:border-box"></div>
+    <div><div class="lbl" style="margin-bottom:4px">SpO₂ %</div><input type="number" id="calc-news-spo2" oninput="calcNews2()" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:13px;font-family:inherit;box-sizing:border-box"></div>
+  </div>
+  <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer;margin-bottom:8px"><input type="checkbox" id="calc-news-o2" onchange="calcNews2()"> On supplemental oxygen</label>
+  <div class="g2" style="margin-bottom:8px">
+    <div><div class="lbl" style="margin-bottom:4px">Systolic BP</div><input type="number" id="calc-news-sbp" oninput="calcNews2()" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:13px;font-family:inherit;box-sizing:border-box"></div>
+    <div><div class="lbl" style="margin-bottom:4px">Pulse /min</div><input type="number" id="calc-news-pulse" oninput="calcNews2()" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:13px;font-family:inherit;box-sizing:border-box"></div>
+  </div>
+  <div class="g2" style="margin-bottom:8px">
+    <div><div class="lbl" style="margin-bottom:4px">Temp °C</div><input type="number" step="0.1" id="calc-news-temp" oninput="calcNews2()" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:13px;font-family:inherit;box-sizing:border-box"></div>
+    <div><div class="lbl" style="margin-bottom:4px">Consciousness</div>
+      <select id="calc-news-avpu" onchange="calcNews2()" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:13px;font-family:inherit;box-sizing:border-box">
+        <option value="alert">Alert</option>
+        <option value="cvpu">Confusion/Voice/Pain/Unresponsive</option>
+      </select>
+    </div>
+  </div>
+  <div id="calc-news-result" style="margin-top:8px;padding-top:10px;border-top:1px solid #f3f4f6;text-align:center">
+    <div style="font-size:12px;color:#9ca3af">Enter observations above</div>
+  </div>
+</div>
+</div>
+
+<!-- OTTAWA ANKLE/FOOT RULES -->
+<div class="section">
+<h2>Ottawa Ankle &amp; Foot Rules</h2>
+<div class="sub" style="margin-bottom:8px">Whether an X-ray is indicated after an ankle/foot injury</div>
+<div class="card" style="margin-bottom:10px">
+  <div class="lbl" style="margin-bottom:4px">Ankle series</div>
+  <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-ottawa-mall-pain" onchange="calcOttawa()"> Pain in malleolar zone</label>
+  <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-ottawa-lat" onchange="calcOttawa()"> Tenderness — posterior edge/tip lateral malleolus</label>
+  <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-ottawa-med" onchange="calcOttawa()"> Tenderness — posterior edge/tip medial malleolus</label>
+  <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-ottawa-ankle-weight" onchange="calcOttawa()"> Unable to bear weight (4 steps), then &amp; now</label>
+  <div id="calc-ottawa-ankle-result" style="margin:8px 0;padding:8px;border-radius:8px;background:var(--surface-hover);text-align:center;font-size:13px;font-weight:600">Ankle X-ray not indicated</div>
+
+  <div class="lbl" style="margin:14px 0 4px">Foot series</div>
+  <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-ottawa-mid-pain" onchange="calcOttawa()"> Pain in midfoot zone</label>
+  <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-ottawa-5th" onchange="calcOttawa()"> Tenderness — base of 5th metatarsal</label>
+  <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-ottawa-nav" onchange="calcOttawa()"> Tenderness — navicular</label>
+  <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-ottawa-foot-weight" onchange="calcOttawa()"> Unable to bear weight (4 steps), then &amp; now</label>
+  <div id="calc-ottawa-foot-result" style="margin-top:8px;padding:8px;border-radius:8px;background:var(--surface-hover);text-align:center;font-size:13px;font-weight:600">Foot X-ray not indicated</div>
 </div>
 </div>
 
@@ -7222,6 +7394,64 @@ const TUTORING_SCHEDULE = {
   ]
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Cross-domain insight (Home) — auto-surfaces a correlation between data
+// already tracked separately (sleep, training load, revision completion)
+// instead of making Phil eyeball each tab and spot the pattern himself.
+// Only speaks up when a comparison has enough days on both sides (≥4) and a
+// gap worth mentioning (≥8 percentage points) — otherwise stays silent
+// rather than reporting noise as a pattern.
+// ═══════════════════════════════════════════════════════════════════════════
+function computeCrossDomainInsight() {
+  if (typeof _healthValueOnDate !== 'function' || typeof getRevLog !== 'function') return null;
+  const days = [];
+  for (let i = 1; i <= 30; i++) { // yesterday back 30 days — skip today, it's still incomplete
+    const d = new Date(); d.setDate(d.getDate() - i);
+    days.push(d.toLocaleDateString('en-CA'));
+  }
+  const revLog = getRevLog();
+  const trainMinByDate = {};
+  (_acts || []).forEach(a => {
+    const d = (a.start_local || '').slice(0, 10);
+    const mins = (a.summary && a.summary.moving_time || 0) / 60;
+    if (d) trainMinByDate[d] = (trainMinByDate[d] || 0) + mins;
+  });
+
+  const rows = days.map(d => {
+    const sleepHours = _healthValueOnDate('sleep_analysis', d);
+    const rev = revLog[d];
+    const revPct = rev ? Math.min(1, ((rev.anki || 0) / REV_ANKI_TARGET + (rev.pm || 0) / REV_PM_TARGET) / 2) : null;
+    return { date: d, sleepHours, revPct, trainMin: trainMinByDate[d] || 0 };
+  });
+
+  const splitAvg = (arr, predicate) => {
+    const yes = arr.filter(r => r.revPct != null && predicate(r) === true).map(r => r.revPct);
+    const no  = arr.filter(r => r.revPct != null && predicate(r) === false).map(r => r.revPct);
+    if (yes.length < 4 || no.length < 4) return null;
+    return { yesAvg: _avg(yes), noAvg: _avg(no), yesN: yes.length, noN: no.length };
+  };
+
+  const candidates = [];
+  const sleepRows = rows.filter(r => r.sleepHours != null);
+  const sleepSplit = splitAvg(sleepRows, r => r.sleepHours < 6);
+  if (sleepSplit) {
+    candidates.push({
+      diff: Math.abs(sleepSplit.yesAvg - sleepSplit.noAvg),
+      text: `On nights under 6h sleep, you hit ${Math.round(sleepSplit.yesAvg * 100)}% of your Anki/PassMed targets on average — vs ${Math.round(sleepSplit.noAvg * 100)}% on better-slept days (last 30 days, ${sleepSplit.yesN} vs ${sleepSplit.noN} nights).`
+    });
+  }
+  const trainSplit = splitAvg(rows, r => r.trainMin >= 60);
+  if (trainSplit) {
+    candidates.push({
+      diff: Math.abs(trainSplit.yesAvg - trainSplit.noAvg),
+      text: `On days with 60+ min of training, Anki/PassMed completion averages ${Math.round(trainSplit.yesAvg * 100)}% — vs ${Math.round(trainSplit.noAvg * 100)}% on lighter days (last 30 days, ${trainSplit.yesN} vs ${trainSplit.noN} days).`
+    });
+  }
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => b.diff - a.diff);
+  return candidates[0].diff >= 0.08 ? candidates[0].text : null;
+}
+
 let _briefingOffset = 0;
 
 function briefingNav(dir, reset) {
@@ -7304,6 +7534,18 @@ function renderDailyBriefing() {
     revHtml += `<div style="font-size:13px;color:#9ca3af">Revision starts ${REV_START.toLocaleDateString('en-GB', {day:'numeric',month:'short'})}</div>`;
   }
   sections.push(`<div style="${sectionStyle}">${revHtml}</div>`);
+
+  // ── Cross-domain insight ────────────────────────────────────────────────
+  // Absolute "last 30 days" window regardless of which day is being viewed,
+  // so only compute/show it on today's real view — it wouldn't mean anything
+  // different when browsing +/- days, just be a distracting repeat.
+  if (isToday) {
+    let insight = null;
+    try { insight = computeCrossDomainInsight(); } catch (e) { console.warn('insight failed', e); }
+    if (insight) {
+      sections.push(`<div style="${sectionStyle}"><div style="${labelStyle}">💡 Insight</div><div style="font-size:13px;color:#374151;line-height:1.5">${insight}</div></div>`);
+    }
+  }
 
   // ── Finance ──────────────────────────────────────────────────────────────
   const fin = getFinance();
@@ -12122,6 +12364,153 @@ function renderSessionNotesSearch() {
       <div style="font-size:12px;color:#4b5563;margin-top:2px;line-height:1.4">${highlighted}</div>
     </div>`;
   }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Medicine → Calculators — quick-reference clinical scores for placement.
+// Standard published formulas (Wells, CURB-65, CHA2DS2-VASc, GCS, NEWS2,
+// Ottawa Ankle/Foot Rules); each recomputes live on input via onchange/oninput.
+// ═══════════════════════════════════════════════════════════════════════════
+let _calcWellsType = 'dvt';
+function setWellsType(t) {
+  _calcWellsType = t;
+  const dvtBtn = document.getElementById('calc-wells-btn-dvt'), peBtn = document.getElementById('calc-wells-btn-pe');
+  const dvtCrit = document.getElementById('calc-wells-dvt-crit'), peCrit = document.getElementById('calc-wells-pe-crit');
+  if (t === 'dvt') {
+    dvtBtn.style.background = '#1a1a1a'; dvtBtn.style.color = '#fff'; dvtBtn.style.border = 'none';
+    peBtn.style.background = 'var(--surface-hover)'; peBtn.style.color = 'var(--text-muted)'; peBtn.style.border = '1px solid var(--border-soft)';
+    dvtCrit.style.display = ''; peCrit.style.display = 'none';
+  } else {
+    peBtn.style.background = '#1a1a1a'; peBtn.style.color = '#fff'; peBtn.style.border = 'none';
+    dvtBtn.style.background = 'var(--surface-hover)'; dvtBtn.style.color = 'var(--text-muted)'; dvtBtn.style.border = '1px solid var(--border-soft)';
+    peCrit.style.display = ''; dvtCrit.style.display = 'none';
+  }
+  calcWells();
+}
+function calcWells() {
+  const chk = id => document.getElementById(id).checked;
+  let score, label, color;
+  if (_calcWellsType === 'dvt') {
+    score = 0;
+    ['calc-wells-dvt-cancer','calc-wells-dvt-paralysis','calc-wells-dvt-bedridden','calc-wells-dvt-tender',
+     'calc-wells-dvt-swollen','calc-wells-dvt-calf','calc-wells-dvt-pitting','calc-wells-dvt-collateral',
+     'calc-wells-dvt-prevdvt'].forEach(id => { if (chk(id)) score += 1; });
+    if (chk('calc-wells-dvt-altdx')) score -= 2;
+    if (score <= 0)      { label = 'DVT unlikely (≤0)'; color = '#6b9e7a'; }
+    else if (score <= 2) { label = 'Moderate probability (1–2)'; color = '#d97706'; }
+    else                 { label = 'DVT likely (≥3)'; color = '#c53030'; }
+  } else {
+    score = 0;
+    if (chk('calc-wells-pe-dvtsigns')) score += 3;
+    if (chk('calc-wells-pe-altdx'))    score += 3;
+    if (chk('calc-wells-pe-hr'))       score += 1.5;
+    if (chk('calc-wells-pe-immob'))    score += 1.5;
+    if (chk('calc-wells-pe-prevpe'))   score += 1.5;
+    if (chk('calc-wells-pe-haemoptysis')) score += 1;
+    if (chk('calc-wells-pe-malignancy'))  score += 1;
+    if (score <= 4)      { label = 'PE unlikely (≤4, two-tier)'; color = '#6b9e7a'; }
+    else                 { label = 'PE likely (>4, two-tier)'; color = '#c53030'; }
+  }
+  setH('calc-wells-result', `<div style="font-size:22px;font-weight:800;color:${color}">${score}</div><div style="font-size:13px;color:${color};font-weight:600">${label}</div>`);
+}
+
+function calcCurb65() {
+  const chk = id => document.getElementById(id).checked;
+  let score = 0;
+  ['calc-curb-confusion','calc-curb-urea','calc-curb-rr','calc-curb-bp','calc-curb-age'].forEach(id => { if (chk(id)) score += 1; });
+  let label, color;
+  if (score <= 1)      { label = 'Low severity — likely suitable for outpatient treatment'; color = '#6b9e7a'; }
+  else if (score === 2){ label = 'Moderate severity — consider hospital admission'; color = '#d97706'; }
+  else                 { label = 'High severity — hospitalise, consider ICU if 4–5'; color = '#c53030'; }
+  setH('calc-curb-result', `<div style="font-size:22px;font-weight:800;color:${color}">${score}</div><div style="font-size:13px;color:${color};font-weight:600">${label}</div>`);
+}
+
+function calcChadsVasc() {
+  const chk = id => document.getElementById(id).checked;
+  const age = parseFloat(document.getElementById('calc-chads-age').value) || 0;
+  let score = 0;
+  if (chk('calc-chads-chf')) score += 1;
+  if (chk('calc-chads-htn')) score += 1;
+  if (chk('calc-chads-dm')) score += 1;
+  if (chk('calc-chads-stroke')) score += 2;
+  if (chk('calc-chads-vasc')) score += 1;
+  const female = chk('calc-chads-female');
+  if (female) score += 1;
+  if (age >= 75) score += 2;
+  else if (age >= 65) score += 1;
+
+  // Female sex alone (no other risk factors) doesn't itself elevate stroke risk —
+  // guidelines treat that case the same as a male score of 0.
+  const femaleOnlyPoint = female && score === 1;
+  let label, color;
+  if (score === 0 || femaleOnlyPoint) { label = 'Low risk — anticoagulation not recommended'; color = '#6b9e7a'; }
+  else if (score === 1)               { label = 'Low-moderate — consider anticoagulation'; color = '#d97706'; }
+  else                                 { label = 'Anticoagulation recommended'; color = '#c53030'; }
+  setH('calc-chads-result', `<div style="font-size:22px;font-weight:800;color:${color}">${score}</div><div style="font-size:13px;color:${color};font-weight:600">${label}</div>`);
+}
+
+function calcGCS() {
+  const eye = parseInt(document.getElementById('calc-gcs-eye').value, 10);
+  const verbal = parseInt(document.getElementById('calc-gcs-verbal').value, 10);
+  const motor = parseInt(document.getElementById('calc-gcs-motor').value, 10);
+  const score = eye + verbal + motor;
+  let label, color;
+  if (score >= 13)      { label = 'Mild / normal (13–15)'; color = '#6b9e7a'; }
+  else if (score >= 9)  { label = 'Moderate (9–12)'; color = '#d97706'; }
+  else                  { label = 'Severe (≤8) — consider airway protection'; color = '#c53030'; }
+  setH('calc-gcs-result', `<div style="font-size:22px;font-weight:800;color:${color}">${score}</div><div style="font-size:13px;color:${color};font-weight:600">${label} <span style="color:#9ca3af;font-weight:400">(E${eye}V${verbal}M${motor})</span></div>`);
+}
+
+function calcNews2() {
+  const rrEl = document.getElementById('calc-news-rr'), spo2El = document.getElementById('calc-news-spo2'),
+        sbpEl = document.getElementById('calc-news-sbp'), pulseEl = document.getElementById('calc-news-pulse'),
+        tempEl = document.getElementById('calc-news-temp');
+  const rr = rrEl.value === '' ? null : parseFloat(rrEl.value);
+  const spo2 = spo2El.value === '' ? null : parseFloat(spo2El.value);
+  const sbp = sbpEl.value === '' ? null : parseFloat(sbpEl.value);
+  const pulse = pulseEl.value === '' ? null : parseFloat(pulseEl.value);
+  const temp = tempEl.value === '' ? null : parseFloat(tempEl.value);
+  const onO2 = document.getElementById('calc-news-o2').checked;
+  const cvpu = document.getElementById('calc-news-avpu').value === 'cvpu';
+
+  if (rr == null && spo2 == null && sbp == null && pulse == null && temp == null) {
+    setH('calc-news-result', `<div style="font-size:12px;color:#9ca3af">Enter observations above</div>`);
+    return;
+  }
+  const scoreRR = v => v == null ? 0 : v <= 8 ? 3 : v <= 11 ? 1 : v <= 20 ? 0 : v <= 24 ? 2 : 3;
+  const scoreSpo2 = v => v == null ? 0 : v <= 91 ? 3 : v <= 93 ? 2 : v <= 95 ? 1 : 0;
+  const scoreSBP = v => v == null ? 0 : v <= 90 ? 3 : v <= 100 ? 2 : v <= 110 ? 1 : v <= 219 ? 0 : 3;
+  const scorePulse = v => v == null ? 0 : v <= 40 ? 3 : v <= 50 ? 1 : v <= 90 ? 0 : v <= 110 ? 1 : v <= 130 ? 2 : 3;
+  const scoreTemp = v => v == null ? 0 : v <= 35.0 ? 3 : v <= 36.0 ? 1 : v <= 38.0 ? 0 : v <= 39.0 ? 1 : 2;
+
+  const parts = {
+    rr: scoreRR(rr), spo2: scoreSpo2(spo2), o2: onO2 ? 2 : 0,
+    sbp: scoreSBP(sbp), pulse: scorePulse(pulse), avpu: cvpu ? 3 : 0, temp: scoreTemp(temp)
+  };
+  const score = Object.values(parts).reduce((a, b) => a + b, 0);
+  const anyThree = Object.values(parts).some(v => v === 3);
+  let label, color;
+  if (score >= 7)             { label = 'High risk — emergency response, consider critical care'; color = '#c53030'; }
+  else if (score >= 5 || anyThree) { label = 'Medium risk — urgent ward-based response'; color = '#d97706'; }
+  else                         { label = 'Low risk — routine ward-based monitoring'; color = '#6b9e7a'; }
+  setH('calc-news-result', `<div style="font-size:22px;font-weight:800;color:${color}">${score}</div><div style="font-size:13px;color:${color};font-weight:600">${label}</div>`);
+}
+
+function calcOttawa() {
+  const chk = id => document.getElementById(id).checked;
+  const anklePain = chk('calc-ottawa-mall-pain');
+  const ankleIndicated = anklePain && (chk('calc-ottawa-lat') || chk('calc-ottawa-med') || chk('calc-ottawa-ankle-weight'));
+  const ankleEl = document.getElementById('calc-ottawa-ankle-result');
+  ankleEl.textContent = ankleIndicated ? 'Ankle X-ray indicated' : 'Ankle X-ray not indicated';
+  ankleEl.style.background = ankleIndicated ? '#fdecea' : 'var(--surface-hover)';
+  ankleEl.style.color = ankleIndicated ? '#c53030' : 'inherit';
+
+  const footPain = chk('calc-ottawa-mid-pain');
+  const footIndicated = footPain && (chk('calc-ottawa-5th') || chk('calc-ottawa-nav') || chk('calc-ottawa-foot-weight'));
+  const footEl = document.getElementById('calc-ottawa-foot-result');
+  footEl.textContent = footIndicated ? 'Foot X-ray indicated' : 'Foot X-ray not indicated';
+  footEl.style.background = footIndicated ? '#fdecea' : 'var(--surface-hover)';
+  footEl.style.color = footIndicated ? '#c53030' : 'inherit';
 }
 
 </script>
