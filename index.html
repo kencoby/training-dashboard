@@ -583,11 +583,6 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 </div>
 
 <div class="section">
-<h2>Activity Calendar</h2>
-<div class="card" id="whoop-activity-cal" style="padding:14px"></div>
-</div>
-
-<div class="section">
 <h2>Biomarkers</h2>
 <div class="card" id="whoop-biomarkers" style="padding:0 14px"></div>
 </div>
@@ -1194,7 +1189,6 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 
   <nav class="sub-tab-nav">
     <button class="sub-tab-btn active" data-subtab="med-signoffs">Signoffs</button>
-    <button class="sub-tab-btn" data-subtab="med-revschedule">Anki & PassMed</button>
     <button class="sub-tab-btn" data-subtab="med-assessments">Assessment Info</button>
     <button class="sub-tab-btn" data-subtab="med-calculators">Calculators</button>
   </nav>
@@ -1206,61 +1200,6 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
 <h2>Signoffs &amp; Training</h2>
 <div class="sub" style="margin-bottom:12px">Tap a section to expand. Sign off items permanently removes them.</div>
 <div id="accordions"></div>
-</div>
-
-  </div>
-
-  <div class="sub-tab-pane" id="sub-tab-med-revschedule">
-
-<!-- TODAY'S LOG -->
-<div class="section">
-<h2>Log Today</h2>
-<div class="card">
-  <div class="g2" style="margin-bottom:12px">
-    <div>
-      <div class="lbl" style="margin-bottom:6px">🃏 Anki Cards Done</div>
-      <input type="number" id="rev-anki-input" min="0" max="999" placeholder="0"
-        style="width:100%;font-size:22px;font-weight:700;border:1.5px solid #e5e7eb;border-radius:8px;padding:6px 10px;text-align:center;box-sizing:border-box">
-    </div>
-    <div>
-      <div class="lbl" style="margin-bottom:6px">📝 PassMed Qs Done</div>
-      <input type="number" id="rev-passmed-input" min="0" max="999" placeholder="0"
-        style="width:100%;font-size:22px;font-weight:700;border:1.5px solid #e5e7eb;border-radius:8px;padding:6px 10px;text-align:center;box-sizing:border-box">
-    </div>
-  </div>
-  <button onclick="logRevToday()" style="width:100%;background:#6b9e7a;color:#fff;border:none;border-radius:8px;padding:10px;font-size:14px;font-weight:600;cursor:pointer">Save Today's Progress</button>
-  <div id="rev-today-saved" style="font-size:12px;color:#6b9e7a;margin-top:8px;text-align:center;min-height:16px"></div>
-</div>
-</div>
-
-<!-- 7-DAY CHART -->
-<div class="section">
-<h2>Last 7 Days</h2>
-<div class="card">
-  <div id="rev-7day-chart" style="display:flex;gap:6px;align-items:flex-end;height:80px"></div>
-  <div style="display:flex;gap:16px;margin-top:8px;font-size:11px;color:#6b7280">
-    <span><span style="display:inline-block;width:10px;height:10px;background:#6b9e7a;border-radius:2px;margin-right:4px;vertical-align:middle"></span>Anki</span>
-    <span><span style="display:inline-block;width:10px;height:10px;background:#3b82f6;border-radius:2px;margin-right:4px;vertical-align:middle"></span>PassMed</span>
-  </div>
-</div>
-</div>
-
-<!-- PASSMED SYSTEM CHECKLIST -->
-<div class="section">
-<h2>PassMed System Checklist</h2>
-<div class="sub" style="margin-bottom:12px">Tick each system once you've worked through its PassMed question set.</div>
-<div id="rev-passmed-checklist"></div>
-</div>
-
-<!-- PASSMED CATEGORY PERFORMANCE -->
-<div class="section">
-<h2>PassMed Category Performance</h2>
-<div class="sub" style="margin-bottom:12px" id="pm-cat-updated">No snapshot yet</div>
-<div class="card">
-  <div id="pm-cat-chart"></div>
-  <button onclick="openPmCatForm()" id="pm-cat-edit-btn" style="width:100%;margin-top:12px;background:var(--surface-hover);color:var(--text-muted);border:1px solid var(--border-soft);border-radius:8px;padding:9px;font-size:13px;font-weight:600;cursor:pointer">📸 Update from PassMed snapshot</button>
-  <div id="pm-cat-form" style="display:none;margin-top:12px"></div>
-</div>
 </div>
 
   </div>
@@ -2837,7 +2776,7 @@ const SYNC_KEYS = [
   'activity_notes', 'daily_habits', 'habit_log', 'progress_log', 'monthly_km_goal', 'pb_log',
   'finance_data',
   'study_activity_log', 'finance_transactions', 'finance_accounts',
-  'rev_schedule_log', 'rev_passmed_done', 'tasks_priority', 'passmed_category_snapshots',
+  'rev_schedule_log', 'tasks_priority',
   'shopping_items',
   'notes_data',
   'mood_log', 'tutoring_log', 'habit_streaks', 'habit_reset_date'
@@ -3673,7 +3612,7 @@ const DAILY_HABITS = [
   { id: 'h-minoxidil',   label: 'Minoxidil',    group: 'Personal care' },
   { id: 'h-iron',        label: 'Iron tablet',  group: 'Personal care' },
   { id: 'h-skincare-pm', label: 'Skin care PM', group: 'Personal care' },
-  { id: 'h-water-plants', label: 'Water plants', group: 'Home' },
+  { id: 'h-water-plants', label: 'Checked plants', group: 'Home' },
 ];
 const HABIT_GROUP_ORDER = ['Tracked automatically', 'Study', 'Wellness', 'Personal care', 'Home'];
 
@@ -4581,221 +4520,11 @@ function getRevTopicForDate(d) {
 }
 
 function getRevLog() { try { return JSON.parse(localStorage.getItem('rev_schedule_log'))||{}; } catch { return {}; } }
-function saveRevLog(log) { localStorage.setItem('rev_schedule_log', JSON.stringify(log)); syncPush('rev_schedule_log', log); }
-function getRevPassmedDone() { try { return JSON.parse(localStorage.getItem('rev_passmed_done'))||{}; } catch { return {}; } }
-function saveRevPassmedDone(d) { localStorage.setItem('rev_passmed_done', JSON.stringify(d)); syncPush('rev_passmed_done', d); }
-
-function revDateKey(d) { return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
-function revTodayKey() { return revDateKey(new Date()); }
 
 function revCurrentWeekIdx() {
   const now = new Date(); now.setHours(0,0,0,0);
   const diff = Math.floor((now - REV_START) / 86400000);
   return Math.min(Math.max(0, Math.floor(diff / 7)), 5); // 6 weeks: Jul 26 – Aug 31
-}
-
-function logRevToday() {
-  const anki = parseInt(document.getElementById('rev-anki-input').value)||0;
-  const pm   = parseInt(document.getElementById('rev-passmed-input').value)||0;
-  const log  = getRevLog();
-  log[revTodayKey()] = { anki, pm };
-  saveRevLog(log);
-  // Wire into study streak so Anki/PassMed logging counts as a study day
-  if (anki > 0 || pm > 0) logStudyActivity();
-  const el = document.getElementById('rev-today-saved');
-  if (el) el.textContent = `✓ Saved — ${anki} Anki cards · ${pm} PassMed Qs`;
-  renderRev7DayChart();
-  if (typeof renderDailyBriefing === 'function') renderDailyBriefing();
-}
-
-function toggleRevPassmed(sysId) {
-  const done = getRevPassmedDone();
-  if (done[sysId]) delete done[sysId]; else done[sysId] = true;
-  saveRevPassmedDone(done);
-  renderRevPassmedChecklist();
-}
-
-function initRevSchedule() { seedPmCatIfEmpty(); renderRevSchedule(); }
-
-function renderRevSchedule() {
-  renderRev7DayChart();
-  renderRevPassmedChecklist();
-  renderPmCatChart();
-  // Pre-fill today's logged values
-  const td = getRevLog()[revTodayKey()];
-  const ai = document.getElementById('rev-anki-input');
-  const pi = document.getElementById('rev-passmed-input');
-  const si = document.getElementById('rev-today-saved');
-  if (td) {
-    if (ai) ai.value = td.anki;
-    if (pi) pi.value = td.pm;
-    if (si) si.textContent = `✓ Today: ${td.anki} Anki cards · ${td.pm} PassMed Qs`;
-  }
-}
-
-function renderRev7DayChart() {
-  const el = document.getElementById('rev-7day-chart');
-  if (!el) return;
-  const log = getRevLog();
-  const today = new Date(); today.setHours(0,0,0,0);
-  const days = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(today.getTime() - i * 86400000);
-    const e = log[revDateKey(d)] || { anki: 0, pm: 0 };
-    days.push({ label: ['Su','Mo','Tu','We','Th','Fr','Sa'][d.getDay()], anki: e.anki||0, pm: e.pm||0, isToday: i===0 });
-  }
-  const maxVal = Math.max(1, ...days.map(d => Math.max(d.anki, d.pm)));
-  el.innerHTML = days.map(d => `
-    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
-      <div style="display:flex;gap:1px;align-items:flex-end;height:60px;width:100%">
-        <div style="flex:1;background:#6b9e7a;border-radius:2px 2px 0 0;height:${Math.round((d.anki/maxVal)*60)}px;min-height:${d.anki?2:0}px"></div>
-        <div style="flex:1;background:#3b82f6;border-radius:2px 2px 0 0;height:${Math.round((d.pm/maxVal)*60)}px;min-height:${d.pm?2:0}px"></div>
-      </div>
-      <div style="font-size:10px;color:${d.isToday?'#374151':'#9ca3af'};font-weight:${d.isToday?'700':'400'}">${d.label}</div>
-    </div>`).join('');
-}
-
-function renderRevPassmedChecklist() {
-  const el = document.getElementById('rev-passmed-checklist');
-  if (!el) return;
-  const done  = getRevPassmedDone();
-  const total = UKMLA_SYSTEMS.length;
-  const ticked = UKMLA_SYSTEMS.filter(s => done[s.id]).length;
-  el.innerHTML = `
-    <div style="font-size:12px;color:#6b7280;margin-bottom:8px">${ticked} / ${total} systems completed</div>
-    <div style="background:#f3f4f6;border-radius:99px;height:7px;overflow:hidden;margin-bottom:14px">
-      <div style="background:#3b82f6;height:100%;width:${Math.round(ticked/total*100)}%;transition:width .3s"></div>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:3px">
-      ${UKMLA_SYSTEMS.map(s => `
-        <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;${done[s.id]?'background:#f0fdf4':''}" onclick="toggleRevPassmed('${s.id}');event.preventDefault()">
-          <input type="checkbox" ${done[s.id]?'checked':''} onclick="toggleRevPassmed('${s.id}');event.stopPropagation()" style="width:16px;height:16px;flex-shrink:0;cursor:pointer;accent-color:#3b82f6">
-          <span style="font-size:13px;${done[s.id]?'color:#6b9e7a;text-decoration:line-through':'color:#374151'}">${s.title}</span>
-        </label>`).join('')}
-    </div>`;
-}
-
-// ── PassMed Category Performance (manual snapshot tracker) ─────────────────
-// No public PassMed API and no live session access exists, so this is a
-// point-in-time snapshot: whenever you (or Claude, reading your screen with you
-// in a live session) look at PassMed's Performance → By category page, the
-// numbers get logged here. Because PassMed itself only shows your current
-// cumulative stats with no history, this becomes a trend the source site
-// doesn't give you.
-const PM_CAT_DEFAULT = ['Dermatology','Ear, nose and throat','Ethics and law','Medicine',
-  'Musculoskeletal','Obstetrics and gynaecology','Ophthalmology','Paediatrics',
-  'Pharmacology','Psychiatry','Statistics','Surgery'];
-
-function getPmCatSnapshots() { try { return JSON.parse(localStorage.getItem('passmed_category_snapshots'))||[]; } catch { return []; } }
-function savePmCatSnapshots(arr) { localStorage.setItem('passmed_category_snapshots', JSON.stringify(arr)); syncPush('passmed_category_snapshots', arr); }
-
-function seedPmCatIfEmpty() {
-  if (getPmCatSnapshots().length) return;
-  // Seeded from a live read of the user's PassMed "By category" chart on 2026-08-29.
-  // Values were read visually off an unlabeled bar chart (no numeric labels available),
-  // so treat as approximate — correct via "Update from PassMed snapshot" if needed.
-  savePmCatSnapshots([{ date: '2026-08-29', categories: [
-    { name: 'Dermatology', you: 67, avg: 57 },
-    { name: 'Ear, nose and throat', you: 100, avg: 59 },
-    { name: 'Ethics and law', you: 0, avg: 68 },
-    { name: 'Medicine', you: 62, avg: 60 },
-    { name: 'Musculoskeletal', you: 54, avg: 58 },
-    { name: 'Obstetrics and gynaecology', you: 67, avg: 59 },
-    { name: 'Ophthalmology', you: 50, avg: 59 },
-    { name: 'Paediatrics', you: 54, avg: 58 },
-    { name: 'Pharmacology', you: 80, avg: 55 },
-    { name: 'Psychiatry', you: 75, avg: 62 },
-    { name: 'Statistics', you: 100, avg: 50 },
-    { name: 'Surgery', you: 69, avg: 60 }
-  ]}]);
-}
-
-function renderPmCatChart() {
-  const el = document.getElementById('pm-cat-chart');
-  const upd = document.getElementById('pm-cat-updated');
-  if (!el) return;
-  const snaps = getPmCatSnapshots();
-  if (!snaps.length) {
-    el.innerHTML = `<div style="font-size:13px;color:var(--text-muted);text-align:center;padding:20px 0">No snapshot yet. Next time PassMed's "By category" page is open together, ask Claude to read it in — or tap "Update from PassMed snapshot" below to enter it yourself.</div>`;
-    if (upd) upd.textContent = 'No snapshot yet';
-    return;
-  }
-  const latest = snaps[snaps.length - 1];
-  const prev = snaps.length > 1 ? snaps[snaps.length - 2] : null;
-  if (upd) {
-    const days = Math.round((Date.now() - new Date(latest.date + 'T00:00:00').getTime()) / 86400000);
-    upd.textContent = `Last updated ${latest.date}${days > 0 ? ` (${days}d ago)` : ' (today)'} · weakest vs. peers first`;
-  }
-  const rows = [...latest.categories].sort((a, b) => (a.you - a.avg) - (b.you - b.avg));
-  el.innerHTML = rows.map(c => {
-    const prevC = prev ? prev.categories.find(p => p.name === c.name) : null;
-    const delta = prevC ? c.you - prevC.you : null;
-    const deltaColor = delta > 0 ? 'var(--accent-text)' : delta < 0 ? 'var(--danger)' : 'var(--text-muted)';
-    return `<div style="margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px;gap:8px">
-        <span style="font-size:12px;font-weight:600;color:var(--text)">${c.name}</span>
-        <span style="font-size:11px;color:var(--text-muted);white-space:nowrap;flex-shrink:0">${c.you}%${delta !== null && delta !== 0 ? ` <span style="color:${deltaColor}">${delta>0?'▲':'▼'}${Math.abs(delta)}</span>` : ''} <span style="opacity:.65">· avg ${c.avg}%</span></span>
-      </div>
-      <div style="position:relative;height:8px;background:var(--surface-hover);border-radius:99px;overflow:hidden">
-        <div style="position:absolute;left:0;top:0;bottom:0;width:${Math.min(100,Math.max(0,c.avg))}%;border-right:2px solid var(--border);opacity:.7"></div>
-        <div style="position:absolute;left:0;top:0;bottom:0;width:${Math.min(100,Math.max(0,c.you))}%;background:${c.you>=c.avg?'var(--accent)':'var(--primary)'};border-radius:99px"></div>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function openPmCatForm() {
-  const formEl = document.getElementById('pm-cat-form');
-  if (!formEl) return;
-  const willOpen = formEl.style.display === 'none';
-  if (!willOpen) { formEl.style.display = 'none'; return; }
-  const snaps = getPmCatSnapshots();
-  const latest = snaps.length ? snaps[snaps.length - 1].categories : PM_CAT_DEFAULT.map(name => ({ name, you: 0, avg: 0 }));
-  formEl.innerHTML = `
-    <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">Enter today's numbers from PassMed → Performance → By category.</div>
-    <div id="pm-cat-form-rows" style="display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto">
-      ${latest.map((c, i) => `
-        <div style="display:flex;gap:6px;align-items:center">
-          <input type="text" value="${c.name}" data-pmcat-name style="flex:2;font-size:12px;border:1px solid var(--border-soft);border-radius:6px;padding:5px 7px;min-width:0">
-          <input type="number" min="0" max="100" value="${c.you}" data-pmcat-you placeholder="You" style="flex:1;font-size:12px;border:1px solid var(--border-soft);border-radius:6px;padding:5px 7px;text-align:center;min-width:0">
-          <input type="number" min="0" max="100" value="${c.avg}" data-pmcat-avg placeholder="Avg" style="flex:1;font-size:12px;border:1px solid var(--border-soft);border-radius:6px;padding:5px 7px;text-align:center;min-width:0">
-        </div>`).join('')}
-    </div>
-    <button onclick="addPmCatRow()" style="width:100%;margin-top:8px;background:none;border:1px dashed var(--border);border-radius:6px;padding:6px;font-size:12px;color:var(--text-muted);cursor:pointer">+ Add category</button>
-    <button onclick="savePmCatForm()" style="width:100%;margin-top:8px;background:var(--primary);color:#fff;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:600;cursor:pointer">Save Snapshot</button>
-  `;
-  formEl.style.display = 'block';
-}
-
-function addPmCatRow() {
-  const rows = document.getElementById('pm-cat-form-rows');
-  if (!rows) return;
-  const div = document.createElement('div');
-  div.style.cssText = 'display:flex;gap:6px;align-items:center';
-  div.innerHTML = `
-    <input type="text" value="" data-pmcat-name placeholder="Category" style="flex:2;font-size:12px;border:1px solid var(--border-soft);border-radius:6px;padding:5px 7px;min-width:0">
-    <input type="number" min="0" max="100" value="" data-pmcat-you placeholder="You" style="flex:1;font-size:12px;border:1px solid var(--border-soft);border-radius:6px;padding:5px 7px;text-align:center;min-width:0">
-    <input type="number" min="0" max="100" value="" data-pmcat-avg placeholder="Avg" style="flex:1;font-size:12px;border:1px solid var(--border-soft);border-radius:6px;padding:5px 7px;text-align:center;min-width:0">`;
-  rows.appendChild(div);
-}
-
-function savePmCatForm() {
-  const rows = document.getElementById('pm-cat-form-rows');
-  if (!rows) return;
-  const categories = Array.from(rows.children).map(row => {
-    const name = row.querySelector('[data-pmcat-name]').value.trim();
-    const you  = Math.min(100, Math.max(0, parseInt(row.querySelector('[data-pmcat-you]').value) || 0));
-    const avg  = Math.min(100, Math.max(0, parseInt(row.querySelector('[data-pmcat-avg]').value) || 0));
-    return { name, you, avg };
-  }).filter(c => c.name);
-  if (!categories.length) return;
-  const snaps = getPmCatSnapshots();
-  const today = revDateKey(new Date());
-  const idx = snaps.findIndex(s => s.date === today);
-  if (idx >= 0) snaps[idx] = { date: today, categories }; else snaps.push({ date: today, categories });
-  savePmCatSnapshots(snaps);
-  document.getElementById('pm-cat-form').style.display = 'none';
-  renderPmCatChart();
 }
 
 // ── Training Calendar ───────────────────────────────────────────────────────
@@ -9436,9 +9165,6 @@ if (initialised['fin-income']) initFinanceIncome(); else pendingCharts['fin-inco
 if (initialised['fin-investments']) initFinanceInvestments(); else pendingCharts['fin-investments'] = initFinanceInvestments;
 if (initialised['fin-statements']) initFinanceStatements(); else pendingCharts['fin-statements'] = initFinanceStatements;
 
-// ── Revision Schedule lazy init ──────────────────────────────────────────────
-if (initialised['med-revschedule']) initRevSchedule(); else pendingCharts['med-revschedule'] = initRevSchedule;
-
 // ── Weight trend lazy init ──────────────────────────────────────────────────
 if (initialised.dashboard) renderWeightTrend(); else pendingCharts.dashboard = renderWeightTrend;
 
@@ -10413,7 +10139,6 @@ function renderWhoopMonitor() {
 // ── Fitness Sub-Tab ───────────────────────────────────────────────────────────
 function renderFitnessSubTab() {
   renderActivity30DaySummary();
-  renderActivityCalendar();
   renderBiomarkersSection();
   renderCardioFocus();
 }
@@ -10457,58 +10182,6 @@ function renderActivity30DaySummary() {
       </div>
     </div>
   `);
-}
-
-function renderActivityCalendar() {
-  const now = new Date(); now.setHours(0,0,0,0);
-  const countMap = {};
-  (_acts||[]).forEach(a => { const d = a.start_local.slice(0,10); countMap[d] = (countMap[d]||0) + 1; });
-
-  // Build 5 weeks from most recent Monday before 5 weeks ago
-  const startD = new Date(now);
-  startD.setDate(startD.getDate() - 34);
-  const dow = startD.getDay();
-  startD.setDate(startD.getDate() - (dow===0?6:dow-1));
-
-  const weeks = [];
-  const cur = new Date(startD);
-  while (weeks.length < 6 && cur <= new Date(now.getTime() + 7*864e5)) {
-    const week = [];
-    for (let i = 0; i < 7; i++) {
-      const dStr = cur.toLocaleDateString('en-CA');
-      week.push({ dStr, count: countMap[dStr]||0, isFuture: cur > now, day: cur.getDate(), month: cur.getMonth() });
-      cur.setDate(cur.getDate()+1);
-    }
-    weeks.push(week);
-    if (cur > now && weeks.length >= 5) break;
-  }
-
-  const cellBg = (count, isFuture) => isFuture ? '#f5f5f5' : !count ? '#e8e8e8' : count===1 ? '#bbf7d0' : count===2 ? '#4ade80' : '#16a34a';
-  const cellTxt = (count) => count >= 2 ? '#fff' : '#aaa';
-
-  const dayLabels = ['M','T','W','T','F','S','S'];
-  const hdr = `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:4px">
-    ${dayLabels.map(d=>`<div style="font-size:9px;color:#bbb;text-align:center">${d}</div>`).join('')}
-  </div>`;
-
-  const grid = weeks.map(week => `
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:3px">
-      ${week.map(({dStr,count,isFuture,day,month}) => {
-        const types = (_acts||[]).filter(a=>a.start_local.slice(0,10)===dStr).map(a=>EMOJI[a.sport_type]||'🏃').join(' ');
-        const tip = `${dStr}: ${count} workout${count!==1?'s':''}${types?' — '+types:''}`;
-        return `<div title="${tip}" style="aspect-ratio:1;border-radius:3px;background:${cellBg(count,isFuture)};display:flex;align-items:center;justify-content:center;font-size:8px;color:${cellTxt(count)}">${day}</div>`;
-      }).join('')}
-    </div>
-  `).join('');
-
-  const legend = `<div style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:10px;color:#aaa">
-    <span>0</span>
-    ${['#e8e8e8','#bbf7d0','#4ade80','#16a34a'].map(c=>`<span style="width:12px;height:12px;border-radius:2px;background:${c};display:inline-block;flex-shrink:0"></span>`).join('')}
-    <span>3+</span>
-    <span style="margin-left:auto;color:#bbb">activities/day</span>
-  </div>`;
-
-  setH('whoop-activity-cal', hdr + grid + legend);
 }
 
 function toggleBioRow(id) {
@@ -10831,7 +10504,7 @@ function applySyncUpdates(updated) {
   if (updated.includes('study_activity_log')) safe(renderStudyStreak);
   if (updated.includes('finance_data')) safe(() => { renderFinanceOverview(); renderFinanceIncomeExpenses(); renderFinanceDashboardCard(); });
   if (updated.includes('finance_transactions') || updated.includes('finance_accounts')) safe(refreshFinanceFromTransactions);
-  if (updated.includes('rev_schedule_log') || updated.includes('rev_passmed_done') || updated.includes('passmed_category_snapshots')) safe(renderRevSchedule);
+  if (updated.includes('rev_schedule_log')) safe(() => { renderDailyBriefing(); if (typeof renderExamCountdown === 'function') renderExamCountdown(); });
   if (updated.includes('tasks_priority')) safe(renderTasks);
   if (updated.includes('shopping_items')) safe(renderShopping);
   if (updated.includes('notes_data')) safe(renderNotes);
@@ -10878,8 +10551,8 @@ function computeReadinessScore() {
   const todayHrv  = _healthLatest('heart_rate_variability', 1);
   let hrvScore = 50;
   if (todayHrv != null && hrvSeries.length > 5) {
-    const baseline = _avg(hrvSeries);
-    const pct = todayHrv / baseline;
+    const baseline = _avg(hrvSeries.map(p => p.value));
+    const pct = todayHrv.value / baseline;
     if (pct >= 1.1)       hrvScore = 100;
     else if (pct >= 1.0)  hrvScore = 85;
     else if (pct >= 0.9)  hrvScore = 65;
@@ -10892,8 +10565,8 @@ function computeReadinessScore() {
   const todayRhr  = _healthLatest('resting_heart_rate', 1);
   let rhrScore = 50;
   if (todayRhr != null && rhrSeries.length > 5) {
-    const baseline = _avg(rhrSeries);
-    const diff = todayRhr - baseline;
+    const baseline = _avg(rhrSeries.map(p => p.value));
+    const diff = todayRhr.value - baseline;
     if (diff <= -3)       rhrScore = 100;
     else if (diff <= 0)   rhrScore = 80;
     else if (diff <= 3)   rhrScore = 55;
@@ -10909,7 +10582,7 @@ function computeReadinessScore() {
   if (typeof computeSleepForDate === 'function') {
     const sd = computeSleepForDate(yStr);
     if (sd && sd.totalSleep != null) {
-      const hrs = sd.totalSleep / 3600;
+      const hrs = sd.totalSleep; // totalSleep is already in hours (see computeSleepForDate)
       if (hrs >= 8)       sleepScore = 100;
       else if (hrs >= 7)  sleepScore = 80;
       else if (hrs >= 6)  sleepScore = 55;
@@ -10923,8 +10596,8 @@ function computeReadinessScore() {
   const skinSeries = _healthSeries('skin_temperature', 30);
   let tempScore = 70;
   if (skinTemp != null && skinSeries.length > 5) {
-    const baseline = _avg(skinSeries);
-    const dev = Math.abs(skinTemp - baseline);
+    const baseline = _avg(skinSeries.map(p => p.value));
+    const dev = Math.abs(skinTemp.value - baseline);
     if (dev <= 0.2)  tempScore = 100;
     else if (dev <= 0.5) tempScore = 70;
     else if (dev <= 1.0) tempScore = 40;
