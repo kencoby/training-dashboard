@@ -2049,6 +2049,17 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
     <button onclick="rsvpNudge(10)" title="Forward 10 words" style="background:var(--surface-hover);border:none;border-radius:99px;width:38px;height:38px;font-size:15px;cursor:pointer">⏭</button>
   </div>
 
+  <div style="margin-bottom:10px">
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer">
+      <input type="checkbox" id="rsvp-voice-toggle" onchange="rsvpToggleVoiceMode(this.checked)" style="cursor:pointer">
+      🔊 Read aloud — voice follows the flashing word
+    </label>
+  </div>
+  <div id="rsvp-voice-row" style="display:none;align-items:center;gap:8px;margin-bottom:14px">
+    <span style="font-size:11px;color:var(--text-muted);white-space:nowrap">Voice</span>
+    <select id="rsvp-voice-select" onchange="rsvpVoiceSelected(this.value)" style="flex:1;font-size:12px;border:1px solid var(--border-soft);border-radius:6px;padding:4px 8px;font-family:inherit;min-width:0"></select>
+  </div>
+
   <div style="display:flex;align-items:center;gap:10px">
     <span style="font-size:11px;color:var(--text-muted);white-space:nowrap">Speed</span>
     <input type="range" id="rsvp-speed-slider" min="150" max="700" step="25" value="300" oninput="rsvpSetSpeed(this.value)" style="flex:1">
@@ -3408,14 +3419,41 @@ function saveReadingLibrary(lib) {
 let _rsvpActiveBookId = null;
 let _rsvpTimer = null;
 let _rsvpPlaying = false;
-let _rsvpWords = [];   // current chapter's tokens (words + paragraph-break sentinels)
+let _rsvpWords = [];         // current chapter's tokens (words + paragraph-break sentinels)
+let _rsvpWordOffsets = [];   // char offset of each real word in _rsvpChapterRawText (null for sentinels)
+let _rsvpChapterRawText = '';
 let _rsvpWordIdx = 0;
 let _rsvpChapterIdx = 0;
+let _rsvpVoiceEnabled = false;
+let _rsvpVoicesList = [];
 const RSVP_PARA_BREAK = '¶PARA¶';
 
-function _rsvpTokenize(text) {
-  return text.replace(/\r\n/g, '\n').replace(/\n{2,}/g, ` ${RSVP_PARA_BREAK} `).replace(/\n/g, ' ')
-    .split(/\s+/).filter(Boolean);
+// Tokenizes into words + paragraph-break sentinels (for the flash display) while
+// also recording each real word's character offset in the original text — the
+// offsets are what let read-aloud mode (below) map a speech "boundary" event
+// back to a word index, so the flashing highlight can track along with speech.
+function _rsvpTokenizeFull(text) {
+  const norm = (text || '').replace(/\r\n/g, '\n');
+  const words = [], offsets = [];
+  const re = /\S+/g;
+  let m, lastEnd = 0;
+  while ((m = re.exec(norm))) {
+    if (words.length && /\n[ \t]*\n/.test(norm.slice(lastEnd, m.index))) { words.push(RSVP_PARA_BREAK); offsets.push(null); }
+    words.push(m[0]); offsets.push(m.index);
+    lastEnd = re.lastIndex;
+  }
+  return { words, offsets, text: norm };
+}
+function _rsvpTokenize(text) { return _rsvpTokenizeFull(text).words; }
+
+function _rsvpWordIndexForOffset(offset) {
+  let best = null;
+  for (let i = 0; i < _rsvpWordOffsets.length; i++) {
+    const o = _rsvpWordOffsets[i];
+    if (o == null) continue;
+    if (o <= offset) best = i; else break;
+  }
+  return best;
 }
 
 // ── Upload / parsing ─────────────────────────────────────────────────────────
@@ -3601,6 +3639,13 @@ function rsvpOpenBook(id) {
   const wpm = book.wpm || 300;
   document.getElementById('rsvp-speed-slider').value = wpm;
   document.getElementById('rsvp-speed-label').textContent = `${wpm} wpm`;
+  const vSettings = getRsvpVoiceSettings();
+  _rsvpVoiceEnabled = !!vSettings.enabled && typeof speechSynthesis !== 'undefined';
+  const voiceCb = document.getElementById('rsvp-voice-toggle');
+  if (voiceCb) voiceCb.checked = _rsvpVoiceEnabled;
+  const voiceRow = document.getElementById('rsvp-voice-row');
+  if (voiceRow) voiceRow.style.display = _rsvpVoiceEnabled ? 'flex' : 'none';
+  _rsvpPopulateVoices();
   rsvpLoadChapter(book.position.chapter || 0, book.position.word || 0);
 }
 
@@ -3608,8 +3653,12 @@ function rsvpLoadChapter(chapterIdx, wordIdx) {
   const book = _rsvpBook();
   if (!book || !book.chapters[chapterIdx]) return;
   if (_rsvpTimer) { clearTimeout(_rsvpTimer); _rsvpTimer = null; }
+  if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
   _rsvpChapterIdx = chapterIdx;
-  _rsvpWords = _rsvpTokenize(book.chapters[chapterIdx].text);
+  const tok = _rsvpTokenizeFull(book.chapters[chapterIdx].text);
+  _rsvpWords = tok.words;
+  _rsvpWordOffsets = tok.offsets;
+  _rsvpChapterRawText = tok.text;
   _rsvpWordIdx = Math.min(wordIdx || 0, Math.max(0, _rsvpWords.length - 1));
   const sel = document.getElementById('rsvp-chapter-select');
   if (sel) sel.value = chapterIdx;
@@ -3681,6 +3730,82 @@ function rsvpSetSpeed(v) {
   if (label) label.textContent = `${v} wpm`;
   rsvpUpdateProgressUI();
   rsvpSaveProgress();
+  // Web Speech API can't change rate mid-utterance — restart from the current word.
+  if (_rsvpPlaying && _rsvpVoiceEnabled) { speechSynthesis.cancel(); rsvpVoiceSpeakFrom(_rsvpWordIdx); }
+}
+
+// ── Read-aloud (Web Speech API) ─────────────────────────────────────────────
+// Optional, additive to the flash display — when enabled, the browser's
+// built-in text-to-speech reads the chapter aloud, and the word highlight
+// follows along using the speech engine's own word-boundary events rather
+// than a fixed timer, so the flash tracks real speech rhythm.
+function getRsvpVoiceSettings() { try { return JSON.parse(localStorage.getItem('rsvp_voice_settings')) || {}; } catch { return {}; } }
+function saveRsvpVoiceSettings(s) { try { localStorage.setItem('rsvp_voice_settings', JSON.stringify(s)); } catch {} }
+
+function _rsvpPopulateVoices() {
+  if (typeof speechSynthesis === 'undefined') return;
+  _rsvpVoicesList = speechSynthesis.getVoices();
+  const sel = document.getElementById('rsvp-voice-select');
+  if (!sel || !_rsvpVoicesList.length) return;
+  const settings = getRsvpVoiceSettings();
+  sel.innerHTML = _rsvpVoicesList.map(v => `<option value="${escHtml(v.voiceURI)}">${escHtml(v.name)} (${escHtml(v.lang)})</option>`).join('');
+  if (settings.voiceURI && _rsvpVoicesList.some(v => v.voiceURI === settings.voiceURI)) sel.value = settings.voiceURI;
+  else { settings.voiceURI = _rsvpVoicesList[0].voiceURI; saveRsvpVoiceSettings(settings); }
+}
+
+function rsvpToggleVoiceMode(checked) {
+  rsvpPause();
+  _rsvpVoiceEnabled = checked;
+  const settings = getRsvpVoiceSettings();
+  settings.enabled = checked;
+  saveRsvpVoiceSettings(settings);
+  const voiceRow = document.getElementById('rsvp-voice-row');
+  if (voiceRow) voiceRow.style.display = checked ? 'flex' : 'none';
+}
+
+function rsvpVoiceSelected(uri) {
+  const settings = getRsvpVoiceSettings();
+  settings.voiceURI = uri;
+  saveRsvpVoiceSettings(settings);
+}
+
+function rsvpVoiceSpeakFrom(wordIdx) {
+  const startOffset = _rsvpWordOffsets[wordIdx] != null ? _rsvpWordOffsets[wordIdx] : 0;
+  const textToSpeak = _rsvpChapterRawText.slice(startOffset);
+  if (!textToSpeak.trim()) { rsvpVoiceHandleChapterEnd(); return; }
+  const utter = new SpeechSynthesisUtterance(textToSpeak);
+  const settings = getRsvpVoiceSettings();
+  const voice = _rsvpVoicesList.find(v => v.voiceURI === settings.voiceURI);
+  if (voice) utter.voice = voice;
+  const wpm = parseInt(document.getElementById('rsvp-speed-slider')?.value) || 300;
+  // ~160 wpm is a natural rate=1.0 pace for most engines; clamp so speech stays intelligible
+  // even when the flash speed itself is set much higher than natural speaking pace.
+  utter.rate = Math.max(0.6, Math.min(2.5, wpm / 160));
+  utter.onboundary = (e) => {
+    if (e.name && e.name !== 'word') return;
+    const idx = _rsvpWordIndexForOffset(startOffset + e.charIndex);
+    if (idx != null && idx > _rsvpWordIdx) {
+      _rsvpWordIdx = idx;
+      rsvpRenderCurrentWord();
+      rsvpUpdateProgressUI();
+      if (_rsvpWordIdx % 10 === 0) rsvpSaveProgress();
+    }
+  };
+  utter.onend = () => { if (_rsvpPlaying) rsvpVoiceHandleChapterEnd(); };
+  utter.onerror = () => { rsvpPause(); };
+  speechSynthesis.speak(utter);
+}
+
+function rsvpVoiceHandleChapterEnd() {
+  const book = _rsvpBook();
+  if (book && _rsvpChapterIdx < book.chapters.length - 1) {
+    rsvpLoadChapter(_rsvpChapterIdx + 1, 0);
+    if (_rsvpPlaying) rsvpVoiceSpeakFrom(0);
+  } else {
+    _rsvpWordIdx = Math.max(0, _rsvpWords.length - 1);
+    rsvpPause();
+    rsvpRenderCurrentWord();
+  }
 }
 
 function rsvpSaveProgress() {
@@ -3703,12 +3828,14 @@ function rsvpPlay() {
   _rsvpPlaying = true;
   const btn = document.getElementById('rsvp-play-btn');
   if (btn) btn.textContent = '⏸️';
-  rsvpScheduleNext();
+  if (_rsvpVoiceEnabled && typeof speechSynthesis !== 'undefined') rsvpVoiceSpeakFrom(_rsvpWordIdx);
+  else rsvpScheduleNext();
 }
 
 function rsvpPause() {
   _rsvpPlaying = false;
   if (_rsvpTimer) { clearTimeout(_rsvpTimer); _rsvpTimer = null; }
+  if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
   const btn = document.getElementById('rsvp-play-btn');
   if (btn) btn.textContent = '▶️';
   rsvpSaveProgress();
@@ -3752,6 +3879,19 @@ function rsvpScheduleNext() {
 // Pause (and save position) if the tab is hidden or the page is closed mid-read
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && _rsvpPlaying) rsvpPause(); });
 window.addEventListener('beforeunload', () => { if (_rsvpActiveBookId) rsvpSaveProgress(); });
+
+// Chrome loads the voice list asynchronously — populate now and again once it's ready.
+// If the browser has no speech synthesis at all, disable the toggle rather than let
+// it silently do nothing.
+if (typeof speechSynthesis !== 'undefined') {
+  speechSynthesis.onvoiceschanged = _rsvpPopulateVoices;
+  _rsvpPopulateVoices();
+} else {
+  document.addEventListener('DOMContentLoaded', () => {
+    const cb = document.getElementById('rsvp-voice-toggle');
+    if (cb) { cb.disabled = true; cb.closest('label').title = 'Not supported in this browser'; }
+  });
+}
 
 function clearCompletedTasks() {
   const remaining = getTasks().filter(t => !t.done);
