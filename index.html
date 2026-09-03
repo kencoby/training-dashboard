@@ -11,6 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Training">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -223,6 +224,26 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
   text-align:left;cursor:pointer;border-radius:10px}
 .more-item:active{background:var(--surface-hover)}
 .more-item.active{background:var(--primary-soft);color:var(--primary-text);border-bottom-color:transparent}
+
+/* ── RSVP Reader ─────────────────────────────────────────────────────────── */
+.rsvp-stage{position:relative;display:flex;align-items:baseline;justify-content:center;
+  height:64px;font-size:38px;font-weight:700;letter-spacing:-.5px;font-family:'Inter',system-ui,sans-serif;
+  user-select:none;overflow:hidden}
+.rsvp-left{flex:1;text-align:right;white-space:pre;color:var(--text)}
+.rsvp-pivot{color:var(--primary);white-space:pre}
+.rsvp-right{flex:1;text-align:left;white-space:pre;color:var(--text)}
+.rsvp-guide{position:absolute;left:50%;width:1px;background:var(--border);transform:translateX(-.5px)}
+.rsvp-guide.top{top:0;height:12px}
+.rsvp-guide.bottom{bottom:0;height:12px}
+.book-card{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border-soft);
+  border-radius:var(--radius-md);margin-bottom:8px;cursor:pointer;transition:border-color .15s var(--ease)}
+.book-card:hover{border-color:var(--border)}
+.book-card-progress{height:4px;background:var(--surface-hover);border-radius:99px;overflow:hidden;margin-top:6px}
+.book-card-progress-fill{height:100%;background:var(--accent);border-radius:99px}
+.rsvp-upload-label{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+  border:1.5px dashed var(--border);border-radius:var(--radius-md);padding:16px;font-size:13px;
+  font-weight:600;color:var(--text-muted);cursor:pointer;transition:border-color .15s var(--ease)}
+.rsvp-upload-label:hover{border-color:var(--primary);color:var(--primary-text)}
 </style>
 </head>
 <body>
@@ -276,6 +297,7 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
   <button class="more-item tab-btn" data-tab="notes">📝 Notes</button>
   <button class="more-item tab-btn" data-tab="habits">🔥 Habits</button>
   <button class="more-item tab-btn" data-tab="year4">📅 Year 4</button>
+  <button class="more-item tab-btn" data-tab="reading">📖 Reading</button>
 </div>
 
 <!-- Goal modal -->
@@ -309,6 +331,7 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
     <button class="tab-btn" data-tab="notes">📝 Notes</button>
     <button class="tab-btn" data-tab="habits">🔥 Habits</button>
     <button class="tab-btn" data-tab="year4">📅 Year 4</button>
+    <button class="tab-btn" data-tab="reading">📖 Reading</button>
   </nav>
   <div style="position:absolute;top:0;right:0;bottom:2px;width:32px;
     background:linear-gradient(to right,transparent,#f2f2ee);
@@ -1971,6 +1994,77 @@ h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
   </div>
 </div><!-- /tab-calendar -->
 
+<div class="tab-pane" id="tab-reading">
+
+<!-- LIBRARY VIEW -->
+<div id="rsvp-library-view">
+
+<div class="section">
+<h2>Reading — RSVP Speed Reader</h2>
+<div class="sub" style="margin-bottom:12px">Upload an EPUB, PDF, or plain-text book and read it flashed one word at a time. Books and progress are stored on this device only — not synced across devices.</div>
+<label class="rsvp-upload-label">
+  <span>📖 Add a book (.epub, .pdf, .txt)</span>
+  <input type="file" id="rsvp-file-input" accept=".epub,.pdf,.txt" multiple style="display:none" onchange="handleBookUpload(this.files)">
+</label>
+<div id="rsvp-upload-status" style="font-size:12px;color:var(--text-muted);margin-top:8px;min-height:16px"></div>
+</div>
+
+<div class="section">
+<h2>Your Library</h2>
+<div class="card" style="padding:10px">
+  <div id="rsvp-library-list"></div>
+</div>
+</div>
+
+</div><!-- /rsvp-library-view -->
+
+<!-- READER VIEW -->
+<div id="rsvp-reader-view" style="display:none">
+
+<div class="section" style="margin-bottom:14px">
+  <button onclick="rsvpCloseBook()" style="background:none;border:none;color:var(--text-muted);font-size:13px;font-weight:600;cursor:pointer;padding:0">← Library</button>
+</div>
+
+<div class="section">
+<div class="card" style="padding:20px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+    <div id="rsvp-book-title" style="font-size:14px;font-weight:700"></div>
+    <select id="rsvp-chapter-select" onchange="rsvpJumpToChapter(this.value)" style="font-size:12px;border:1px solid var(--border-soft);border-radius:6px;padding:4px 8px;font-family:inherit;max-width:45%"></select>
+  </div>
+  <div class="sub" id="rsvp-progress-text" style="margin-bottom:14px">—</div>
+
+  <div class="rsvp-stage" id="rsvp-stage">
+    <span class="rsvp-guide top"></span>
+    <span class="rsvp-left" id="rsvp-left"></span><span class="rsvp-pivot" id="rsvp-pivot"></span><span class="rsvp-right" id="rsvp-right"></span>
+    <span class="rsvp-guide bottom"></span>
+  </div>
+
+  <div class="book-card-progress" style="margin:16px 0 18px">
+    <div class="book-card-progress-fill" id="rsvp-chapter-progress-fill" style="width:0%"></div>
+  </div>
+
+  <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:16px">
+    <button onclick="rsvpNudge(-10)" title="Back 10 words" style="background:var(--surface-hover);border:none;border-radius:99px;width:38px;height:38px;font-size:15px;cursor:pointer">⏮</button>
+    <button onclick="rsvpToggle()" id="rsvp-play-btn" style="background:var(--primary);color:#fff;border:none;border-radius:99px;width:56px;height:56px;font-size:20px;cursor:pointer">▶️</button>
+    <button onclick="rsvpNudge(10)" title="Forward 10 words" style="background:var(--surface-hover);border:none;border-radius:99px;width:38px;height:38px;font-size:15px;cursor:pointer">⏭</button>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:10px">
+    <span style="font-size:11px;color:var(--text-muted);white-space:nowrap">Speed</span>
+    <input type="range" id="rsvp-speed-slider" min="150" max="700" step="25" value="300" oninput="rsvpSetSpeed(this.value)" style="flex:1">
+    <span style="font-size:12px;font-weight:700;min-width:60px;text-align:right" id="rsvp-speed-label">300 wpm</span>
+  </div>
+  <div style="display:flex;justify-content:space-between;margin-top:10px">
+    <button onclick="rsvpRestartChapter()" style="font-size:11px;color:var(--text-muted);background:none;border:none;cursor:pointer;padding:0">Restart chapter</button>
+    <span id="rsvp-time-remaining" style="font-size:11px;color:var(--text-muted)"></span>
+  </div>
+</div>
+</div>
+
+</div><!-- /rsvp-reader-view -->
+
+</div><!-- /tab-reading -->
+
 <div class="tab-pane" id="tab-notes">
 
 <!-- QUICK ADD -->
@@ -3296,6 +3390,368 @@ function renderNotes() {
     </div>`;
   }).join('');
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RSVP Reading — upload an EPUB/PDF/TXT book and read it flashed one word at
+// a time (Spritz-style), with the optimal-recognition-point letter fixed and
+// highlighted so the eye never has to relocate between words. Library +
+// reading position are localStorage-only on this device — a novel's worth of
+// text is hundreds of KB, too big to push through the generic cross-device
+// sync blob store the rest of this app's data uses.
+// ═══════════════════════════════════════════════════════════════════════════
+function getReadingLibrary() { try { return JSON.parse(localStorage.getItem('rsvp_library')) || []; } catch { return []; } }
+function saveReadingLibrary(lib) {
+  try { localStorage.setItem('rsvp_library', JSON.stringify(lib)); }
+  catch (e) { alert('Could not save — your browser storage is full. Try deleting an older book first.'); }
+}
+
+let _rsvpActiveBookId = null;
+let _rsvpTimer = null;
+let _rsvpPlaying = false;
+let _rsvpWords = [];   // current chapter's tokens (words + paragraph-break sentinels)
+let _rsvpWordIdx = 0;
+let _rsvpChapterIdx = 0;
+const RSVP_PARA_BREAK = '¶PARA¶';
+
+function _rsvpTokenize(text) {
+  return text.replace(/\r\n/g, '\n').replace(/\n{2,}/g, ` ${RSVP_PARA_BREAK} `).replace(/\n/g, ' ')
+    .split(/\s+/).filter(Boolean);
+}
+
+// ── Upload / parsing ─────────────────────────────────────────────────────────
+async function handleBookUpload(fileList) {
+  const files = Array.from(fileList || []);
+  if (!files.length) return;
+  const statusEl = document.getElementById('rsvp-upload-status');
+  const lib = getReadingLibrary();
+  for (const file of files) {
+    if (statusEl) statusEl.textContent = `Reading ${file.name}…`;
+    try {
+      const ext = (file.name.split('.').pop() || '').toLowerCase();
+      let parsed;
+      if (ext === 'epub') parsed = await parseEpubFile(file);
+      else if (ext === 'pdf') parsed = await parsePdfBookFile(file);
+      else if (ext === 'txt') parsed = await parseTxtFile(file);
+      else throw new Error('unsupported file type — use .epub, .pdf, or .txt');
+      if (!parsed.chapters.length) throw new Error('no readable text found');
+      const totalWords = parsed.chapters.reduce((s, c) => s + _rsvpTokenize(c.text).filter(w => w !== RSVP_PARA_BREAK).length, 0);
+      const title = parsed.title || file.name.replace(/\.[^.]+$/, '');
+      lib.push({
+        id: 'book' + Date.now() + Math.random().toString(36).slice(2, 7),
+        title, author: parsed.author || '', format: ext,
+        addedAt: new Date().toISOString(),
+        chapters: parsed.chapters, totalWords,
+        position: { chapter: 0, word: 0 }, wpm: 300
+      });
+      if (statusEl) statusEl.textContent = `Added "${title}" — ${parsed.chapters.length} chapter${parsed.chapters.length !== 1 ? 's' : ''}, ${totalWords.toLocaleString()} words`;
+    } catch (e) {
+      if (statusEl) statusEl.textContent = `Couldn't read ${file.name}: ${e.message}`;
+    }
+  }
+  saveReadingLibrary(lib);
+  renderReadingLibrary();
+  const input = document.getElementById('rsvp-file-input');
+  if (input) input.value = '';
+}
+
+async function parseTxtFile(file) {
+  const text = await file.text();
+  return { title: file.name.replace(/\.[^.]+$/, ''), author: '', chapters: splitPlainTextIntoChapters(text) };
+}
+
+async function parsePdfBookFile(file) {
+  if (typeof pdfjsLib === 'undefined') throw new Error('PDF reader library failed to load');
+  if (pdfjsLib.GlobalWorkerOptions) pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let fullText = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    fullText += content.items.map(it => it.str).join(' ') + '\n\n';
+  }
+  return { title: file.name.replace(/\.[^.]+$/, ''), author: '', chapters: splitPlainTextIntoChapters(fullText) };
+}
+
+function splitPlainTextIntoChapters(text) {
+  const lines = text.split('\n');
+  const headerRe = /^\s*(chapter|part|book)\s+([0-9]+|[ivxlcdm]+)\b/i;
+  const breaks = [];
+  lines.forEach((line, i) => { if (headerRe.test(line.trim()) && line.trim().length < 60) breaks.push(i); });
+  if (breaks.length >= 2) {
+    const chapters = [];
+    for (let i = 0; i < breaks.length; i++) {
+      const start = breaks[i], end = i + 1 < breaks.length ? breaks[i + 1] : lines.length;
+      const chunk = lines.slice(start, end).join('\n').trim();
+      if (chunk) chapters.push({ title: lines[start].trim().slice(0, 60), text: chunk });
+    }
+    return chapters;
+  }
+  // No detectable chapter headers — chunk into ~2500-word pieces so there's
+  // still navigable progress rather than one giant block.
+  const words = text.split(/\s+/).filter(Boolean);
+  const chunkSize = 2500;
+  const chapters = [];
+  for (let i = 0; i < words.length; i += chunkSize) {
+    chapters.push({ title: `Part ${chapters.length + 1}`, text: words.slice(i, i + chunkSize).join(' ') });
+  }
+  return chapters.length ? chapters : (text.trim() ? [{ title: 'Full text', text }] : []);
+}
+
+async function parseEpubFile(file) {
+  if (typeof JSZip === 'undefined') throw new Error('EPUB reader library failed to load');
+  const zip = await JSZip.loadAsync(await file.arrayBuffer());
+  const containerFile = zip.file('META-INF/container.xml');
+  if (!containerFile) throw new Error('not a valid EPUB (missing container.xml)');
+  const containerDoc = new DOMParser().parseFromString(await containerFile.async('text'), 'application/xml');
+  const opfPath = containerDoc.querySelector('rootfile')?.getAttribute('full-path');
+  if (!opfPath) throw new Error('malformed EPUB (no rootfile)');
+  const opfDir = opfPath.includes('/') ? opfPath.slice(0, opfPath.lastIndexOf('/') + 1) : '';
+  const opfFile = zip.file(opfPath);
+  if (!opfFile) throw new Error('malformed EPUB (rootfile missing)');
+  const opfDoc = new DOMParser().parseFromString(await opfFile.async('text'), 'application/xml');
+
+  const title = opfDoc.getElementsByTagNameNS('*', 'title')[0]?.textContent?.trim() || '';
+  const author = opfDoc.getElementsByTagNameNS('*', 'creator')[0]?.textContent?.trim() || '';
+
+  const manifest = {};
+  opfDoc.querySelectorAll('manifest > item').forEach(item => {
+    manifest[item.getAttribute('id')] = item.getAttribute('href');
+  });
+  const spineIds = Array.from(opfDoc.querySelectorAll('spine > itemref')).map(el => el.getAttribute('idref'));
+
+  const chapters = [];
+  for (const id of spineIds) {
+    const href = (manifest[id] || '').split('#')[0];
+    if (!href) continue;
+    const path = (opfDir + href).replace(/^\//, '');
+    const zf = zip.file(path) || zip.file(decodeURIComponent(path));
+    if (!zf) continue;
+    const raw = await zf.async('text');
+    let doc = new DOMParser().parseFromString(raw, 'application/xhtml+xml');
+    if (doc.querySelector('parsererror')) doc = new DOMParser().parseFromString(raw, 'text/html');
+    const body = doc.body;
+    if (!body) continue;
+    body.querySelectorAll('script,style').forEach(n => n.remove());
+    const heading = body.querySelector('h1,h2,h3');
+    const chapTitle = heading?.textContent?.trim().slice(0, 60) || `Chapter ${chapters.length + 1}`;
+    // Preserve paragraph breaks by joining block-level text with blank lines,
+    // rather than flattening the whole chapter into one run of text.
+    const blocks = Array.from(body.querySelectorAll('p,div,li,h1,h2,h3,h4,blockquote'))
+      .map(b => b.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean);
+    const text = blocks.length ? blocks.join('\n\n') : body.textContent.replace(/\s+/g, ' ').trim();
+    if (text) chapters.push({ title: chapTitle, text });
+  }
+  return { title, author, chapters };
+}
+
+// ── Library view ──────────────────────────────────────────────────────────────
+function _rsvpWordsReadSoFar(book) {
+  let words = 0;
+  for (let i = 0; i < book.position.chapter; i++) words += _rsvpTokenize(book.chapters[i].text).filter(w => w !== RSVP_PARA_BREAK).length;
+  words += book.position.word;
+  return words;
+}
+
+function renderReadingLibrary() {
+  const el = document.getElementById('rsvp-library-list');
+  if (!el) return;
+  const lib = getReadingLibrary();
+  if (!lib.length) {
+    el.innerHTML = `<div style="color:var(--text-faint);font-style:italic;padding:16px;text-align:center;font-size:13px">No books yet — upload one above</div>`;
+    return;
+  }
+  const icon = { epub: '📗', pdf: '📄', txt: '📃' };
+  el.innerHTML = lib.slice().sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt)).map(b => {
+    const wordsRead = _rsvpWordsReadSoFar(b);
+    const pct = b.totalWords ? Math.min(100, Math.round((wordsRead / b.totalWords) * 100)) : 0;
+    const started = b.position && (b.position.chapter > 0 || b.position.word > 0);
+    return `<div class="book-card" onclick="rsvpOpenBook('${b.id}')">
+      <div style="font-size:26px">${icon[b.format] || '📄'}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(b.title)}</div>
+        <div style="font-size:11px;color:var(--text-muted)">${b.author ? escHtml(b.author) + ' · ' : ''}${b.totalWords.toLocaleString()} words${started ? ` · ${pct}% read` : ''}</div>
+        <div class="book-card-progress"><div class="book-card-progress-fill" style="width:${pct}%"></div></div>
+      </div>
+      <button onclick="event.stopPropagation();rsvpDeleteBook('${b.id}')" title="Delete" style="background:none;border:none;color:var(--text-faint);font-size:14px;cursor:pointer;padding:4px">🗑️</button>
+    </div>`;
+  }).join('');
+}
+
+function rsvpDeleteBook(id) {
+  if (!confirm('Delete this book? This cannot be undone.')) return;
+  if (_rsvpActiveBookId === id) rsvpCloseBook();
+  saveReadingLibrary(getReadingLibrary().filter(b => b.id !== id));
+  renderReadingLibrary();
+}
+
+// ── Reader view ──────────────────────────────────────────────────────────────
+function _rsvpBook() { return getReadingLibrary().find(b => b.id === _rsvpActiveBookId); }
+
+function rsvpOpenBook(id) {
+  rsvpPause();
+  const book = getReadingLibrary().find(b => b.id === id);
+  if (!book) return;
+  _rsvpActiveBookId = id;
+  document.getElementById('rsvp-library-view').style.display = 'none';
+  document.getElementById('rsvp-reader-view').style.display = 'block';
+  document.getElementById('rsvp-book-title').textContent = book.title;
+  document.getElementById('rsvp-chapter-select').innerHTML =
+    book.chapters.map((c, i) => `<option value="${i}">${escHtml(c.title)}</option>`).join('');
+  const wpm = book.wpm || 300;
+  document.getElementById('rsvp-speed-slider').value = wpm;
+  document.getElementById('rsvp-speed-label').textContent = `${wpm} wpm`;
+  rsvpLoadChapter(book.position.chapter || 0, book.position.word || 0);
+}
+
+function rsvpLoadChapter(chapterIdx, wordIdx) {
+  const book = _rsvpBook();
+  if (!book || !book.chapters[chapterIdx]) return;
+  if (_rsvpTimer) { clearTimeout(_rsvpTimer); _rsvpTimer = null; }
+  _rsvpChapterIdx = chapterIdx;
+  _rsvpWords = _rsvpTokenize(book.chapters[chapterIdx].text);
+  _rsvpWordIdx = Math.min(wordIdx || 0, Math.max(0, _rsvpWords.length - 1));
+  const sel = document.getElementById('rsvp-chapter-select');
+  if (sel) sel.value = chapterIdx;
+  rsvpRenderCurrentWord();
+  rsvpUpdateProgressUI();
+}
+
+function rsvpJumpToChapter(idxStr) { rsvpPause(); rsvpLoadChapter(parseInt(idxStr), 0); rsvpSaveProgress(); }
+function rsvpRestartChapter() { rsvpPause(); rsvpLoadChapter(_rsvpChapterIdx, 0); rsvpSaveProgress(); }
+
+function rsvpCloseBook() {
+  rsvpPause();
+  rsvpSaveProgress();
+  _rsvpActiveBookId = null;
+  document.getElementById('rsvp-reader-view').style.display = 'none';
+  document.getElementById('rsvp-library-view').style.display = 'block';
+  renderReadingLibrary();
+}
+
+function rsvpNudge(delta) {
+  rsvpPause();
+  _rsvpWordIdx = Math.max(0, Math.min(_rsvpWords.length - 1, _rsvpWordIdx + delta));
+  while (_rsvpWords[_rsvpWordIdx] === RSVP_PARA_BREAK && _rsvpWordIdx < _rsvpWords.length - 1) _rsvpWordIdx++;
+  rsvpRenderCurrentWord();
+  rsvpUpdateProgressUI();
+  rsvpSaveProgress();
+}
+
+function rsvpOrpIndex(word) {
+  const len = word.length;
+  if (len <= 1) return 0;
+  if (len <= 5) return 1;
+  if (len <= 9) return 2;
+  if (len <= 13) return 3;
+  return 4;
+}
+
+function rsvpRenderCurrentWord() {
+  const leftEl = document.getElementById('rsvp-left'), pivotEl = document.getElementById('rsvp-pivot'), rightEl = document.getElementById('rsvp-right');
+  if (!leftEl) return;
+  const word = _rsvpWords[_rsvpWordIdx];
+  if (!word || word === RSVP_PARA_BREAK) { leftEl.textContent = ''; pivotEl.textContent = '·'; rightEl.textContent = ''; return; }
+  const orp = rsvpOrpIndex(word);
+  leftEl.textContent = word.slice(0, orp);
+  pivotEl.textContent = word[orp] || '';
+  rightEl.textContent = word.slice(orp + 1);
+}
+
+function rsvpUpdateProgressUI() {
+  const book = _rsvpBook();
+  if (!book) return;
+  const nonBreakTotal = _rsvpWords.filter(w => w !== RSVP_PARA_BREAK).length;
+  const nonBreakSoFar = _rsvpWords.slice(0, _rsvpWordIdx).filter(w => w !== RSVP_PARA_BREAK).length;
+  const chapPct = nonBreakTotal ? Math.round((nonBreakSoFar / nonBreakTotal) * 100) : 0;
+  const fillEl = document.getElementById('rsvp-chapter-progress-fill');
+  if (fillEl) fillEl.style.width = chapPct + '%';
+  const overallWords = _rsvpWordsReadSoFar({ ...book, position: { chapter: _rsvpChapterIdx, word: _rsvpWordIdx } });
+  const overallPct = book.totalWords ? Math.round((overallWords / book.totalWords) * 100) : 0;
+  const progText = document.getElementById('rsvp-progress-text');
+  if (progText) progText.textContent = `Chapter ${_rsvpChapterIdx + 1} of ${book.chapters.length} · ${chapPct}% · ${overallPct}% of book`;
+  const wpm = parseInt(document.getElementById('rsvp-speed-slider')?.value) || 300;
+  const remaining = nonBreakTotal - nonBreakSoFar;
+  const timeEl = document.getElementById('rsvp-time-remaining');
+  if (timeEl) timeEl.textContent = remaining > 0 ? `~${Math.ceil(remaining / wpm)} min left in chapter` : 'Chapter complete';
+}
+
+function rsvpSetSpeed(v) {
+  const label = document.getElementById('rsvp-speed-label');
+  if (label) label.textContent = `${v} wpm`;
+  rsvpUpdateProgressUI();
+  rsvpSaveProgress();
+}
+
+function rsvpSaveProgress() {
+  if (!_rsvpActiveBookId) return;
+  const lib = getReadingLibrary();
+  const book = lib.find(b => b.id === _rsvpActiveBookId);
+  if (!book) return;
+  book.position = { chapter: _rsvpChapterIdx, word: _rsvpWordIdx };
+  const slider = document.getElementById('rsvp-speed-slider');
+  if (slider) book.wpm = parseInt(slider.value) || book.wpm;
+  saveReadingLibrary(lib);
+}
+
+// ── Playback engine ──────────────────────────────────────────────────────────
+function rsvpToggle() { if (_rsvpPlaying) rsvpPause(); else rsvpPlay(); }
+
+function rsvpPlay() {
+  if (!_rsvpWords.length) return;
+  if (_rsvpWordIdx >= _rsvpWords.length - 1) _rsvpWordIdx = 0;
+  _rsvpPlaying = true;
+  const btn = document.getElementById('rsvp-play-btn');
+  if (btn) btn.textContent = '⏸️';
+  rsvpScheduleNext();
+}
+
+function rsvpPause() {
+  _rsvpPlaying = false;
+  if (_rsvpTimer) { clearTimeout(_rsvpTimer); _rsvpTimer = null; }
+  const btn = document.getElementById('rsvp-play-btn');
+  if (btn) btn.textContent = '▶️';
+  rsvpSaveProgress();
+}
+
+function _rsvpDelayForWord(word, wpm) {
+  let ms = 60000 / wpm;
+  if (word === RSVP_PARA_BREAK) return ms * 3;
+  if (/[.!?]$/.test(word)) ms *= 2.2;
+  else if (/[,;:]$/.test(word)) ms *= 1.5;
+  if (word.length > 8) ms *= 1.15;
+  return ms;
+}
+
+function rsvpScheduleNext() {
+  if (!_rsvpPlaying) return;
+  rsvpRenderCurrentWord();
+  rsvpUpdateProgressUI();
+  const wpm = parseInt(document.getElementById('rsvp-speed-slider')?.value) || 300;
+  const word = _rsvpWords[_rsvpWordIdx] || '';
+  const delay = _rsvpDelayForWord(word, wpm);
+  _rsvpTimer = setTimeout(() => {
+    _rsvpWordIdx++;
+    if (_rsvpWordIdx >= _rsvpWords.length) {
+      const book = _rsvpBook();
+      if (book && _rsvpChapterIdx < book.chapters.length - 1) {
+        rsvpLoadChapter(_rsvpChapterIdx + 1, 0);
+        rsvpScheduleNext();
+      } else {
+        _rsvpWordIdx = Math.max(0, _rsvpWords.length - 1);
+        rsvpPause();
+        rsvpRenderCurrentWord();
+      }
+      return;
+    }
+    if (_rsvpWordIdx % 10 === 0) rsvpSaveProgress();
+    rsvpScheduleNext();
+  }, delay);
+}
+
+// Pause (and save position) if the tab is hidden or the page is closed mid-read
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && _rsvpPlaying) rsvpPause(); });
+window.addEventListener('beforeunload', () => { if (_rsvpActiveBookId) rsvpSaveProgress(); });
 
 function clearCompletedTasks() {
   const remaining = getTasks().filter(t => !t.done);
@@ -8991,6 +9447,7 @@ function renderYear4Cal() {
 }
 
 function switchTab(name) {
+  if (typeof _rsvpPlaying !== 'undefined' && _rsvpPlaying) rsvpPause();
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-pane').forEach(p => {
     p.classList.remove('active');
@@ -9010,6 +9467,7 @@ function switchTab(name) {
   if (name === 'notes') renderNotes();
   if (name === 'habits') { renderHabitHistory(); }
   if (name === 'year4') renderYear4Cal();
+  if (name === 'reading') renderReadingLibrary();
   if (name === 'calendar' && typeof loadTodayCalendar === 'function') loadTodayCalendar();
   // Dashboard uses a fixed-height grid — override display:block
   if (name === 'dashboard') { pane.style.display = 'block'; document.body.style.overflow = 'hidden'; }
