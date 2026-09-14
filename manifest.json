@@ -4,8 +4,8 @@
   "description": "Personal training, health, and study dashboard",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#1a1a1a",
+  "background_color": "#FFF8F0",
+  "theme_color": "#FF6B47",
   "orientation": "portrait-primary",
   "icons": [
     {
