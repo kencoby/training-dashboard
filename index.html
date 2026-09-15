@@ -7236,6 +7236,7 @@ async function fetchHealthData() {
       else pendingCharts['whoop-fitness'] = renderFitnessSubTab;
       renderDailyBriefing();
       renderSleepPerformanceLink();
+      recomputeAllStreaks(); // health data (steps/sleep/weight) just arrived — stale streaks were computed before it existed
       renderHabits(); // re-render with updated auto habit state + sleep suggestion/wake times
     }
   } catch (e) {
@@ -8510,6 +8511,7 @@ async function main() {
     }
 
     renderTodos();
+    recomputeAllStreaks(); // Strava activities (cardio/strength) just arrived — stale streaks were computed before _acts existed
     renderHabits();
     renderHomeGoals();
 
