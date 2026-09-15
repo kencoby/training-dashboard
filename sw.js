@@ -1,45 +1,22 @@
-const CACHE = 'training-dash-v25';
-const PRECACHE = [
-  '/',
-  '/index.html',
-  'https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js'
-];
+// PWA/offline support has been removed from this app. This file is kept in
+// place (rather than deleted) only because a browser that already installed
+// the old service worker will request this exact URL one more time before it
+// can unregister — deleting the file would make that request 404 instead.
+// It no longer precaches or intercepts anything: it just clears out any
+// caches left behind by the old version and unregisters itself so installed
+// clients fall back to normal network requests.
+const CACHE = 'training-dash-v26';
 
-self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(PRECACHE)).then(() => self.skipWaiting())
-  );
+self.addEventListener('install', () => {
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', e => {
   e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then(keys => Promise.all(keys.map(k => caches.delete(k))))
+      .then(() => self.registration.unregister())
+      .then(() => self.clients.matchAll())
+      .then(clients => clients.forEach(c => c.navigate(c.url)))
   );
-});
-
-self.addEventListener('fetch', e => {
-  // Network-first for API calls, cache-first for static assets
-  const url = new URL(e.request.url);
-  if (url.pathname.startsWith('/api/') || url.hostname !== location.hostname) {
-    // Network first
-    e.respondWith(
-      fetch(e.request).catch(() => caches.match(e.request))
-    );
-  } else {
-    // Cache first with network fallback
-    e.respondWith(
-      caches.match(e.request).then(cached => {
-        if (cached) return cached;
-        return fetch(e.request).then(res => {
-          if (res.ok) {
-            const clone = res.clone();
-            caches.open(CACHE).then(c => c.put(e.request, clone));
-          }
-          return res;
-        });
-      })
-    );
-  }
 });

@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Life Dashboard — Feature Checklist</title>
+<style>
+  :root{
+    --bg:#FFF8F0; --surface:#ffffff; --border:#F0E1D2; --border-soft:#F7ECDE;
+    --text:#2B2118; --text-muted:#8A7666; --text-faint:#B7A692;
+    --primary:#FF6B47; --primary-soft:#FFE7DD;
+    --accent:#4E9E6E; --accent-soft:#E5F5EA;
+    --new:#B0700A; --new-soft:#FFEFC2;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:24px 16px 100px;background:var(--bg);color:var(--text);
+    font-family:'Nunito',system-ui,-apple-system,sans-serif;max-width:720px;margin:0 auto;}
+  h1{font-family:'Quicksand',system-ui,sans-serif;font-size:22px;font-weight:700;margin:8px 0 4px;padding:0 4px}
+  .sub{font-size:13px;color:var(--text-muted);margin:0 0 20px;padding:0 4px;line-height:1.5}
+  .tab-section{background:var(--surface);border:1px solid var(--border-soft);border-radius:16px;
+    margin-bottom:12px;overflow:hidden}
+  .tab-header{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:13px 16px;cursor:pointer;user-select:none;background:var(--surface)}
+  .tab-header:hover{background:var(--border-soft)}
+  .tab-title{font-family:'Quicksand',system-ui,sans-serif;font-weight:700;font-size:14.5px}
+  .tab-count{font-size:11px;color:var(--text-faint);font-weight:600}
+  .tab-chevron{font-size:11px;color:var(--text-faint);transition:transform .15s ease;flex-shrink:0}
+  .tab-section.closed .tab-chevron{transform:rotate(-90deg)}
+  .tab-body{padding:2px 16px 12px}
+  .tab-section.closed .tab-body{display:none}
+  .item{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-top:1px solid var(--border-soft);
+    font-size:13.5px;line-height:1.4}
+  .item:first-child{border-top:none}
+  label{cursor:pointer;flex:1;padding-top:1px}
+  input[type=checkbox]{width:18px;height:18px;flex-shrink:0;accent-color:var(--accent);cursor:pointer;margin-top:1px}
+  .new-section input[type=checkbox]{accent-color:var(--new)}
+  .new-section .tab-header{background:var(--new-soft)}
+  .new-section .tab-header:hover{background:#FBE4A8}
+  .open-item{background:var(--primary-soft);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:13px;line-height:1.5}
+  .open-item b{color:var(--primary)}
+  .toolbar{position:sticky;top:0;background:var(--bg);padding:10px 4px 14px;display:flex;gap:8px;flex-wrap:wrap;z-index:10}
+  button.tb{background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:6px 14px;
+    font-size:12px;font-weight:700;color:var(--text-muted);cursor:pointer;font-family:inherit}
+  button.tb:hover{background:var(--border-soft);color:var(--text)}
+  .footer-bar{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--border);
+    padding:12px 16px calc(12px + env(safe-area-inset-bottom,0));display:flex;gap:10px;justify-content:center}
+  #copy-btn{background:var(--primary);color:#fff;border:none;border-radius:99px;padding:11px 24px;
+    font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(255,107,71,.35)}
+  #copy-btn:active{transform:scale(.98)}
+  #copy-status{font-size:12px;color:var(--accent);font-weight:700;align-self:center;display:none}
+  @media(prefers-color-scheme:dark){
+    body{background:#1a1410;color:#f0e6d8}
+  }
+</style>
+</head>
+<body>
+
+<h1>Life Dashboard — Feature Checklist</h1>
+<p class="sub">Ticked = keep. Untick anything you want cut. The gold section at the bottom is new ideas — those start unticked since nothing's built yet. Tap a section header to collapse it. When you're done, hit "Copy my decisions" and paste the result back to me.</p>
+
+<div class="toolbar">
+  <button class="tb" onclick="collapseAll(true)">Collapse all</button>
+  <button class="tb" onclick="collapseAll(false)">Expand all</button>
+</div>
+
+<div id="sections"></div>
+
+<div style="height:70px"></div>
+
+<div class="footer-bar">
+  <button id="copy-btn" onclick="copyDecisions()">Copy my decisions</button>
+  <span id="copy-status">Copied ✓ — paste it into chat</span>
+</div>
+
+<script>
+const DATA = [
+  { tab: "Home", keep: [
+    "Daily briefing card — weather, ±day navigation, readiness chip",
+    "Quick-log bar (+1 Q / +10 Qs revision-question shortcuts)",
+    "Revision status line",
+    "Finance snapshot line",
+    "\"Currently on placement\" chip",
+    "Critical Tasks list (inline add, right column)",
+    "Habits Today stat card",
+    "Daily task list (resets midnight)",
+    "System alerts banner (sync failures, overdue tasks, stale calendar)",
+    "Cross-domain Insight card (sleep/training vs revision correlation)",
+    "Upcoming assessment countdown banner (within 21 days of a Year 4 deadline)",
+    "Goal/target event tracker (🎯 — set a race or event with a date)",
+  ]},
+  { tab: "Health", keep: [
+    "Recovery ring + score, Contributors, Coach text",
+    "HRV Trend (14 days)",
+    "Recovery Trend (30 days)",
+    "Sleep Performance ring, Sleep Stages breakdown, Sleep Coach",
+    "Sleep Trend (30 days)",
+    "Sleep → Next-Day HRV Correlation",
+    "Day Strain ring, Breakdown, Strain Coach, Workouts Today",
+    "Strain Trend (30 days)",
+    "Monitor: weekly summary, Health Monitor, Weight Trend (60d), Training Load, RHR/HRV 7-day rolling, Biomarkers",
+    "Fitness: Cardio Focus (30d), Personal Records, Load Forecast, VO₂ Max Trend",
+  ]},
+  { tab: "Training", keep: [
+    "Training calendar (weekly view)",
+    "Activity Time chart (time / sessions-per-week toggle)",
+    "Streaks (current + longest)",
+    "Load by Sport — ACWR per discipline (run/ride/swim)",
+    "Heart Rate Zones — last 28 days",
+    "Monthly Distance Goal, YTD Distance, Longest Run/Ride '26",
+    "8-Week Volume, ACWR Gauge",
+    "This Week's Activities list, Easy/Hard Distribution",
+    "Strength: distance/session, sessions this month, muscle coverage, weekly sessions, recent sessions, PBs, session analysis, est. 1RM trend, weekly volume by muscle group, rep PRs",
+    "Running: consistency, distance trend, recent runs, sleep→performance link, personal bests, run PBs",
+    "Cycling: distance per session, PBs",
+    "Swimming: distance per session, PBs",
+    "Other activities log",
+    "Injury & Niggle log",
+    "Shoe mileage tracker",
+    "Race results log",
+  ]},
+  { tab: "Medicine", keep: [
+    "Study Streak tracker",
+    "Daily Questions counter + streak",
+    "Pomodoro timer",
+    "Topic Tracker (flag weak topics)",
+    "Signoffs — MLA/AKT exam, OSCE/CPSA, Mini-CEX, PSA, Elective report, Skills log, Out-of-hours, SSA (clinician assessment / DOPS / My Practice), mandatory training, Clinical Skills signoff",
+    "Signoffs — JA1/JA2/JA3 per-placement checklists (Haematology, T&O, Cardiff GP)",
+    "Assessment Info reference cards (PM-367C / 368C / 369C)",
+    "Calculators — Wells Score, CURB-65, CHA₂DS₂-VASc, Glasgow Coma Scale, NEWS2, Ottawa Ankle & Foot Rules",
+  ]},
+  { tab: "Finance", keep: [
+    "Overview tiles — income / expenses / net / savings rate",
+    "Total Bank Balance, Overdraft Goal progress",
+    "Income vs Expenses chart, Expense Breakdown chart",
+    "Income & Expenses — manual log + history",
+    "Investments — log portfolio value, current value, all-time gain, entries logged",
+    "Statements — upload bank statement (PDF/CSV import)",
+    "Statements — spending breakdown, actual income vs expenses, budget vs actual, net worth/account balances, transactions list",
+  ]},
+  { tab: "Tasks", keep: [
+    "4-tier priority board — Critical / On Deck / Someday / Dashboard Ideas, inline add + count badge",
+    "Clear completed tasks",
+    "Due-date alerts toggle",
+  ]},
+  { tab: "Shopping", keep: [
+    "Groceries list",
+    "Buy Now list",
+    "Soon list",
+    "Wishlist",
+    "Clear bought items",
+  ]},
+  { tab: "Calendar", keep: [
+    "Today's snapshot, synced hourly from Google Calendar (no sign-in needed)",
+  ]},
+  { tab: "Notes", keep: [
+    "Quick note capture + label chips (General / Idea / To-do / Med / Training)",
+    "Filter by label / pinned / search",
+    "Session Notes Search (search past training-session notes)",
+  ]},
+  { tab: "Habits", keep: [
+    "Daily score chart (last 30 days)",
+    "Per-habit heatmap, grouped — Tracked automatically / Study / Wellness / Personal care / Home",
+    "Reset history control",
+    "Streak tracking per habit",
+  ]},
+  { tab: "Year 4", keep: [
+    "Placement/exam calendar with color-coded legend",
+    "Year 3 deadline alert",
+  ]},
+  { tab: "Reading", keep: [
+    "RSVP speed-reader — upload EPUB/PDF/TXT",
+    "Word-flash display, pivot-letter highlighting, speed slider, play/pause, chapter nav",
+    "Voice read-along (synced to the flashing word)",
+    "Library view — progress %, delete",
+  ]},
+  { tab: "Cross-cutting / global", keep: [
+    "Dark mode toggle (🌙)",
+    "Export data menu (📤)",
+    "Global quick-capture — floating ✎ button on every tab, saves to Notes",
+    "Mobile bottom nav + \"More\" sheet",
+    "Installable PWA / offline support",
+    "Cross-device sync (Reading library/voice settings are device-only)",
+    "Strava integration — currently broken, see note below",
+    "Google Calendar sync — pending your device-approval, see note below",
+    "Apple Health data sync",
+  ]},
+  { tab: "🆕 New feature ideas — not built yet", isNew: true, keep: [
+    "Triathlon race countdown on Home (using the goal/target event already built)",
+    "CT Surgery ST1 application tracker — portfolio-evidence checklist across scoring domains",
+    "Weekly digest — auto-summary every Sunday (training load, revision adherence, spend vs budget, habits)",
+    "Body-weight / composition trend on Health tab with a goal line",
+    "Sleep-debt tracker — rolling deficit vs target, surfaced as a system alert",
+    "Exam-day countdown widget per Year 4 assessment (its own card, not just a 21-day pre-alert)",
+    "\"On this day last year\" — resurfaces an old PB, note, or habit streak",
+    "Budget alerts — flag a category tracking to exceed its monthly budget, before month-end",
+  ]},
+];
+
+const container = document.getElementById('sections');
+DATA.forEach((section, si) => {
+  const div = document.createElement('div');
+  div.className = 'tab-section' + (section.isNew ? ' new-section' : '');
+  div.innerHTML = `
+    <div class="tab-header" onclick="this.parentElement.classList.toggle('closed')">
+      <span class="tab-title">${section.tab}</span>
+      <span style="display:flex;align-items:center;gap:8px">
+        <span class="tab-count">${section.keep.length} items</span>
+        <span class="tab-chevron">▾</span>
+      </span>
+    </div>
+    <div class="tab-body">
+      ${section.keep.map((txt, ii) => `
+        <div class="item">
+          <input type="checkbox" id="c-${si}-${ii}" ${section.isNew ? '' : 'checked'}>
+          <label for="c-${si}-${ii}">${txt}</label>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  container.appendChild(div);
+});
+
+// Open items needing a decision — informational, not checkboxes
+const openDiv = document.createElement('div');
+openDiv.style.margin = '4px 4px 16px';
+openDiv.innerHTML = `
+  <div class="open-item"><b>Strava:</b> 403 Forbidden — Strava now requires a paid Strava subscription on the account that owns the API app. Subscribe + reactivate, or I make the failure quieter?</div>
+  <div class="open-item"><b>Google Calendar sync:</b> still needs you to approve the scheduled task running on your own computer instead of the cloud sandbox.</div>
+`;
+container.insertBefore(openDiv, container.firstChild);
+
+function collapseAll(collapse) {
+  document.querySelectorAll('.tab-section').forEach(s => {
+    if (collapse) s.classList.add('closed');
+    else s.classList.remove('closed');
+  });
+}
+
+function copyDecisions() {
+  let cutLines = [];
+  let addLines = [];
+  DATA.forEach((section, si) => {
+    section.keep.forEach((txt, ii) => {
+      const checked = document.getElementById(`c-${si}-${ii}`).checked;
+      if (section.isNew) {
+        if (checked) addLines.push(`- [${section.tab.replace('🆕 New feature ideas — not built yet','New')}] ${txt}`);
+      } else {
+        if (!checked) cutLines.push(`- [${section.tab}] ${txt}`);
+      }
+    });
+  });
+  let out = '';
+  if (cutLines.length) out += 'Cut these:\n' + cutLines.join('\n') + '\n\n';
+  if (addLines.length) out += 'Build these new ones:\n' + addLines.join('\n') + '\n\n';
+  if (!cutLines.length && !addLines.length) out = 'Keep everything as-is, no new features requested.';
+
+  const ta = document.createElement('textarea');
+  ta.value = out.trim();
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); } catch(e) {}
+  document.body.removeChild(ta);
+
+  const status = document.getElementById('copy-status');
+  status.style.display = 'inline';
+  setTimeout(() => status.style.display = 'none', 2500);
+}
+</script>
+</body>
+</html>

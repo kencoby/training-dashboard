@@ -4,14 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Life Dashboard</title>
-<link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#FF6B47">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Training">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -36,7 +30,7 @@
   --danger:#D6483A;
   --danger-soft:#FDEDE9;
   /* Noom coral — the app's signature warm orange-red. Used for the FAB,
-     bottom-nav active state, active tab pill, and primary buttons. */
+     active tab pill and primary buttons. */
   --primary:#FF6B47;
   --primary-soft:#FFE7DD;
   --primary-text:#D9481F;
@@ -180,68 +174,9 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 :focus-visible{outline:2px solid var(--primary);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important;animation-duration:.01ms!important}}
 
-/* ── Mobile bottom nav + FAB ──────────────────────────────────────────── */
-#quick-capture-fab{position:fixed;right:18px;bottom:18px;width:44px;height:44px;font-size:19px;box-shadow:0 4px 14px rgba(255,107,71,.4)}
-#quick-capture-fab:hover{transform:scale(1.06)}
-#quick-capture-panel{position:fixed;right:18px;bottom:70px}
-.bottom-nav{display:none}
-#more-sheet-backdrop,#more-sheet{display:none}
 @media(max-width:640px){
-  .tab-nav{display:none}
-  body{padding-bottom:84px}
-  .bottom-nav{
-    display:flex;align-items:center;justify-content:space-around;
-    position:fixed;left:0;right:0;bottom:0;height:58px;
-    background:var(--surface);border-top:1px solid var(--border);
-    z-index:9005;padding-bottom:env(safe-area-inset-bottom,0);
-  }
-  .bn-fab-spacer{width:56px;flex-shrink:0}
-  .bn-btn{background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:3px;
-    color:var(--text-faint);font-size:9px;font-weight:700;padding:6px 4px;cursor:pointer;flex:1;
-    transition:color .15s var(--ease)}
-  .bn-icon{font-size:18px;line-height:1;display:inline-block;padding:3px 13px;border-radius:var(--radius-pill);transition:background .15s var(--ease)}
-  .bn-btn.active{color:var(--primary)}
-  .bn-btn.active .bn-icon{background:var(--primary-soft)}
-  #quick-capture-fab{
-    right:50%;transform:translateX(50%);bottom:32px;z-index:9010;
-    width:54px;height:54px;font-size:21px;border:4px solid var(--bg);
-    box-shadow:0 6px 16px rgba(255,107,71,.45);
-  }
-  #quick-capture-fab:hover{transform:translateX(50%) scale(1.06)}
-  #quick-capture-panel{right:auto;left:50%;transform:translateX(-50%);bottom:100px}
+  body{padding-bottom:16px}
 }
-#more-sheet-backdrop.open{display:block;position:fixed;inset:0;background:rgba(43,33,24,.4);z-index:9006}
-#more-sheet.open{
-  display:block;position:fixed;left:0;right:0;bottom:0;background:var(--surface);
-  border-radius:24px 24px 0 0;z-index:9007;padding:10px 8px calc(14px + env(safe-area-inset-bottom,0));
-  box-shadow:0 -8px 30px rgba(43,33,24,.18);max-height:70vh;overflow-y:auto;
-}
-.more-sheet-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:4px auto 10px}
-.more-item{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;
-  border-bottom:none;margin-bottom:0;padding:12px 14px;font-size:14px;font-weight:700;color:var(--text);
-  text-align:left;cursor:pointer;border-radius:var(--radius-pill)}
-.more-item:active{background:var(--surface-hover)}
-.more-item.active{background:var(--primary-soft);color:var(--primary-text)}
-
-/* ── RSVP Reader ─────────────────────────────────────────────────────────── */
-.rsvp-stage{position:relative;display:flex;align-items:baseline;justify-content:center;
-  height:64px;font-size:38px;font-weight:700;letter-spacing:-.5px;font-family:'Inter',system-ui,sans-serif;
-  user-select:none;overflow:hidden}
-.rsvp-left{flex:1;text-align:right;white-space:pre;color:var(--text)}
-.rsvp-pivot{color:var(--primary);white-space:pre}
-.rsvp-right{flex:1;text-align:left;white-space:pre;color:var(--text)}
-.rsvp-guide{position:absolute;left:50%;width:1px;background:var(--border);transform:translateX(-.5px)}
-.rsvp-guide.top{top:0;height:12px}
-.rsvp-guide.bottom{bottom:0;height:12px}
-.book-card{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border-soft);
-  border-radius:var(--radius-md);margin-bottom:8px;cursor:pointer;transition:border-color .15s var(--ease)}
-.book-card:hover{border-color:var(--border)}
-.book-card-progress{height:4px;background:var(--surface-hover);border-radius:99px;overflow:hidden;margin-top:6px}
-.book-card-progress-fill{height:100%;background:var(--accent);border-radius:99px}
-.rsvp-upload-label{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
-  border:1.5px dashed var(--border);border-radius:var(--radius-md);padding:16px;font-size:13px;
-  font-weight:600;color:var(--text-muted);cursor:pointer;transition:border-color .15s var(--ease)}
-.rsvp-upload-label:hover{border-color:var(--primary);color:var(--primary-text)}
 </style>
 </head>
 <body>
@@ -249,68 +184,8 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 <div class="topbar">
   <div class="topbar-title">Life Dashboard<span id="sync-dot" style="width:6px;height:6px;border-radius:50%;background:var(--border);display:inline-block;margin-left:6px;transition:background 0.3s" title="Sync status"></span></div>
   <div style="display:flex;gap:8px;align-items:center">
-    <button onclick="toggleGoalModal()" title="Set race/goal" style="background:none;border:none;cursor:pointer;font-size:16px;padding:0;line-height:1" title="Set a target event">🎯</button>
     <button id="dark-mode-btn" onclick="toggleDarkMode()" title="Toggle dark mode" style="background:none;border:none;cursor:pointer;font-size:16px;padding:0;line-height:1">🌙</button>
-    <button onclick="showExportMenu()" title="Export data" style="background:none;border:none;cursor:pointer;font-size:16px;padding:0;line-height:1">📤</button>
     <button id="disconnect-btn" class="disconnect-btn" title="Disconnect Strava">Disconnect</button>
-  </div>
-</div>
-
-<!-- Global quick-capture: jot a stray thought from any tab without switching (saves to Notes) -->
-<div id="quick-capture-fab" onclick="openQuickCapture()" title="Quick capture — saves to Notes"
-  style="z-index:9000;border-radius:50%;
-  background:var(--primary,#FF6B47);color:#fff;display:flex;align-items:center;justify-content:center;
-  cursor:pointer;user-select:none;transition:transform .15s var(--ease,ease)">✎</div>
-
-<div id="quick-capture-panel" style="display:none;z-index:9001;
-  background:var(--surface,#fff);border:1px solid var(--border,#F0E1D2);border-radius:var(--radius-md,12px);
-  box-shadow:var(--shadow-md,0 10px 30px rgba(0,0,0,.15));padding:12px;width:min(320px,calc(100vw - 36px))">
-  <textarea id="quick-capture-input" rows="3" placeholder="Jot it down — saved to Notes…"
-    style="width:100%;border:1px solid var(--border,#F0E1D2);border-radius:8px;padding:8px 10px;font-size:13px;
-    font-family:inherit;resize:vertical;outline:none;color:inherit;background:transparent"
-    onkeydown="if((event.metaKey||event.ctrlKey)&&event.key==='Enter'){submitQuickCapture();event.preventDefault()} if(event.key==='Escape'){closeQuickCapture();event.preventDefault()}"></textarea>
-  <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
-    <button onclick="closeQuickCapture()" style="background:none;border:none;color:#A6937F;font-size:12px;cursor:pointer">Cancel</button>
-    <button onclick="submitQuickCapture()" style="background:var(--primary,#FF6B47);color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">Save ⌘↵</button>
-  </div>
-</div>
-
-<!-- Mobile bottom nav (replaces the top tab row on narrow screens) -->
-<nav class="bottom-nav" id="bottom-nav">
-  <button class="tab-btn bn-btn active" data-tab="dashboard"><span class="bn-icon">🏠</span><span class="bn-lbl">Home</span></button>
-  <button class="tab-btn bn-btn" data-tab="whoop"><span class="bn-icon">❤️</span><span class="bn-lbl">Health</span></button>
-  <div class="bn-fab-spacer"></div>
-  <button class="tab-btn bn-btn" data-tab="training"><span class="bn-icon">🏃</span><span class="bn-lbl">Train</span></button>
-  <button class="bn-btn" id="bn-more-btn" onclick="toggleMoreSheet()"><span class="bn-icon">⋯</span><span class="bn-lbl">More</span></button>
-</nav>
-
-<div id="more-sheet-backdrop" onclick="toggleMoreSheet(false)"></div>
-<div id="more-sheet">
-  <div class="more-sheet-handle"></div>
-  <button class="more-item tab-btn" data-tab="medicine">🩺 Medicine</button>
-  <button class="more-item tab-btn" data-tab="finance">💰 Finance</button>
-  <button class="more-item tab-btn" data-tab="planner">✅ Tasks</button>
-  <button class="more-item tab-btn" data-tab="shopping">🛒 Shopping</button>
-  <button class="more-item tab-btn" data-tab="calendar">📅 Calendar</button>
-  <button class="more-item tab-btn" data-tab="notes">📝 Notes</button>
-  <button class="more-item tab-btn" data-tab="habits">🔥 Habits</button>
-  <button class="more-item tab-btn" data-tab="year4">📅 Year 4</button>
-  <button class="more-item tab-btn" data-tab="reading">📖 Reading</button>
-</div>
-
-<!-- Goal modal -->
-<div id="goal-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:10000;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:16px;padding:24px;width:320px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,.2)">
-    <div style="font-size:16px;font-weight:700;margin-bottom:16px">🎯 Set a Target Event</div>
-    <label style="font-size:12px;color:#888;display:block;margin-bottom:4px">Event name</label>
-    <input id="goal-name-input" type="text" placeholder="e.g. Edinburgh Half Marathon" style="width:100%;border:1px solid #F0E1D2;border-radius:8px;padding:8px 10px;font-size:14px;font-family:inherit;margin-bottom:12px;outline:none">
-    <label style="font-size:12px;color:#888;display:block;margin-bottom:4px">Date</label>
-    <input id="goal-date-input" type="date" style="width:100%;border:1px solid #F0E1D2;border-radius:8px;padding:8px 10px;font-size:14px;font-family:inherit;margin-bottom:16px;outline:none">
-    <div style="display:flex;gap:8px">
-      <button onclick="saveGoal()" style="flex:1;background:#2B2118;color:#fff;border:none;border-radius:8px;padding:10px;font-size:14px;font-weight:600;cursor:pointer">Save</button>
-      <button onclick="toggleGoalModal()" style="flex:1;background:#FBF1E7;color:#555;border:none;border-radius:8px;padding:10px;font-size:14px;cursor:pointer">Cancel</button>
-    </div>
-    <button id="goal-delete-btn" onclick="deleteGoal()" style="display:none;width:100%;margin-top:8px;background:none;border:none;color:#ef4444;font-size:12px;cursor:pointer">Remove goal</button>
   </div>
 </div>
 
@@ -322,14 +197,12 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
     <button class="tab-btn" data-tab="whoop">❤️ Health</button>
     <button class="tab-btn" data-tab="training">🏃 Training</button>
     <button class="tab-btn" data-tab="medicine">🩺 Medicine</button>
-    <button class="tab-btn" data-tab="finance">💰 Finance</button>
     <button class="tab-btn" data-tab="planner">✅ Tasks</button>
     <button class="tab-btn" data-tab="shopping">🛒 Shopping</button>
     <button class="tab-btn" data-tab="calendar">📅 Calendar</button>
     <button class="tab-btn" data-tab="notes">📝 Notes</button>
     <button class="tab-btn" data-tab="habits">🔥 Habits</button>
     <button class="tab-btn" data-tab="year4">📅 Year 4</button>
-    <button class="tab-btn" data-tab="reading">📖 Reading</button>
   </nav>
   <div style="position:absolute;top:0;right:0;bottom:2px;width:32px;
     background:linear-gradient(to right,transparent,#f2f2ee);
@@ -368,11 +241,6 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
             <div style="font-size:11px;color:#A6937F" id="today-weather-desc">Loading weather…</div>
           </div>
         </div>
-      </div>
-      <!-- QUICK-LOG SHORTCUTS -->
-      <div id="quick-log-bar" style="display:flex;gap:6px;padding:6px 14px;border-bottom:1px solid var(--border-soft);flex-shrink:0;flex-wrap:wrap">
-        <button onclick="adjustQCount(1);renderStudyQTracker()" style="background:var(--surface-hover);color:var(--text-muted);border:1px solid var(--border-soft);border-radius:var(--radius-pill);padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">📚 +1 Q</button>
-        <button onclick="adjustQCount(10);renderStudyQTracker()" style="background:var(--surface-hover);color:var(--text-muted);border:1px solid var(--border-soft);border-radius:var(--radius-pill);padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">📚 +10 Qs</button>
       </div>
       <div id="today-sections" style="padding:10px 14px 6px;flex:1;overflow-y:auto;min-height:0"></div>
     </div>
@@ -433,7 +301,6 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 <div style="display:none">
   <div id="gcal-card"></div>
   <div id="call-lvl"></div><div id="acwr-badge"></div><div id="wk-km"></div><div id="last-name"></div>
-  <div id="dash-fin-net"></div><div id="dash-fin-savings-badge"></div><div id="dash-fin-overdraft-bar"></div><div id="dash-fin-overdraft-label"></div>
   <div id="dash-tasks-summary"></div><div id="dash-shopping-summary"></div>
   <div id="health-updated"></div><div id="health-readiness"></div><div id="health-readiness-label"></div>
   <div id="health-hrv"></div><div id="health-rhr"></div><div id="health-sleep"></div>
@@ -646,9 +513,7 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
   <button class="sub-tab-btn" data-subtab="train-cycling">Cycling</button>
   <button class="sub-tab-btn" data-subtab="train-swimming">Swimming</button>
   <button class="sub-tab-btn" data-subtab="train-other">Other</button>
-  <button class="sub-tab-btn" data-subtab="train-injuries">🩹 Injuries</button>
   <button class="sub-tab-btn" data-subtab="train-shoes">👟 Shoes</button>
-  <button class="sub-tab-btn" data-subtab="train-races">🏅 Races</button>
 </nav>
 
 <div class="sub-tab-pane active" id="sub-tab-train-overview">
@@ -787,17 +652,6 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
   <div class="card" style="display:flex;flex-direction:column;align-items:center">
     <div class="lbl" style="align-self:flex-start">ACWR Gauge <button class="info-i" data-t="acwr">ⓘ</button></div>
     <div id="gauge-svg" style="width:100%;max-width:240px"></div>
-  </div>
-</div>
-<div class="g2" style="margin-bottom:12px">
-  <div class="card">
-    <div class="lbl">This Week's Activities <button class="info-i" data-t="hard-clustering">ⓘ</button></div>
-    <div id="wk-header" style="font-size:13px;color:#666;margin-bottom:8px"></div>
-    <div id="wk-list"></div>
-  </div>
-  <div class="card">
-    <div class="lbl">Easy / Hard Distribution <button class="info-i" data-t="easy-hard">ⓘ</button></div>
-    <div class="cht-sm"><div class="skeleton" id="donut-chart-skel" style="position:absolute;inset:0"></div><canvas id="donut-chart"></canvas></div>
   </div>
 </div>
 <div class="card">
@@ -1057,26 +911,6 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
 </div><!-- /sub-tab-train-other -->
 
-<div class="sub-tab-pane" id="sub-tab-train-injuries">
-<div class="section">
-<h2>Injury &amp; Niggle Log</h2>
-<div class="card" style="margin-bottom:12px;padding:14px">
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-    <input id="inj-body-part" type="text" placeholder="Body part (e.g. Left knee)" style="border:1px solid #F0E1D2;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none">
-    <select id="inj-severity" style="border:1px solid #F0E1D2;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;background:#fff;outline:none">
-      <option value="niggle">🟡 Niggle</option>
-      <option value="mild">🟠 Mild</option>
-      <option value="moderate">🔴 Moderate</option>
-      <option value="severe">⛔ Severe</option>
-    </select>
-  </div>
-  <input id="inj-notes" type="text" placeholder="Notes (optional)" style="width:100%;border:1px solid #F0E1D2;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none;margin-bottom:8px">
-  <button onclick="addInjuryEntry()" style="background:#2B2118;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer">Log it</button>
-</div>
-<div id="injury-log-list"></div>
-</div>
-</div><!-- /sub-tab-train-injuries -->
-
 <!-- SHOE TRACKER -->
 <div class="sub-tab-pane" id="sub-tab-train-shoes">
 <div class="section">
@@ -1093,79 +927,12 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 </div>
 </div><!-- /sub-tab-train-shoes -->
 
-<!-- RACE LOG -->
-<div class="sub-tab-pane" id="sub-tab-train-races">
-<div class="section">
-<h2>🏅 Race Results</h2>
-<div class="card" style="padding:14px;margin-bottom:12px">
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-    <input id="race-name-input" type="text" placeholder="Event name" style="border:1px solid #F0E1D2;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none">
-    <input id="race-date-input" type="date" style="border:1px solid #F0E1D2;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none">
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-    <select id="race-dist-input" style="border:1px solid #F0E1D2;border-radius:8px;padding:7px 10px;font-size:13px;background:#fff;font-family:inherit;outline:none">
-      <option value="5">5 km</option>
-      <option value="10">10 km</option>
-      <option value="21.1">Half Marathon</option>
-      <option value="42.2">Marathon</option>
-      <option value="other">Other</option>
-    </select>
-    <input id="race-time-input" type="text" placeholder="Finish time (hh:mm:ss)" style="border:1px solid #F0E1D2;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none">
-  </div>
-  <button onclick="addRaceResult()" style="background:#2B2118;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer">Log race</button>
-</div>
-<div id="race-list"></div>
-</div>
-</div><!-- /sub-tab-train-races -->
-
 </div><!-- /tab-training -->
 
 <div id="tab-medicine" class="tab-pane">
 
 <!-- EXAM COUNTDOWN -->
 <div id="exam-countdown-chip" style="margin-bottom:12px"></div>
-
-<!-- STUDY STREAK -->
-<div class="card" style="margin-bottom:12px">
-  <div class="row" style="align-items:flex-start">
-    <div>
-      <div class="lbl" style="margin-bottom:4px">Study Streak <button class="info-i" data-t="study-streak">ⓘ</button></div>
-      <div class="big" id="study-streak-current" style="margin-bottom:2px">—</div>
-      <div class="sub" id="study-streak-sub">Loading…</div>
-    </div>
-    <div id="study-streak-badge" style="margin-left:auto"></div>
-  </div>
-  <div style="margin-top:10px">
-    <div class="sub" style="margin-bottom:6px">Last 28 days <span style="color:#bbb">· tap a day to mark it hit/miss, including past days</span></div>
-    <div id="study-heatmap" style="display:flex;gap:3px;flex-wrap:wrap"></div>
-  </div>
-</div>
-
-<!-- DAILY QUESTION TRACKER -->
-<div class="card" style="margin-bottom:12px;padding:14px">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-    <div class="lbl" style="margin:0">📚 Daily Questions</div>
-    <div style="font-size:11px;color:#bbb" id="study-q-date"></div>
-  </div>
-  <div style="display:flex;align-items:center;gap:12px">
-    <button onclick="adjustQCount(-10)" style="background:#FBF1E7;border:none;border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer;font-weight:700">-10</button>
-    <button onclick="adjustQCount(-1)" style="background:#FBF1E7;border:none;border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer;font-weight:700">-1</button>
-    <div style="flex:1;text-align:center">
-      <div style="font-size:36px;font-weight:800;letter-spacing:-1px" id="study-q-count">0</div>
-      <div style="font-size:11px;color:#aaa">of <span id="study-q-goal">50</span> goal</div>
-    </div>
-    <button onclick="adjustQCount(1)" style="background:#FBF1E7;border:none;border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer;font-weight:700">+1</button>
-    <button onclick="adjustQCount(10)" style="background:#2B2118;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer;font-weight:700">+10</button>
-  </div>
-  <div style="background:#FBF1E7;border-radius:99px;height:6px;overflow:hidden;margin-top:10px">
-    <div id="study-q-bar" style="background:#6b9e7a;height:100%;width:0%;transition:width .3s;border-radius:99px"></div>
-  </div>
-  <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:#bbb">
-    <span id="study-q-streak">Streak: —</span>
-    <span onclick="promptStudyGoal()" style="cursor:pointer;text-decoration:underline">Set goal</span>
-  </div>
-  <div id="study-q-heatmap" style="display:flex;gap:3px;flex-wrap:wrap;margin-top:10px"></div>
-</div>
 
 <!-- POMODORO TIMER -->
 <div class="card" style="margin-bottom:12px;padding:14px">
@@ -1185,27 +952,6 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
     <button onclick="pomoReset()" style="background:#FBF1E7;border:none;border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer">Reset</button>
     <button onclick="pomoSkip()" style="background:#FBF1E7;border:none;border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer">Skip →</button>
   </div>
-</div>
-
-<!-- TOPIC WEAKNESS HEATMAP -->
-<div class="card" style="margin-bottom:12px;padding:14px">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-    <div class="lbl" style="margin:0">🧠 Topic Tracker</div>
-    <button onclick="showTopicInput()" style="background:none;border:1px solid #F0E1D2;border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer">+ Flag topic</button>
-  </div>
-  <div id="topic-input-row" style="display:none;margin-bottom:10px">
-    <input id="topic-name-input" type="text" placeholder="Topic name (e.g. Cardiac tamponade)" style="width:100%;border:1px solid #F0E1D2;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none;margin-bottom:6px">
-    <div style="display:flex;gap:6px">
-      <select id="topic-confidence" style="flex:1;border:1px solid #F0E1D2;border-radius:8px;padding:7px 10px;font-size:13px;background:#fff;font-family:inherit;outline:none">
-        <option value="weak">🔴 Weak — don't know it</option>
-        <option value="shaky">🟠 Shaky — unsure</option>
-        <option value="ok">🟡 OK — mostly there</option>
-        <option value="strong">🟢 Strong — nailed it</option>
-      </select>
-      <button onclick="addTopicEntry()" style="background:#2B2118;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer">Add</button>
-    </div>
-  </div>
-  <div id="topic-weakness-list" style="display:flex;flex-direction:column;gap:4px"></div>
 </div>
 
   <nav class="sub-tab-nav">
@@ -1505,280 +1251,6 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
 </div>
 
-<div class="tab-pane" id="tab-finance">
-
-<nav class="sub-tab-nav">
-  <button class="sub-tab-btn active" data-subtab="fin-overview">Overview</button>
-  <button class="sub-tab-btn" data-subtab="fin-income">Income &amp; Expenses</button>
-  <button class="sub-tab-btn" data-subtab="fin-investments">Investments</button>
-  <button class="sub-tab-btn" data-subtab="fin-statements">Statements</button>
-</nav>
-
-<div class="sub-tab-pane active" id="sub-tab-fin-overview">
-
-<!-- STAT CARDS -->
-<div class="section">
-<div class="g4">
-  <div class="card">
-    <div class="lbl">This Month's Income</div>
-    <div class="big" id="fin-income-val" style="color:#6b9e7a">—</div>
-  </div>
-  <div class="card">
-    <div class="lbl">This Month's Expenses</div>
-    <div class="big" id="fin-expenses-val" style="color:#e05c5c">—</div>
-  </div>
-  <div class="card">
-    <div class="lbl">Net This Month</div>
-    <div class="big" id="fin-net-val">—</div>
-  </div>
-  <div class="card">
-    <div class="lbl">Savings Rate</div>
-    <div class="big" id="fin-savings-val">—</div>
-    <div id="fin-savings-badge" style="margin-top:6px"></div>
-  </div>
-</div>
-</div>
-
-<!-- BANK BALANCES -->
-<div class="section">
-<div class="card">
-  <div class="lbl">Total Bank Balance</div>
-  <div class="big" id="fin-total-balance" style="margin-bottom:10px">—</div>
-  <div id="fin-accounts-list"></div>
-</div>
-</div>
-
-<!-- OVERDRAFT -->
-<div class="section">
-<div class="card">
-  <div class="lbl">Overdraft Goal <button class="info-i" onclick="toggleOverdraftEdit()" title="Set overdraft limit">✏️</button></div>
-  <div style="background:#FBF1E7;border-radius:99px;height:8px;overflow:hidden;margin:8px 0">
-    <div id="overdraft-bar" style="background:#3b82f6;height:100%;width:0%;transition:width .3s"></div>
-  </div>
-  <div class="sub" id="overdraft-label">—</div>
-  <div id="overdraft-edit-wrap" style="display:none;margin-top:10px">
-    <label class="sub" style="display:block;margin-bottom:4px">Overdraft limit (e.g. -1500)</label>
-    <input type="number" id="overdraft-input" step="0.01" style="width:120px;padding:7px 8px;border:1px solid #ddd;border-radius:6px;font-size:16px" onblur="saveOverdraftLimit()">
-  </div>
-</div>
-</div>
-
-<!-- CHART -->
-<div class="section">
-<h2>Income vs Expenses</h2>
-<div class="card">
-  <div class="cht"><div class="skeleton" id="finance-chart-skel" style="position:absolute;inset:0"></div><canvas id="finance-chart"></canvas></div>
-</div>
-</div>
-
-</div><!-- /sub-tab-fin-overview -->
-
-<div class="sub-tab-pane" id="sub-tab-fin-income">
-
-<!-- MONTH SELECTOR -->
-<div class="section">
-<div class="card" style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px">
-  <button onclick="changeFinanceMonth(-1)" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999;padding:4px 14px;font-weight:700">‹</button>
-  <div style="font-size:14px;font-weight:700" id="fin-month-label">—</div>
-  <button onclick="changeFinanceMonth(1)" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999;padding:4px 14px;font-weight:700">›</button>
-</div>
-</div>
-
-<!-- INCOME / EXPENSES -->
-<div class="section">
-<div class="g2">
-  <div class="card">
-    <div class="lbl">Income</div>
-    <div id="fin-income-fields"></div>
-  </div>
-  <div class="card">
-    <div class="lbl">Expenses</div>
-    <div id="fin-expense-fields"></div>
-  </div>
-</div>
-</div>
-
-<!-- DONUT -->
-<div class="section">
-<h2>Expense Breakdown</h2>
-<div class="card">
-  <div class="cht-sm"><canvas id="expense-donut"></canvas></div>
-</div>
-</div>
-
-</div><!-- /sub-tab-fin-income -->
-
-<div class="sub-tab-pane" id="sub-tab-fin-investments">
-
-<!-- LOG FORM -->
-<div class="section">
-<div class="card">
-  <div class="lbl">Log Portfolio Value</div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
-    <div style="flex:1;min-width:120px">
-      <label class="sub" style="display:block;margin-bottom:4px">Date</label>
-      <input type="date" id="invest-date" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:16px;box-sizing:border-box">
-    </div>
-    <div style="flex:1;min-width:100px">
-      <label class="sub" style="display:block;margin-bottom:4px">Value (£)</label>
-      <input type="number" id="invest-value" min="0" step="0.01" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:16px;box-sizing:border-box">
-    </div>
-    <div style="flex:2;min-width:140px">
-      <label class="sub" style="display:block;margin-bottom:4px">Note (optional)</label>
-      <input type="text" id="invest-note" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:16px;box-sizing:border-box">
-    </div>
-    <button onclick="addInvestmentEntry()" style="background:#2B2118;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer">Add entry</button>
-  </div>
-</div>
-</div>
-
-<!-- STATS -->
-<div class="section">
-<div class="g3">
-  <div class="card">
-    <div class="lbl">Current Value</div>
-    <div class="big" id="invest-current">—</div>
-  </div>
-  <div class="card">
-    <div class="lbl">All-Time Gain</div>
-    <div class="big" id="invest-gain">—</div>
-    <div class="sub" id="invest-gain-pct"></div>
-  </div>
-  <div class="card">
-    <div class="lbl">Entries Logged</div>
-    <div class="big" id="invest-count">—</div>
-  </div>
-</div>
-</div>
-
-<!-- CHART -->
-<div class="section">
-<div class="card">
-  <div class="cht"><div class="skeleton" id="invest-chart-skel" style="position:absolute;inset:0"></div><canvas id="invest-chart"></canvas></div>
-</div>
-</div>
-
-<!-- HISTORY -->
-<div class="section">
-<h2>History</h2>
-<div class="card">
-  <div id="invest-list"></div>
-</div>
-</div>
-
-</div><!-- /sub-tab-fin-investments -->
-
-<div class="sub-tab-pane" id="sub-tab-fin-statements">
-
-<!-- UPLOAD -->
-<div class="section">
-<h2>Upload Bank Statement</h2>
-<div class="card">
-  <div style="font-weight:700;font-size:14px;margin-bottom:8px">🔗 Google Sheets sync</div>
-  <div class="sub" style="margin-bottom:10px">Paste your sheet URL below. The sheet must be <strong>published to web</strong> first: in Google Sheets go to <em>File → Share → Publish to web → choose CSV → Publish</em>.</div>
-  <div style="display:flex;gap:8px;margin-bottom:8px">
-    <input type="text" id="gsheet-url" placeholder="https://docs.google.com/spreadsheets/d/…" style="flex:1;padding:8px 10px;border:1px solid #F0E1D2;border-radius:8px;font-size:13px;min-width:0">
-    <button onclick="syncGoogleSheet()" style="background:#2B2118;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">↻ Sync now</button>
-  </div>
-  <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#555;cursor:pointer">
-    <input type="checkbox" id="gsheet-auto" style="width:15px;height:15px;cursor:pointer">
-    Auto-sync every time the Finance tab loads
-  </label>
-  <div id="gsheet-last-sync" class="sub" style="margin-top:4px;font-size:11px;color:#aaa"></div>
-  <div id="gsheet-status" class="sub" style="margin-top:6px"></div>
-</div>
-
-<div class="card">
-  <div class="sub" style="margin-bottom:10px">CSV exports parse most reliably. PDF statements are read best-effort — layouts vary a lot between banks, so check the imported list afterwards.</div>
-  <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#555;margin-bottom:8px;cursor:pointer">
-    <input type="checkbox" id="stmt-flip-signs" style="width:15px;height:15px;cursor:pointer">
-    My bank shows payments/outgoings as <strong>positive</strong> numbers (flip signs on import)
-  </label>
-  <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#555;margin-bottom:12px;cursor:pointer">
-    <input type="checkbox" id="stmt-us-dates" style="width:15px;height:15px;cursor:pointer">
-    Dates are in <strong>M/D/YYYY</strong> format (Emma, US exports)
-  </label>
-  <input type="file" id="stmt-file-input" accept=".csv,.pdf" multiple onchange="handleStatementFiles(this.files)" style="display:none">
-  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-    <button onclick="document.getElementById('stmt-file-input').click()" style="background:#2B2118;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer">📤 Choose statement file(s)</button>
-    <button onclick="clearAllFinanceData()" style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer">🗑 Clear all data</button>
-  </div>
-  <div id="stmt-upload-status" class="sub" style="margin-top:10px"></div>
-</div>
-</div>
-
-<!-- MONTH SELECTOR -->
-<div class="section">
-<div class="card" style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px">
-  <button onclick="changeStatementMonth(-1)" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999;padding:4px 14px;font-weight:700">‹</button>
-  <div style="font-size:14px;font-weight:700" id="stmt-month-label">—</div>
-  <button onclick="changeStatementMonth(1)" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999;padding:4px 14px;font-weight:700">›</button>
-</div>
-</div>
-
-<!-- SPENDING BREAKDOWN -->
-<div class="section">
-<h2>Spending Breakdown (from statements)</h2>
-<div class="g2">
-  <div class="card">
-    <div class="cht-sm"><canvas id="stmt-category-donut"></canvas></div>
-  </div>
-  <div class="card">
-    <div class="lbl" style="margin-bottom:6px">Budget vs Actual</div>
-    <div id="stmt-budget-actual"></div>
-  </div>
-</div>
-</div>
-
-<!-- TRENDS -->
-<div class="section">
-<h2>Actual Income vs Expenses (from statements)</h2>
-<div class="card">
-  <div class="cht"><div class="skeleton" id="stmt-trends-chart-skel" style="position:absolute;inset:0"></div><canvas id="stmt-trends-chart"></canvas></div>
-</div>
-</div>
-
-<!-- NET WORTH -->
-<div class="section">
-<h2>Net Worth / Account Balances</h2>
-<div class="card" style="margin-bottom:12px">
-  <div class="lbl">Total Balance</div>
-  <div class="big" id="stmt-networth-total">—</div>
-  <div id="stmt-accounts-list" style="margin-top:10px"></div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:10px">
-    <div style="flex:1;min-width:120px">
-      <label class="sub" style="display:block;margin-bottom:4px">Account name</label>
-      <input type="text" id="stmt-acc-name" placeholder="e.g. Current Account" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:16px;box-sizing:border-box">
-    </div>
-    <div style="flex:1;min-width:100px">
-      <label class="sub" style="display:block;margin-bottom:4px">Balance (£)</label>
-      <input type="number" id="stmt-acc-balance" step="0.01" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:16px;box-sizing:border-box">
-    </div>
-    <button onclick="setAccountBalance()" style="background:#2B2118;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer">Save balance</button>
-  </div>
-</div>
-<div class="card">
-  <div class="cht-sm"><canvas id="stmt-networth-chart"></canvas></div>
-</div>
-</div>
-
-<!-- TRANSACTIONS -->
-<div class="section">
-<h2>Transactions <span id="stmt-tx-count" style="float:right;font-size:10px;color:#555;text-transform:none;letter-spacing:0;font-weight:400"></span></h2>
-<div style="margin-bottom:8px;position:relative">
-  <input type="search" id="stmt-tx-search" placeholder="Search description, merchant, account…" oninput="setTxSearch(this.value)"
-    style="width:100%;box-sizing:border-box;padding:9px 36px 9px 12px;border:1px solid #F0E1D2;border-radius:8px;font-size:13px;outline:none">
-  <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#aaa;pointer-events:none">🔍</span>
-</div>
-<div class="card">
-  <div id="stmt-tx-list"></div>
-</div>
-</div>
-
-</div><!-- /sub-tab-fin-statements -->
-
-</div>
-
 <div class="tab-pane" id="tab-planner">
 
 <!-- Invisible placeholders so existing planner JS doesn't error -->
@@ -1992,88 +1464,6 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
   </div>
 </div><!-- /tab-calendar -->
 
-<div class="tab-pane" id="tab-reading">
-
-<!-- LIBRARY VIEW -->
-<div id="rsvp-library-view">
-
-<div class="section">
-<h2>Reading — RSVP Speed Reader</h2>
-<div class="sub" style="margin-bottom:12px">Upload an EPUB, PDF, or plain-text book and read it flashed one word at a time. Books and progress are stored on this device only — not synced across devices.</div>
-<label class="rsvp-upload-label">
-  <span>📖 Add a book (.epub, .pdf, .txt)</span>
-  <input type="file" id="rsvp-file-input" accept=".epub,.pdf,.txt" multiple style="display:none" onchange="handleBookUpload(this.files)">
-</label>
-<div id="rsvp-upload-status" style="font-size:12px;color:var(--text-muted);margin-top:8px;min-height:16px"></div>
-</div>
-
-<div class="section">
-<h2>Your Library</h2>
-<div class="card" style="padding:10px">
-  <div id="rsvp-library-list"></div>
-</div>
-</div>
-
-</div><!-- /rsvp-library-view -->
-
-<!-- READER VIEW -->
-<div id="rsvp-reader-view" style="display:none">
-
-<div class="section" style="margin-bottom:14px">
-  <button onclick="rsvpCloseBook()" style="background:none;border:none;color:var(--text-muted);font-size:13px;font-weight:600;cursor:pointer;padding:0">← Library</button>
-</div>
-
-<div class="section">
-<div class="card" style="padding:20px">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-    <div id="rsvp-book-title" style="font-size:14px;font-weight:700"></div>
-    <select id="rsvp-chapter-select" onchange="rsvpJumpToChapter(this.value)" style="font-size:12px;border:1px solid var(--border-soft);border-radius:6px;padding:4px 8px;font-family:inherit;max-width:45%"></select>
-  </div>
-  <div class="sub" id="rsvp-progress-text" style="margin-bottom:14px">—</div>
-
-  <div class="rsvp-stage" id="rsvp-stage">
-    <span class="rsvp-guide top"></span>
-    <span class="rsvp-left" id="rsvp-left"></span><span class="rsvp-pivot" id="rsvp-pivot"></span><span class="rsvp-right" id="rsvp-right"></span>
-    <span class="rsvp-guide bottom"></span>
-  </div>
-
-  <div class="book-card-progress" style="margin:16px 0 18px">
-    <div class="book-card-progress-fill" id="rsvp-chapter-progress-fill" style="width:0%"></div>
-  </div>
-
-  <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:16px">
-    <button onclick="rsvpNudge(-10)" title="Back 10 words" style="background:var(--surface-hover);border:none;border-radius:99px;width:38px;height:38px;font-size:15px;cursor:pointer">⏮</button>
-    <button onclick="rsvpToggle()" id="rsvp-play-btn" style="background:var(--primary);color:#fff;border:none;border-radius:99px;width:56px;height:56px;font-size:20px;cursor:pointer">▶️</button>
-    <button onclick="rsvpNudge(10)" title="Forward 10 words" style="background:var(--surface-hover);border:none;border-radius:99px;width:38px;height:38px;font-size:15px;cursor:pointer">⏭</button>
-  </div>
-
-  <div style="margin-bottom:10px">
-    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer">
-      <input type="checkbox" id="rsvp-voice-toggle" onchange="rsvpToggleVoiceMode(this.checked)" style="cursor:pointer">
-      🔊 Read aloud — voice follows the flashing word
-    </label>
-  </div>
-  <div id="rsvp-voice-row" style="display:none;align-items:center;gap:8px;margin-bottom:14px">
-    <span style="font-size:11px;color:var(--text-muted);white-space:nowrap">Voice</span>
-    <select id="rsvp-voice-select" onchange="rsvpVoiceSelected(this.value)" style="flex:1;font-size:12px;border:1px solid var(--border-soft);border-radius:6px;padding:4px 8px;font-family:inherit;min-width:0"></select>
-  </div>
-
-  <div style="display:flex;align-items:center;gap:10px">
-    <span style="font-size:11px;color:var(--text-muted);white-space:nowrap">Speed</span>
-    <input type="range" id="rsvp-speed-slider" min="150" max="700" step="25" value="300" oninput="rsvpSetSpeed(this.value)" style="flex:1">
-    <span style="font-size:12px;font-weight:700;min-width:60px;text-align:right" id="rsvp-speed-label">300 wpm</span>
-  </div>
-  <div style="display:flex;justify-content:space-between;margin-top:10px">
-    <button onclick="rsvpRestartChapter()" style="font-size:11px;color:var(--text-muted);background:none;border:none;cursor:pointer;padding:0">Restart chapter</button>
-    <span id="rsvp-time-remaining" style="font-size:11px;color:var(--text-muted)"></span>
-  </div>
-</div>
-</div>
-
-</div><!-- /rsvp-reader-view -->
-
-</div><!-- /tab-reading -->
-
 <div class="tab-pane" id="tab-notes">
 
 <!-- QUICK ADD -->
@@ -2141,9 +1531,6 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
 <div class="tab-pane" id="tab-year4">
 
-<!-- Year 3 deadline alert -->
-<div id="y3-alert"></div>
-
 <!-- Legend -->
 <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;font-size:10px;font-weight:600;color:#7A6656">
   <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:#2E9E4F;display:inline-block"></span>Placement</span>
@@ -2177,10 +1564,8 @@ const ATHLETE_WEIGHT_KG = 87;
 const TIPS = {
   acwr:{what:'Acute:Chronic Workload Ratio (ACWR) compares your last 7 days of training load against your rolling 4-week average. It reveals how much stress you\'re applying relative to your prepared capacity.',how:'0.8–1.3 = sweet spot. 1.3–1.5 = caution. >1.5 = injury risk. <0.8 = detraining risk.'},
   'weekly-volume':{what:'Total distance (km) covered in distance-based activities this Mon–Sun week, plus an 8-week trend chart.',how:'Sustainable weekly increases are 5–10%. A jump >15% in one week sharply raises injury risk.'},
-  'easy-hard':{what:'The proportion of your recent sessions classified as easy vs moderate/hard, based on sport type and running pace.',how:'Elite programmes target 80% easy, 20% hard. Below 70% easy suggests accumulated fatigue without adequate recovery time.'},
   'todays-call':{what:'A recommended intensity for today based on your ACWR, yesterday\'s session, and recent hard session clustering.',how:'Hard = quality workout. Moderate = aerobic build. Easy = active recovery. Rest = full day off. Honour this to balance adaptation and fatigue.'},
   'injury-risk':{what:'Flags elevated injury risk when training load spikes beyond your established capacity or hard sessions are too frequent.',how:'ACWR >1.5 or 2+ hard sessions in 3 days both sharply increase soft tissue injury risk. Back off before symptoms appear.'},
-  'hard-clustering':{what:'Tracks how many hard sessions fall within each 3-day window. Clustering hard efforts is the most common cause of overuse injury.',how:'Aim for at least one easy or rest day between any two hard efforts. Two hard sessions in 3 days = caution trigger.'},
   'workout-window':{what:'The suggested time of day for your workout based on physiological performance research.',how:'Afternoon (2–7 pm) peaks: strength, reaction time, coordination. Morning suits easy aerobic work best. Very hard evening sessions can disrupt sleep.'},
   'weekly-plan':{what:'An AI-generated 7-day training plan tailored to your recent load, sport profile, and ACWR. Generated once daily by a scheduled task — not regenerated on page load.',how:'Follow intensity labels closely. Easy means truly easy — conversational pace. Adjust durations ±10% based on how you feel on the day.'},
   'ytd-distance':{what:'Total kilometres logged across all distance-based activities since 1 January 2026.',how:'A consistent runner doing 40–60 km/week accumulates 500–750 km by mid-year. Compare against your annual goal.'},
@@ -2191,7 +1576,6 @@ const TIPS = {
   'tonnage':{what:'Total volume load (weight × reps, summed across working sets) per muscle group, bucketed by week, over the last 12 weeks — computed directly from your logged sets.',how:'Look for steady or rising volume per muscle group over time. A sharp multi-week drop for one muscle group may mean it\'s being under-trained relative to the rest.'},
   'daily-briefing':{what:'A one-glance snapshot pulling together this morning\'s recovery score, today\'s recommended training intensity, your nearest upcoming race, and your overdraft status.',how:'Check this first thing — if recovery is low and a hard session is recommended, that\'s a signal to override the plan and go easy instead.'},
   'sleep-performance':{what:'Compares your logged training sessions against your sleep score the same day, bucketed into good/average/poor sleep, to see whether better sleep actually shows up as more "increase"/"progressed" verdicts.',how:'Needs a handful of sessions across different sleep qualities before the comparison means anything — treat early readings as provisional.'},
-  'study-streak':{what:'Consecutive days with any UKMLA revision activity (ticking off a condition, rating confidence) or an ECG quiz answer.',how:'A short streak isn\'t a problem on its own — it\'s here to nudge little-and-often revision rather than cramming.'},
   'whoop-recovery':{what:'Recovery score (0–100%) estimates how ready your body is for strain today, based on HRV, resting heart rate, and sleep performance compared against your own rolling baselines.',how:'66–100% = green, ready for strain. 34–65% = yellow, moderate caution. 0–33% = red, prioritise rest. The score gets more accurate after 2–3 weeks of consistent data feeding your baseline.'},
   'whoop-hrv':{what:'Heart Rate Variability (HRV) is the variation in time between heartbeats, in milliseconds. Higher generally means a well-recovered nervous system; lower signals accumulated stress or fatigue. There\'s no universal "good" number — a reading like 60ms could be high or low depending on your own baseline, so the trend against your 30-day average is what matters.',how:'To raise your baseline over time: keep sleep/wake times consistent, watch alcohol (one evening of drinking can suppress HRV for 24–48h), avoid stacking hard sessions back-to-back, and manage stress. Day-to-day swings of 10–20% are normal — only a sustained drop over a week or more is meaningful.'},
   'whoop-sleep-score':{what:'Sleep Performance compares how much sleep you actually got against your personal sleep need, which is calculated from recent strain, sleep debt, and your baseline.',how:'Aim for 85%+. The biggest lever is usually total time asleep rather than time in bed — an earlier bedtime moves this more reliably than anything else.'},
@@ -2782,21 +2166,6 @@ function buildVolChart(acts) {
   });
 }
 
-function buildDonut(acts) {
-  rmSkel('donut-chart');
-  const r20=acts.slice(0,Math.min(acts.length,20));
-  const c={easy:0,moderate:0,hard:0};
-  r20.forEach(a=>c[intensity(a)]++);
-  new Chart(document.getElementById('donut-chart'),{
-    type:'doughnut',
-    data:{labels:['Easy','Moderate','Hard'],datasets:[{
-      data:[c.easy,c.moderate,c.hard],
-      backgroundColor:['#6b9e7a','#d97706','#e05c5c'],borderWidth:0
-    }]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'68%',
-      plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8,font:{size:11}}}}}
-  });
-}
 
 function weeklyDistBuckets(acts, sport, weeks=16) {
   const buckets={};
@@ -2877,8 +2246,6 @@ const SYNC_KEYS = [
   'gcal_events',
   'calendar_overrides',
   'activity_notes', 'daily_habits', 'habit_log', 'progress_log', 'monthly_km_goal', 'pb_log',
-  'finance_data',
-  'study_activity_log', 'finance_transactions', 'finance_accounts',
   'rev_schedule_log', 'tasks_priority',
   'shopping_items',
   'notes_data',
@@ -2922,7 +2289,7 @@ async function syncPull(key) {
     if (remote._ts && remote._ts > localTs) {
       // For append-only log keys, merge remote + local so neither side loses entries.
       // Remote wins on conflicting individual dates, but local-only dates are kept.
-      const MERGE_KEYS = new Set(['habit_log','rev_log','activity_notes','tutoring_log','mood_log','pb_log','finance_transactions']);
+      const MERGE_KEYS = new Set(['habit_log','rev_log','activity_notes','tutoring_log','mood_log','pb_log']);
       if (MERGE_KEYS.has(key) && remote.data && typeof remote.data === 'object' && !Array.isArray(remote.data)) {
         let local;
         try { local = JSON.parse(localStorage.getItem(key)); } catch { local = null; }
@@ -3296,36 +2663,6 @@ function addNote() {
   renderNotes();
 }
 
-// ── Global quick-capture (floating button, any tab) ──────────────────────────
-function openQuickCapture() {
-  const panel = document.getElementById('quick-capture-panel');
-  if (!panel) return;
-  panel.style.display = 'block';
-  const inp = document.getElementById('quick-capture-input');
-  if (inp) { inp.value = ''; inp.focus(); }
-}
-function closeQuickCapture() {
-  const panel = document.getElementById('quick-capture-panel');
-  if (panel) panel.style.display = 'none';
-}
-function submitQuickCapture() {
-  const inp = document.getElementById('quick-capture-input');
-  const text = (inp?.value || '').trim();
-  if (!text) { closeQuickCapture(); return; }
-  const notes = getNotes();
-  notes.unshift({ id: 'n' + Date.now(), text, label: 'General', pinned: false, ts: Date.now() });
-  saveNotes(notes);
-  if (typeof renderNotes === 'function') renderNotes();
-  closeQuickCapture();
-  const fab = document.getElementById('quick-capture-fab');
-  if (fab) {
-    const prevBg = fab.style.background;
-    fab.textContent = '✓';
-    fab.style.background = '#2d7a47';
-    setTimeout(() => { fab.textContent = '✎'; fab.style.background = prevBg; }, 1200);
-  }
-}
-
 function deleteNote(id) {
   saveNotes(getNotes().filter(n => n.id !== id));
   renderNotes();
@@ -3398,497 +2735,6 @@ function renderNotes() {
       </div>
     </div>`;
   }).join('');
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// RSVP Reading — upload an EPUB/PDF/TXT book and read it flashed one word at
-// a time (Spritz-style), with the optimal-recognition-point letter fixed and
-// highlighted so the eye never has to relocate between words. Library +
-// reading position are localStorage-only on this device — a novel's worth of
-// text is hundreds of KB, too big to push through the generic cross-device
-// sync blob store the rest of this app's data uses.
-// ═══════════════════════════════════════════════════════════════════════════
-function getReadingLibrary() { try { return JSON.parse(localStorage.getItem('rsvp_library')) || []; } catch { return []; } }
-function saveReadingLibrary(lib) {
-  try { localStorage.setItem('rsvp_library', JSON.stringify(lib)); }
-  catch (e) { alert('Could not save — your browser storage is full. Try deleting an older book first.'); }
-}
-
-let _rsvpActiveBookId = null;
-let _rsvpTimer = null;
-let _rsvpPlaying = false;
-let _rsvpWords = [];         // current chapter's tokens (words + paragraph-break sentinels)
-let _rsvpWordOffsets = [];   // char offset of each real word in _rsvpChapterRawText (null for sentinels)
-let _rsvpChapterRawText = '';
-let _rsvpWordIdx = 0;
-let _rsvpChapterIdx = 0;
-let _rsvpVoiceEnabled = false;
-let _rsvpVoicesList = [];
-const RSVP_PARA_BREAK = '¶PARA¶';
-
-// Tokenizes into words + paragraph-break sentinels (for the flash display) while
-// also recording each real word's character offset in the original text — the
-// offsets are what let read-aloud mode (below) map a speech "boundary" event
-// back to a word index, so the flashing highlight can track along with speech.
-function _rsvpTokenizeFull(text) {
-  const norm = (text || '').replace(/\r\n/g, '\n');
-  const words = [], offsets = [];
-  const re = /\S+/g;
-  let m, lastEnd = 0;
-  while ((m = re.exec(norm))) {
-    if (words.length && /\n[ \t]*\n/.test(norm.slice(lastEnd, m.index))) { words.push(RSVP_PARA_BREAK); offsets.push(null); }
-    words.push(m[0]); offsets.push(m.index);
-    lastEnd = re.lastIndex;
-  }
-  return { words, offsets, text: norm };
-}
-function _rsvpTokenize(text) { return _rsvpTokenizeFull(text).words; }
-
-function _rsvpWordIndexForOffset(offset) {
-  let best = null;
-  for (let i = 0; i < _rsvpWordOffsets.length; i++) {
-    const o = _rsvpWordOffsets[i];
-    if (o == null) continue;
-    if (o <= offset) best = i; else break;
-  }
-  return best;
-}
-
-// ── Upload / parsing ─────────────────────────────────────────────────────────
-async function handleBookUpload(fileList) {
-  const files = Array.from(fileList || []);
-  if (!files.length) return;
-  const statusEl = document.getElementById('rsvp-upload-status');
-  const lib = getReadingLibrary();
-  for (const file of files) {
-    if (statusEl) statusEl.textContent = `Reading ${file.name}…`;
-    try {
-      const ext = (file.name.split('.').pop() || '').toLowerCase();
-      let parsed;
-      if (ext === 'epub') parsed = await parseEpubFile(file);
-      else if (ext === 'pdf') parsed = await parsePdfBookFile(file);
-      else if (ext === 'txt') parsed = await parseTxtFile(file);
-      else throw new Error('unsupported file type — use .epub, .pdf, or .txt');
-      if (!parsed.chapters.length) throw new Error('no readable text found');
-      const totalWords = parsed.chapters.reduce((s, c) => s + _rsvpTokenize(c.text).filter(w => w !== RSVP_PARA_BREAK).length, 0);
-      const title = parsed.title || file.name.replace(/\.[^.]+$/, '');
-      lib.push({
-        id: 'book' + Date.now() + Math.random().toString(36).slice(2, 7),
-        title, author: parsed.author || '', format: ext,
-        addedAt: new Date().toISOString(),
-        chapters: parsed.chapters, totalWords,
-        position: { chapter: 0, word: 0 }, wpm: 300
-      });
-      if (statusEl) statusEl.textContent = `Added "${title}" — ${parsed.chapters.length} chapter${parsed.chapters.length !== 1 ? 's' : ''}, ${totalWords.toLocaleString()} words`;
-    } catch (e) {
-      if (statusEl) statusEl.textContent = `Couldn't read ${file.name}: ${e.message}`;
-    }
-  }
-  saveReadingLibrary(lib);
-  renderReadingLibrary();
-  const input = document.getElementById('rsvp-file-input');
-  if (input) input.value = '';
-}
-
-async function parseTxtFile(file) {
-  const text = await file.text();
-  return { title: file.name.replace(/\.[^.]+$/, ''), author: '', chapters: splitPlainTextIntoChapters(text) };
-}
-
-async function parsePdfBookFile(file) {
-  if (typeof pdfjsLib === 'undefined') throw new Error('PDF reader library failed to load');
-  if (pdfjsLib.GlobalWorkerOptions) pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-  const buf = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-  let fullText = '';
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    fullText += content.items.map(it => it.str).join(' ') + '\n\n';
-  }
-  return { title: file.name.replace(/\.[^.]+$/, ''), author: '', chapters: splitPlainTextIntoChapters(fullText) };
-}
-
-function splitPlainTextIntoChapters(text) {
-  const lines = text.split('\n');
-  const headerRe = /^\s*(chapter|part|book)\s+([0-9]+|[ivxlcdm]+)\b/i;
-  const breaks = [];
-  lines.forEach((line, i) => { if (headerRe.test(line.trim()) && line.trim().length < 60) breaks.push(i); });
-  if (breaks.length >= 2) {
-    const chapters = [];
-    for (let i = 0; i < breaks.length; i++) {
-      const start = breaks[i], end = i + 1 < breaks.length ? breaks[i + 1] : lines.length;
-      const chunk = lines.slice(start, end).join('\n').trim();
-      if (chunk) chapters.push({ title: lines[start].trim().slice(0, 60), text: chunk });
-    }
-    return chapters;
-  }
-  // No detectable chapter headers — chunk into ~2500-word pieces so there's
-  // still navigable progress rather than one giant block.
-  const words = text.split(/\s+/).filter(Boolean);
-  const chunkSize = 2500;
-  const chapters = [];
-  for (let i = 0; i < words.length; i += chunkSize) {
-    chapters.push({ title: `Part ${chapters.length + 1}`, text: words.slice(i, i + chunkSize).join(' ') });
-  }
-  return chapters.length ? chapters : (text.trim() ? [{ title: 'Full text', text }] : []);
-}
-
-async function parseEpubFile(file) {
-  if (typeof JSZip === 'undefined') throw new Error('EPUB reader library failed to load');
-  const zip = await JSZip.loadAsync(await file.arrayBuffer());
-  const containerFile = zip.file('META-INF/container.xml');
-  if (!containerFile) throw new Error('not a valid EPUB (missing container.xml)');
-  const containerDoc = new DOMParser().parseFromString(await containerFile.async('text'), 'application/xml');
-  const opfPath = containerDoc.querySelector('rootfile')?.getAttribute('full-path');
-  if (!opfPath) throw new Error('malformed EPUB (no rootfile)');
-  const opfDir = opfPath.includes('/') ? opfPath.slice(0, opfPath.lastIndexOf('/') + 1) : '';
-  const opfFile = zip.file(opfPath);
-  if (!opfFile) throw new Error('malformed EPUB (rootfile missing)');
-  const opfDoc = new DOMParser().parseFromString(await opfFile.async('text'), 'application/xml');
-
-  const title = opfDoc.getElementsByTagNameNS('*', 'title')[0]?.textContent?.trim() || '';
-  const author = opfDoc.getElementsByTagNameNS('*', 'creator')[0]?.textContent?.trim() || '';
-
-  const manifest = {};
-  opfDoc.querySelectorAll('manifest > item').forEach(item => {
-    manifest[item.getAttribute('id')] = item.getAttribute('href');
-  });
-  const spineIds = Array.from(opfDoc.querySelectorAll('spine > itemref')).map(el => el.getAttribute('idref'));
-
-  const chapters = [];
-  for (const id of spineIds) {
-    const href = (manifest[id] || '').split('#')[0];
-    if (!href) continue;
-    const path = (opfDir + href).replace(/^\//, '');
-    const zf = zip.file(path) || zip.file(decodeURIComponent(path));
-    if (!zf) continue;
-    const raw = await zf.async('text');
-    let doc = new DOMParser().parseFromString(raw, 'application/xhtml+xml');
-    if (doc.querySelector('parsererror')) doc = new DOMParser().parseFromString(raw, 'text/html');
-    const body = doc.body;
-    if (!body) continue;
-    body.querySelectorAll('script,style').forEach(n => n.remove());
-    const heading = body.querySelector('h1,h2,h3');
-    const chapTitle = heading?.textContent?.trim().slice(0, 60) || `Chapter ${chapters.length + 1}`;
-    // Preserve paragraph breaks by joining block-level text with blank lines,
-    // rather than flattening the whole chapter into one run of text.
-    const blocks = Array.from(body.querySelectorAll('p,div,li,h1,h2,h3,h4,blockquote'))
-      .map(b => b.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean);
-    const text = blocks.length ? blocks.join('\n\n') : body.textContent.replace(/\s+/g, ' ').trim();
-    if (text) chapters.push({ title: chapTitle, text });
-  }
-  return { title, author, chapters };
-}
-
-// ── Library view ──────────────────────────────────────────────────────────────
-function _rsvpWordsReadSoFar(book) {
-  let words = 0;
-  for (let i = 0; i < book.position.chapter; i++) words += _rsvpTokenize(book.chapters[i].text).filter(w => w !== RSVP_PARA_BREAK).length;
-  words += book.position.word;
-  return words;
-}
-
-function renderReadingLibrary() {
-  const el = document.getElementById('rsvp-library-list');
-  if (!el) return;
-  const lib = getReadingLibrary();
-  if (!lib.length) {
-    el.innerHTML = `<div style="color:var(--text-faint);font-style:italic;padding:16px;text-align:center;font-size:13px">No books yet — upload one above</div>`;
-    return;
-  }
-  const icon = { epub: '📗', pdf: '📄', txt: '📃' };
-  el.innerHTML = lib.slice().sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt)).map(b => {
-    const wordsRead = _rsvpWordsReadSoFar(b);
-    const pct = b.totalWords ? Math.min(100, Math.round((wordsRead / b.totalWords) * 100)) : 0;
-    const started = b.position && (b.position.chapter > 0 || b.position.word > 0);
-    return `<div class="book-card" onclick="rsvpOpenBook('${b.id}')">
-      <div style="font-size:26px">${icon[b.format] || '📄'}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:14px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(b.title)}</div>
-        <div style="font-size:11px;color:var(--text-muted)">${b.author ? escHtml(b.author) + ' · ' : ''}${b.totalWords.toLocaleString()} words${started ? ` · ${pct}% read` : ''}</div>
-        <div class="book-card-progress"><div class="book-card-progress-fill" style="width:${pct}%"></div></div>
-      </div>
-      <button onclick="event.stopPropagation();rsvpDeleteBook('${b.id}')" title="Delete" style="background:none;border:none;color:var(--text-faint);font-size:14px;cursor:pointer;padding:4px">🗑️</button>
-    </div>`;
-  }).join('');
-}
-
-function rsvpDeleteBook(id) {
-  if (!confirm('Delete this book? This cannot be undone.')) return;
-  if (_rsvpActiveBookId === id) rsvpCloseBook();
-  saveReadingLibrary(getReadingLibrary().filter(b => b.id !== id));
-  renderReadingLibrary();
-}
-
-// ── Reader view ──────────────────────────────────────────────────────────────
-function _rsvpBook() { return getReadingLibrary().find(b => b.id === _rsvpActiveBookId); }
-
-function rsvpOpenBook(id) {
-  rsvpPause();
-  const book = getReadingLibrary().find(b => b.id === id);
-  if (!book) return;
-  _rsvpActiveBookId = id;
-  document.getElementById('rsvp-library-view').style.display = 'none';
-  document.getElementById('rsvp-reader-view').style.display = 'block';
-  document.getElementById('rsvp-book-title').textContent = book.title;
-  document.getElementById('rsvp-chapter-select').innerHTML =
-    book.chapters.map((c, i) => `<option value="${i}">${escHtml(c.title)}</option>`).join('');
-  const wpm = book.wpm || 300;
-  document.getElementById('rsvp-speed-slider').value = wpm;
-  document.getElementById('rsvp-speed-label').textContent = `${wpm} wpm`;
-  const vSettings = getRsvpVoiceSettings();
-  _rsvpVoiceEnabled = !!vSettings.enabled && typeof speechSynthesis !== 'undefined';
-  const voiceCb = document.getElementById('rsvp-voice-toggle');
-  if (voiceCb) voiceCb.checked = _rsvpVoiceEnabled;
-  const voiceRow = document.getElementById('rsvp-voice-row');
-  if (voiceRow) voiceRow.style.display = _rsvpVoiceEnabled ? 'flex' : 'none';
-  _rsvpPopulateVoices();
-  rsvpLoadChapter(book.position.chapter || 0, book.position.word || 0);
-}
-
-function rsvpLoadChapter(chapterIdx, wordIdx) {
-  const book = _rsvpBook();
-  if (!book || !book.chapters[chapterIdx]) return;
-  if (_rsvpTimer) { clearTimeout(_rsvpTimer); _rsvpTimer = null; }
-  if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
-  _rsvpChapterIdx = chapterIdx;
-  const tok = _rsvpTokenizeFull(book.chapters[chapterIdx].text);
-  _rsvpWords = tok.words;
-  _rsvpWordOffsets = tok.offsets;
-  _rsvpChapterRawText = tok.text;
-  _rsvpWordIdx = Math.min(wordIdx || 0, Math.max(0, _rsvpWords.length - 1));
-  const sel = document.getElementById('rsvp-chapter-select');
-  if (sel) sel.value = chapterIdx;
-  rsvpRenderCurrentWord();
-  rsvpUpdateProgressUI();
-}
-
-function rsvpJumpToChapter(idxStr) { rsvpPause(); rsvpLoadChapter(parseInt(idxStr), 0); rsvpSaveProgress(); }
-function rsvpRestartChapter() { rsvpPause(); rsvpLoadChapter(_rsvpChapterIdx, 0); rsvpSaveProgress(); }
-
-function rsvpCloseBook() {
-  rsvpPause();
-  rsvpSaveProgress();
-  _rsvpActiveBookId = null;
-  document.getElementById('rsvp-reader-view').style.display = 'none';
-  document.getElementById('rsvp-library-view').style.display = 'block';
-  renderReadingLibrary();
-}
-
-function rsvpNudge(delta) {
-  rsvpPause();
-  _rsvpWordIdx = Math.max(0, Math.min(_rsvpWords.length - 1, _rsvpWordIdx + delta));
-  while (_rsvpWords[_rsvpWordIdx] === RSVP_PARA_BREAK && _rsvpWordIdx < _rsvpWords.length - 1) _rsvpWordIdx++;
-  rsvpRenderCurrentWord();
-  rsvpUpdateProgressUI();
-  rsvpSaveProgress();
-}
-
-function rsvpOrpIndex(word) {
-  const len = word.length;
-  if (len <= 1) return 0;
-  if (len <= 5) return 1;
-  if (len <= 9) return 2;
-  if (len <= 13) return 3;
-  return 4;
-}
-
-function rsvpRenderCurrentWord() {
-  const leftEl = document.getElementById('rsvp-left'), pivotEl = document.getElementById('rsvp-pivot'), rightEl = document.getElementById('rsvp-right');
-  if (!leftEl) return;
-  const word = _rsvpWords[_rsvpWordIdx];
-  if (!word || word === RSVP_PARA_BREAK) { leftEl.textContent = ''; pivotEl.textContent = '·'; rightEl.textContent = ''; return; }
-  const orp = rsvpOrpIndex(word);
-  leftEl.textContent = word.slice(0, orp);
-  pivotEl.textContent = word[orp] || '';
-  rightEl.textContent = word.slice(orp + 1);
-}
-
-function rsvpUpdateProgressUI() {
-  const book = _rsvpBook();
-  if (!book) return;
-  const nonBreakTotal = _rsvpWords.filter(w => w !== RSVP_PARA_BREAK).length;
-  const nonBreakSoFar = _rsvpWords.slice(0, _rsvpWordIdx).filter(w => w !== RSVP_PARA_BREAK).length;
-  const chapPct = nonBreakTotal ? Math.round((nonBreakSoFar / nonBreakTotal) * 100) : 0;
-  const fillEl = document.getElementById('rsvp-chapter-progress-fill');
-  if (fillEl) fillEl.style.width = chapPct + '%';
-  const overallWords = _rsvpWordsReadSoFar({ ...book, position: { chapter: _rsvpChapterIdx, word: _rsvpWordIdx } });
-  const overallPct = book.totalWords ? Math.round((overallWords / book.totalWords) * 100) : 0;
-  const progText = document.getElementById('rsvp-progress-text');
-  if (progText) progText.textContent = `Chapter ${_rsvpChapterIdx + 1} of ${book.chapters.length} · ${chapPct}% · ${overallPct}% of book`;
-  const wpm = parseInt(document.getElementById('rsvp-speed-slider')?.value) || 300;
-  const remaining = nonBreakTotal - nonBreakSoFar;
-  const timeEl = document.getElementById('rsvp-time-remaining');
-  if (timeEl) timeEl.textContent = remaining > 0 ? `~${Math.ceil(remaining / wpm)} min left in chapter` : 'Chapter complete';
-}
-
-function rsvpSetSpeed(v) {
-  const label = document.getElementById('rsvp-speed-label');
-  if (label) label.textContent = `${v} wpm`;
-  rsvpUpdateProgressUI();
-  rsvpSaveProgress();
-  // Web Speech API can't change rate mid-utterance — restart from the current word.
-  if (_rsvpPlaying && _rsvpVoiceEnabled) { speechSynthesis.cancel(); rsvpVoiceSpeakFrom(_rsvpWordIdx); }
-}
-
-// ── Read-aloud (Web Speech API) ─────────────────────────────────────────────
-// Optional, additive to the flash display — when enabled, the browser's
-// built-in text-to-speech reads the chapter aloud, and the word highlight
-// follows along using the speech engine's own word-boundary events rather
-// than a fixed timer, so the flash tracks real speech rhythm.
-function getRsvpVoiceSettings() { try { return JSON.parse(localStorage.getItem('rsvp_voice_settings')) || {}; } catch { return {}; } }
-function saveRsvpVoiceSettings(s) { try { localStorage.setItem('rsvp_voice_settings', JSON.stringify(s)); } catch {} }
-
-function _rsvpPopulateVoices() {
-  if (typeof speechSynthesis === 'undefined') return;
-  _rsvpVoicesList = speechSynthesis.getVoices();
-  const sel = document.getElementById('rsvp-voice-select');
-  if (!sel || !_rsvpVoicesList.length) return;
-  const settings = getRsvpVoiceSettings();
-  sel.innerHTML = _rsvpVoicesList.map(v => `<option value="${escHtml(v.voiceURI)}">${escHtml(v.name)} (${escHtml(v.lang)})</option>`).join('');
-  if (settings.voiceURI && _rsvpVoicesList.some(v => v.voiceURI === settings.voiceURI)) sel.value = settings.voiceURI;
-  else { settings.voiceURI = _rsvpVoicesList[0].voiceURI; saveRsvpVoiceSettings(settings); }
-}
-
-function rsvpToggleVoiceMode(checked) {
-  rsvpPause();
-  _rsvpVoiceEnabled = checked;
-  const settings = getRsvpVoiceSettings();
-  settings.enabled = checked;
-  saveRsvpVoiceSettings(settings);
-  const voiceRow = document.getElementById('rsvp-voice-row');
-  if (voiceRow) voiceRow.style.display = checked ? 'flex' : 'none';
-}
-
-function rsvpVoiceSelected(uri) {
-  const settings = getRsvpVoiceSettings();
-  settings.voiceURI = uri;
-  saveRsvpVoiceSettings(settings);
-}
-
-function rsvpVoiceSpeakFrom(wordIdx) {
-  const startOffset = _rsvpWordOffsets[wordIdx] != null ? _rsvpWordOffsets[wordIdx] : 0;
-  const textToSpeak = _rsvpChapterRawText.slice(startOffset);
-  if (!textToSpeak.trim()) { rsvpVoiceHandleChapterEnd(); return; }
-  const utter = new SpeechSynthesisUtterance(textToSpeak);
-  const settings = getRsvpVoiceSettings();
-  const voice = _rsvpVoicesList.find(v => v.voiceURI === settings.voiceURI);
-  if (voice) utter.voice = voice;
-  const wpm = parseInt(document.getElementById('rsvp-speed-slider')?.value) || 300;
-  // ~160 wpm is a natural rate=1.0 pace for most engines; clamp so speech stays intelligible
-  // even when the flash speed itself is set much higher than natural speaking pace.
-  utter.rate = Math.max(0.6, Math.min(2.5, wpm / 160));
-  utter.onboundary = (e) => {
-    if (e.name && e.name !== 'word') return;
-    const idx = _rsvpWordIndexForOffset(startOffset + e.charIndex);
-    if (idx != null && idx > _rsvpWordIdx) {
-      _rsvpWordIdx = idx;
-      rsvpRenderCurrentWord();
-      rsvpUpdateProgressUI();
-      if (_rsvpWordIdx % 10 === 0) rsvpSaveProgress();
-    }
-  };
-  utter.onend = () => { if (_rsvpPlaying) rsvpVoiceHandleChapterEnd(); };
-  utter.onerror = () => { rsvpPause(); };
-  speechSynthesis.speak(utter);
-}
-
-function rsvpVoiceHandleChapterEnd() {
-  const book = _rsvpBook();
-  if (book && _rsvpChapterIdx < book.chapters.length - 1) {
-    rsvpLoadChapter(_rsvpChapterIdx + 1, 0);
-    if (_rsvpPlaying) rsvpVoiceSpeakFrom(0);
-  } else {
-    _rsvpWordIdx = Math.max(0, _rsvpWords.length - 1);
-    rsvpPause();
-    rsvpRenderCurrentWord();
-  }
-}
-
-function rsvpSaveProgress() {
-  if (!_rsvpActiveBookId) return;
-  const lib = getReadingLibrary();
-  const book = lib.find(b => b.id === _rsvpActiveBookId);
-  if (!book) return;
-  book.position = { chapter: _rsvpChapterIdx, word: _rsvpWordIdx };
-  const slider = document.getElementById('rsvp-speed-slider');
-  if (slider) book.wpm = parseInt(slider.value) || book.wpm;
-  saveReadingLibrary(lib);
-}
-
-// ── Playback engine ──────────────────────────────────────────────────────────
-function rsvpToggle() { if (_rsvpPlaying) rsvpPause(); else rsvpPlay(); }
-
-function rsvpPlay() {
-  if (!_rsvpWords.length) return;
-  if (_rsvpWordIdx >= _rsvpWords.length - 1) _rsvpWordIdx = 0;
-  _rsvpPlaying = true;
-  const btn = document.getElementById('rsvp-play-btn');
-  if (btn) btn.textContent = '⏸️';
-  if (_rsvpVoiceEnabled && typeof speechSynthesis !== 'undefined') rsvpVoiceSpeakFrom(_rsvpWordIdx);
-  else rsvpScheduleNext();
-}
-
-function rsvpPause() {
-  _rsvpPlaying = false;
-  if (_rsvpTimer) { clearTimeout(_rsvpTimer); _rsvpTimer = null; }
-  if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
-  const btn = document.getElementById('rsvp-play-btn');
-  if (btn) btn.textContent = '▶️';
-  rsvpSaveProgress();
-}
-
-function _rsvpDelayForWord(word, wpm) {
-  let ms = 60000 / wpm;
-  if (word === RSVP_PARA_BREAK) return ms * 3;
-  if (/[.!?]$/.test(word)) ms *= 2.2;
-  else if (/[,;:]$/.test(word)) ms *= 1.5;
-  if (word.length > 8) ms *= 1.15;
-  return ms;
-}
-
-function rsvpScheduleNext() {
-  if (!_rsvpPlaying) return;
-  rsvpRenderCurrentWord();
-  rsvpUpdateProgressUI();
-  const wpm = parseInt(document.getElementById('rsvp-speed-slider')?.value) || 300;
-  const word = _rsvpWords[_rsvpWordIdx] || '';
-  const delay = _rsvpDelayForWord(word, wpm);
-  _rsvpTimer = setTimeout(() => {
-    _rsvpWordIdx++;
-    if (_rsvpWordIdx >= _rsvpWords.length) {
-      const book = _rsvpBook();
-      if (book && _rsvpChapterIdx < book.chapters.length - 1) {
-        rsvpLoadChapter(_rsvpChapterIdx + 1, 0);
-        rsvpScheduleNext();
-      } else {
-        _rsvpWordIdx = Math.max(0, _rsvpWords.length - 1);
-        rsvpPause();
-        rsvpRenderCurrentWord();
-      }
-      return;
-    }
-    if (_rsvpWordIdx % 10 === 0) rsvpSaveProgress();
-    rsvpScheduleNext();
-  }, delay);
-}
-
-// Pause (and save position) if the tab is hidden or the page is closed mid-read
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && _rsvpPlaying) rsvpPause(); });
-window.addEventListener('beforeunload', () => { if (_rsvpActiveBookId) rsvpSaveProgress(); });
-
-// Chrome loads the voice list asynchronously — populate now and again once it's ready.
-// If the browser has no speech synthesis at all, disable the toggle rather than let
-// it silently do nothing.
-if (typeof speechSynthesis !== 'undefined') {
-  speechSynthesis.onvoiceschanged = _rsvpPopulateVoices;
-  _rsvpPopulateVoices();
-} else {
-  document.addEventListener('DOMContentLoaded', () => {
-    const cb = document.getElementById('rsvp-voice-toggle');
-    if (cb) { cb.disabled = true; cb.closest('label').title = 'Not supported in this browser'; }
-  });
 }
 
 function clearCompletedTasks() {
@@ -5685,39 +4531,11 @@ function renderS1(acts) {
 
 function renderS2(acts) {
   buildVolChart(acts);
-  buildDonut(acts);
   buildDistChart(acts);
 
   // Gauge
   const acwr=calcACWR(acts);
   buildGauge(acwr.ratio);
-
-  // This week's activities
-  const ws=weekStart();
-  const thisWk=acts.filter(a=>new Date(a.start_local)>=ws);
-  const typeCnt={};
-  thisWk.forEach(a=>typeCnt[a.sport_type]=(typeCnt[a.sport_type]||0)+1);
-  setH('wk-header', Object.entries(typeCnt)
-    .map(([t,c])=>`<span style="margin-right:10px">${EMOJI[t]||'🏅'} ${c} ${t}</span>`).join('')
-    || '<span style="color:#bbb">No activities this week yet</span>');
-
-  setH('wk-list', thisWk.map(a=>{
-    const dist=a.summary.distance>0?`<strong>${fmtKm(a.summary.distance)}km</strong>`:'';
-    const pace=a.sport_type==='Run'&&a.summary.avg_speed>0?` <span style="color:#aaa">${mps2pace(a.summary.avg_speed)}</span>`:'';
-    const dur=`<span style="color:#aaa;font-size:12px">${fmtDur(a.summary.moving_time)}</span>`;
-    const intCls={easy:'b-sage',moderate:'b-amber',hard:'b-red'}[intensity(a)];
-    return `<div class="row" style="cursor:pointer" onclick="openActivityInsight('${a.id}')">
-      <span style="font-size:18px">${EMOJI[a.sport_type]||'🏅'}</span>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.name}</div>
-        <div style="font-size:11px;color:#bbb">${fmtDate(a.start_local)}</div>
-      </div>
-      <div style="text-align:right;font-size:13px;white-space:nowrap">${dist}${pace} ${dur}</div>
-      ${hrBadge(a)}
-      <span class="badge ${intCls}" style="font-size:10px;padding:2px 7px">${intensity(a)}</span>
-      ${notesHtml(a)}
-    </div>`;
-  }).join('')||'<div style="color:#bbb;padding:10px 0;font-size:13px">No activities this week yet.</div>');
 }
 
 function renderS5(acts) {
@@ -7445,100 +6263,6 @@ const RACES = [
   { name: 'Half Ironman', date: '2027-03-01', type: 'Triathlon', distance: '70.3' },
 ];
 
-// ── Study Streak Tracker ─────────────────────────────────────────────────────
-// Logs one date per day (deduped) whenever Anki/PassMed revision is logged for
-// the day. Separate date-stamped log purely for streak purposes.
-function getStudyActivityLog() {
-  try { return JSON.parse(localStorage.getItem('study_activity_log')) || []; } catch (e) { return []; }
-}
-function saveStudyActivityLog(log) { localStorage.setItem('study_activity_log', JSON.stringify(log)); syncPush('study_activity_log', log); }
-function logStudyActivity() {
-  const log = getStudyActivityLog();
-  const today = todayStr();
-  if (!log.includes(today)) {
-    log.push(today);
-    saveStudyActivityLog(log);
-  }
-}
-function computeStudyStreak(log) {
-  const sorted = [...new Set(log)].sort();
-  if (!sorted.length) return { current: 0, longest: 0, lastDate: null };
-  const daySet = new Set(sorted);
-
-  let current = 0;
-  const today = todayStr();
-  const cursor = new Date(today + 'T00:00:00');
-  if (!daySet.has(today)) cursor.setDate(cursor.getDate() - 1);
-  while (daySet.has(cursor.toLocaleDateString('en-CA'))) {
-    current++;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-
-  let longest = 0, run = 0, prev = null;
-  sorted.forEach(d => {
-    if (prev) {
-      const diffDays = Math.round((new Date(d) - new Date(prev)) / 864e5);
-      run = diffDays === 1 ? run + 1 : 1;
-    } else {
-      run = 1;
-    }
-    longest = Math.max(longest, run);
-    prev = d;
-  });
-
-  return { current, longest, lastDate: sorted[sorted.length - 1] };
-}
-function renderStudyStreak() {
-  const log = getStudyActivityLog();
-  const { current, longest, lastDate } = computeStudyStreak(log);
-  set('study-streak-current', current + (current === 1 ? ' day' : ' days'));
-  set('study-streak-sub', lastDate
-    ? `Best: ${longest} day${longest === 1 ? '' : 's'} · Last studied ${fmtDate(lastDate)}`
-    : 'No study activity logged yet');
-  const badgeEl = document.getElementById('study-streak-badge');
-  if (badgeEl) {
-    let cls = 'b-grey', lbl = 'Get started';
-    if (current >= 7) { cls = 'b-sage'; lbl = 'On fire'; }
-    else if (current >= 3) { cls = 'b-amber'; lbl = 'Building'; }
-    else if (current >= 1) { cls = 'b-blue'; lbl = 'Active'; }
-    badgeEl.innerHTML = `<span class="badge ${cls}">${lbl}</span>`;
-  }
-  renderStudyHeatmap();
-}
-
-// Retrospective logging: toggles whether a given (usually past) date counts as
-// a "hit" in the study log, so a day missed at the time can be corrected later
-// instead of only ever being able to log "today".
-function toggleStudyDay(dateStr) {
-  const log = getStudyActivityLog();
-  const idx = log.indexOf(dateStr);
-  if (idx === -1) log.push(dateStr); else log.splice(idx, 1);
-  saveStudyActivityLog(log);
-  renderStudyStreak();
-}
-
-// Hit/miss graph: last 28 days, green = studied, grey = missed, today outlined.
-// Clicking any cell (past or present) toggles it via toggleStudyDay.
-function renderStudyHeatmap() {
-  const el = document.getElementById('study-heatmap');
-  if (!el) return;
-  const log = new Set(getStudyActivityLog());
-  const todayDate = todayStr();
-  const cells = [];
-  for (let i = 27; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const dateStr = d.toLocaleDateString('en-CA');
-    const hit = log.has(dateStr);
-    const isToday = dateStr === todayDate;
-    const label = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-    const bg = hit ? '#6b9e7a' : '#FBF1E7';
-    const border = isToday ? '2px solid #1d4ed8' : '1px solid #F0E1D2';
-    cells.push(`<span title="${label} — ${hit ? 'hit' : 'miss'}" onclick="toggleStudyDay('${dateStr}')" style="width:18px;height:18px;border-radius:4px;background:${bg};border:${border};cursor:pointer;display:inline-block"></span>`);
-  }
-  el.innerHTML = cells.join('');
-}
-
 // Pace check: compares current CTL (fitness) to CTL ~28 days ago to flag whether
 // fitness is trending up or down ahead of a race, plus a taper-window fatigue note
 // once the race is within 10 days. Reuses computeFitnessTrend() — no new data source.
@@ -7594,7 +6318,7 @@ function renderRaceCalendar() {
 
 // ── Daily Briefing ───────────────────────────────────────────────────────────
 // Cross-domain summary card: recovery (Whoop/health), today's recommended session
-// (Training), nearest race deadline (Race Calendar), and overdraft status (Finance).
+// (Training), and placement/calendar/tutoring context for the day.
 // Called from two independent async completions (main()'s Strava load and
 // fetchHealthData()) since it depends on data from both — defensive against
 // either one not having landed yet.
@@ -7736,64 +6460,6 @@ const TUTORING_SCHEDULE = {
   ]
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Cross-domain insight (Home) — auto-surfaces a correlation between data
-// already tracked separately (sleep, training load, revision completion)
-// instead of making Phil eyeball each tab and spot the pattern himself.
-// Only speaks up when a comparison has enough days on both sides (≥4) and a
-// gap worth mentioning (≥8 percentage points) — otherwise stays silent
-// rather than reporting noise as a pattern.
-// ═══════════════════════════════════════════════════════════════════════════
-function computeCrossDomainInsight() {
-  if (typeof _healthValueOnDate !== 'function' || typeof getRevLog !== 'function') return null;
-  const days = [];
-  for (let i = 1; i <= 30; i++) { // yesterday back 30 days — skip today, it's still incomplete
-    const d = new Date(); d.setDate(d.getDate() - i);
-    days.push(d.toLocaleDateString('en-CA'));
-  }
-  const revLog = getRevLog();
-  const trainMinByDate = {};
-  (_acts || []).forEach(a => {
-    const d = (a.start_local || '').slice(0, 10);
-    const mins = (a.summary && a.summary.moving_time || 0) / 60;
-    if (d) trainMinByDate[d] = (trainMinByDate[d] || 0) + mins;
-  });
-
-  const rows = days.map(d => {
-    const sleepHours = _healthValueOnDate('sleep_analysis', d);
-    const rev = revLog[d];
-    const revPct = rev ? Math.min(1, ((rev.anki || 0) / REV_ANKI_TARGET + (rev.pm || 0) / REV_PM_TARGET) / 2) : null;
-    return { date: d, sleepHours, revPct, trainMin: trainMinByDate[d] || 0 };
-  });
-
-  const splitAvg = (arr, predicate) => {
-    const yes = arr.filter(r => r.revPct != null && predicate(r) === true).map(r => r.revPct);
-    const no  = arr.filter(r => r.revPct != null && predicate(r) === false).map(r => r.revPct);
-    if (yes.length < 4 || no.length < 4) return null;
-    return { yesAvg: _avg(yes), noAvg: _avg(no), yesN: yes.length, noN: no.length };
-  };
-
-  const candidates = [];
-  const sleepRows = rows.filter(r => r.sleepHours != null);
-  const sleepSplit = splitAvg(sleepRows, r => r.sleepHours < 6);
-  if (sleepSplit) {
-    candidates.push({
-      diff: Math.abs(sleepSplit.yesAvg - sleepSplit.noAvg),
-      text: `On nights under 6h sleep, you hit ${Math.round(sleepSplit.yesAvg * 100)}% of your Anki/PassMed targets on average — vs ${Math.round(sleepSplit.noAvg * 100)}% on better-slept days (last 30 days, ${sleepSplit.yesN} vs ${sleepSplit.noN} nights).`
-    });
-  }
-  const trainSplit = splitAvg(rows, r => r.trainMin >= 60);
-  if (trainSplit) {
-    candidates.push({
-      diff: Math.abs(trainSplit.yesAvg - trainSplit.noAvg),
-      text: `On days with 60+ min of training, Anki/PassMed completion averages ${Math.round(trainSplit.yesAvg * 100)}% — vs ${Math.round(trainSplit.noAvg * 100)}% on lighter days (last 30 days, ${trainSplit.yesN} vs ${trainSplit.noN} days).`
-    });
-  }
-  if (!candidates.length) return null;
-  candidates.sort((a, b) => b.diff - a.diff);
-  return candidates[0].diff >= 0.08 ? candidates[0].text : null;
-}
-
 let _briefingOffset = 0;
 
 function briefingNav(dir, reset) {
@@ -7841,7 +6507,6 @@ function renderDailyBriefing() {
   // Per-session AM/PM detail lives in the interactive "Today's Training" checklist
   // card (renderTrainingTodo) — this just surfaces the load/intensity call and rest-day
   // state so that info isn't lost, without repeating the same session list twice.
-  const today = viewDate;
   const sessions = getTodaysSessions(viewDate);
   const todayDateStr = viewDate.toLocaleDateString('en-CA');
   if (_briefingCall) {
@@ -7850,80 +6515,6 @@ function renderDailyBriefing() {
     sections.push(`<div style="${sectionStyle}"><div style="${labelStyle}">🏋️ Training</div><div style="${rowStyle}"><span class="badge ${callCls}" style="font-size:10px;padding:2px 7px">${lvlLabel} intensity</span></div></div>`);
   } else if (!sessions.length) {
     sections.push(`<div style="${sectionStyle}"><div style="${labelStyle}">🏋️ Training</div><div style="font-size:13px;color:#A6937F">Rest day 😴</div></div>`);
-  }
-
-  // ── Revision ─────────────────────────────────────────────────────────────
-  const studyLog = getStudyActivityLog();
-  const { current: studyStreak } = computeStudyStreak(studyLog);
-  const now2 = viewDate; // offset-aware
-  const dow2 = now2.getDay(); // 0=Sun, 6=Sat
-  const isWeekend = dow2 === 0 || dow2 === 6;
-  let revHtml = `<div style="${labelStyle}">📚 Revision</div>`;
-  if (now2 >= REV_START && now2 < REV_EXAM) {
-    const wi2 = (() => { const diff = Math.floor((now2 - REV_START) / 86400000); return Math.min(Math.max(0, Math.floor(diff / 7)), 7); })();
-    const todayRevEntry = getRevLog()[todayDateStr] || { anki: 0, pm: 0 };
-    const ankiDone = todayRevEntry.anki, ankiTarget = REV_ANKI_TARGET;
-    const pmDone   = todayRevEntry.pm,   pmTarget   = REV_PM_TARGET;
-    const ankiOk = ankiDone >= ankiTarget, pmOk = pmDone >= pmTarget;
-    const todayTopic2 = getRevTopicForDate(now2);
-    revHtml += `<div style="${rowStyle};margin-bottom:4px">📖 <span style="font-weight:600">${todayTopic2}</span><span style="margin-left:auto;font-size:10px;color:#A6937F">Wk ${wi2+1}/8</span></div>`;
-    revHtml += `<div style="${rowStyle}"><span>${ankiOk?'✅':'⏳'} 🃏 Anki</span><span style="margin-left:auto;font-weight:600;color:${ankiOk?'#6b9e7a':'#4A3B2E'}">${ankiDone} / ${ankiTarget}</span></div>`;
-    revHtml += `<div style="${rowStyle}"><span>${pmOk?'✅':'⏳'} 📝 PassMed</span><span style="margin-left:auto;font-weight:600;color:${pmOk?'#6b9e7a':'#4A3B2E'}">${pmDone} / ${pmTarget}</span></div>`;
-    if (studyStreak > 0) revHtml += `<div style="margin-top:6px"><span class="badge b-sage" style="font-size:10px;padding:2px 7px">${studyStreak} day streak</span></div>`;
-  } else if (now2 >= REV_EXAM) {
-    revHtml += `<div style="${rowStyle}">🎓 <span>Revision complete — good luck!</span></div>`;
-  } else {
-    revHtml += `<div style="font-size:13px;color:#A6937F">Revision starts ${REV_START.toLocaleDateString('en-GB', {day:'numeric',month:'short'})}</div>`;
-  }
-  sections.push(`<div style="${sectionStyle}">${revHtml}</div>`);
-
-  // ── Cross-domain insight ────────────────────────────────────────────────
-  // Absolute "last 30 days" window regardless of which day is being viewed,
-  // so only compute/show it on today's real view — it wouldn't mean anything
-  // different when browsing +/- days, just be a distracting repeat.
-  if (isToday) {
-    let insight = null;
-    try { insight = computeCrossDomainInsight(); } catch (e) { console.warn('insight failed', e); }
-    if (insight) {
-      sections.push(`<div style="${sectionStyle}"><div style="${labelStyle}">💡 Insight</div><div style="font-size:13px;color:#4A3B2E;line-height:1.5">${insight}</div></div>`);
-    }
-  }
-
-  // ── Finance ──────────────────────────────────────────────────────────────
-  const fin = getFinance();
-  const curMonthKey = monthKey(today);
-  const monthBudget = getMonthEntry(fin, curMonthKey).expenses;
-  const totalBudgeted = Object.values(monthBudget).reduce((s, v) => s + (+v || 0), 0);
-  const txs = getFinanceTransactions();
-  const monthTxs = txs.filter(t => t.date.slice(0, 7) === curMonthKey && t.amount < 0);
-  const totalSpent = monthTxs.reduce((s, t) => s + Math.abs(t.amount), 0);
-  const finPct = totalBudgeted > 0 ? Math.min(150, (totalSpent / totalBudgeted) * 100) : 0;
-  const finOver = totalBudgeted > 0 && totalSpent > totalBudgeted;
-  const monthName = today.toLocaleDateString('en-GB', { month: 'long' });
-  let finHtml = `<div style="${labelStyle}">💰 Finance <span style="font-weight:400;text-transform:none;letter-spacing:0">· ${monthName}</span></div>`;
-  if (totalBudgeted > 0) {
-    finHtml += `<div style="${rowStyle}">${finOver ? '⚠️' : '💳'} <span>${fmtGBP(totalSpent)} spent of ${fmtGBP(totalBudgeted)} budget</span></div>`;
-    finHtml += `<div style="background:#FBF1E7;border-radius:99px;height:5px;overflow:hidden;margin-top:6px"><div style="background:${finOver?'#e05c5c':'#6b9e7a'};height:100%;width:${Math.min(100,finPct)}%"></div></div>`;
-  } else if (totalSpent > 0) {
-    finHtml += `<div style="${rowStyle}">💳 <span>${fmtGBP(totalSpent)} spent (no budget set yet)</span></div>`;
-  } else {
-    finHtml += `<div style="font-size:13px;color:#A6937F">No spending data yet — upload a statement</div>`;
-  }
-  sections.push(`<div style="${sectionStyle}">${finHtml}</div>`);
-
-  // ── Currently on placement (Year 4 rotation chip) ───────────────────────────
-  // Distinct from the "🏥 Placement" section below — that one shows day-by-day
-  // sessions from the older PLACEMENT_SCHEDULE (currently only populated through
-  // 24 Jul 2026). This chip is date-driven off the Year 4 Gantt (YR4_BLOCKS) and
-  // covers the whole 29 Jul 2026 – Jun 2027 span, so it picks up where that leaves off.
-  const yr4Today = new Date(viewDate); yr4Today.setHours(0,0,0,0);
-  const currentBlock = YR4_BLOCKS.find(b => {
-    const blockStart = yr4WeekDate(b.start);
-    const blockEnd = new Date(yr4WeekDate(b.end)); blockEnd.setDate(blockEnd.getDate() + 6);
-    return yr4Today >= blockStart && yr4Today <= blockEnd;
-  });
-  if (currentBlock) {
-    sections.push(`<div style="${sectionStyle}"><div style="${labelStyle}">📍 Currently</div><div style="${rowStyle}"><span class="badge b-sage" style="font-size:11px;padding:3px 9px">${currentBlock.label}</span></div></div>`);
   }
 
   // ── Placement ─────────────────────────────────────────────────────────────
@@ -8223,1087 +6814,6 @@ async function renderPlan(acts, acwr, call) {
   }
 }
 
-// ── Finance ──────────────────────────────────────────────────────────────────
-const DEFAULT_FINANCE = {
-  overdraft_limit: 0,
-  savings_goal: 'overdraft',
-  monthly: {},
-  investments: [],
-};
-const DEFAULT_MONTH = () => ({
-  income: { tutoring: 0, hca: 0, misc: 0 },
-  expenses: { rent: 0, groceries: 0, eatingout: 0, transport: 0, shopping: 0, subscriptions: 0, savings: 0, leisure: 0, misc: 0 },
-});
-const INCOME_LABELS = { tutoring: 'Tutoring', hca: 'HCA Shifts', misc: 'Misc' };
-const EXPENSE_LABELS = { rent: 'Rent & Bills', groceries: 'Groceries', eatingout: 'Eating Out', transport: 'Transport', shopping: 'Shopping', subscriptions: 'Subscriptions', savings: 'Savings', leisure: 'Leisure', misc: 'Misc' };
-const EXPENSE_COLORS = ['#3b82f6','#8b5cf6','#06b6d4','#d97706','#6b9e7a','#e05c5c','#6366f1','#f59e0b','#A6937F'];
-const fmtGBP = n => (+n||0).toLocaleString('en-GB', { style:'currency', currency:'GBP', maximumFractionDigits:0 });
-
-function getFinance() {
-  try {
-    const data = JSON.parse(localStorage.getItem('finance_data'));
-    if (data && typeof data === 'object') return { ...DEFAULT_FINANCE, ...data, monthly: data.monthly||{}, investments: data.investments||[] };
-  } catch {}
-  return { ...DEFAULT_FINANCE, monthly: {}, investments: [] };
-}
-function saveFinance(data) {
-  localStorage.setItem('finance_data', JSON.stringify(data));
-  syncPush('finance_data', data);
-}
-function monthKey(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
-function getMonthEntry(fin, key) {
-  const d = DEFAULT_MONTH();
-  const m = fin.monthly[key] || {};
-  return {
-    income: { ...d.income, ...(m.income||{}) },
-    expenses: { ...d.expenses, ...(m.expenses||{}) },
-  };
-}
-const monthIncome = m => Object.values(m.income).reduce((s,v)=>s+(+v||0),0);
-const monthExpenses = m => Object.values(m.expenses).reduce((s,v)=>s+(+v||0),0);
-const cumulativeNet = fin => Object.keys(fin.monthly).reduce((s,k)=>{
-  const m = getMonthEntry(fin, k);
-  return s + (monthIncome(m) - monthExpenses(m));
-}, 0);
-
-let financeViewDate = (() => { const d = new Date(); d.setDate(1); d.setHours(0,0,0,0); return d; })();
-let _financeChart = null, _expenseDonut = null, _investChart = null;
-
-// — Overview —
-function renderFinanceOverview() {
-  const key = monthKey(new Date());
-  const txs = getFinanceTransactions();
-  const monthTxs = txs.filter(t => t.date.slice(0,7) === key && t.category !== 'transfer');
-  const income = monthTxs.filter(t => t.category === 'income').reduce((s,t) => s + Math.abs(t.amount), 0);
-  const expenses = monthTxs.filter(t => t.category !== 'income').reduce((s,t) => s + Math.abs(t.amount), 0);
-  const net = income - expenses;
-  const rate = income > 0 ? (net / income * 100) : 0;
-
-  set('fin-income-val', fmtGBP(income));
-  set('fin-expenses-val', fmtGBP(expenses));
-  const netEl = document.getElementById('fin-net-val');
-  if (netEl) { netEl.textContent = fmtGBP(net); netEl.style.color = net >= 0 ? '#6b9e7a' : '#e05c5c'; }
-  set('fin-savings-val', rate.toFixed(0) + '%');
-  const cls = rate < 0 ? 'b-red' : rate <= 20 ? 'b-amber' : 'b-sage';
-  const lbl = rate < 0 ? 'Overspending' : rate <= 20 ? 'Low savings' : 'On track';
-  setH('fin-savings-badge', `<span class="badge ${cls}">${lbl}</span>`);
-
-  // Bank balances from statement accounts
-  const accounts = getFinanceAccounts();
-  const accNames = Object.keys(accounts);
-  const totalBalance = accNames.reduce((s, n) => s + (+accounts[n].balance || 0), 0);
-  const totalEl = document.getElementById('fin-total-balance');
-  if (totalEl) { totalEl.textContent = fmtGBP(totalBalance); totalEl.style.color = totalBalance >= 0 ? '#2B2118' : '#e05c5c'; }
-  setH('fin-accounts-list', accNames.length ? accNames.map(n => {
-    const a = accounts[n];
-    return `<div class="row"><span style="flex:1;font-size:13px;color:#555">${escHtml(n)}${a.asOf ? `<span class="sub" style="display:block">as of ${fmtDate(a.asOf)}</span>` : ''}</span><span style="font-size:14px;font-weight:600;color:${(+a.balance||0)>=0?'#2B2118':'#e05c5c'}">${fmtGBP(a.balance)}</span></div>`;
-  }).join('') : `<div class="sub" style="font-style:italic">No accounts yet — import a statement with a balance column.</div>`);
-
-  renderOverdraftCard();
-  buildFinanceChart();
-}
-
-function renderOverdraftCard() {
-  const fin = getFinance();
-  const limit = +fin.overdraft_limit || 0;
-  const input = document.getElementById('overdraft-input');
-  if (input) input.value = limit;
-  const bar = document.getElementById('overdraft-bar');
-  if (limit >= 0) {
-    if (bar) { bar.style.width = '100%'; bar.style.background = '#6b9e7a'; }
-    setH('overdraft-label', `<span class="badge b-sage">✓ Out of the overdraft!</span>`);
-    return;
-  }
-  // Cumulative net from real transactions (income minus expenses, excluding transfers)
-  const txs = getFinanceTransactions().filter(t => t.category !== 'transfer');
-  const cumNet = txs.reduce((s,t) => s + (t.category === 'income' ? Math.abs(t.amount) : -Math.abs(t.amount)), 0);
-  const balance = limit + cumNet;
-  const pct = Math.max(0, Math.min(100, ((balance - limit) / (0 - limit)) * 100));
-  if (bar) { bar.style.width = pct + '%'; bar.style.background = balance >= 0 ? '#6b9e7a' : '#3b82f6'; }
-  if (balance >= 0) setH('overdraft-label', `<span class="badge b-sage">✓ Out of the overdraft!</span>`);
-  else set('overdraft-label', `${fmtGBP(-balance)} to go until you're out of the overdraft`);
-}
-function toggleOverdraftEdit() {
-  const wrap = document.getElementById('overdraft-edit-wrap');
-  const showing = wrap.style.display !== 'none';
-  wrap.style.display = showing ? 'none' : 'block';
-  if (!showing) document.getElementById('overdraft-input').focus();
-}
-function saveOverdraftLimit() {
-  const fin = getFinance();
-  fin.overdraft_limit = +document.getElementById('overdraft-input').value || 0;
-  saveFinance(fin);
-  renderOverdraftCard();
-  renderFinanceDashboardCard();
-  document.getElementById('overdraft-edit-wrap').style.display = 'none';
-}
-
-function buildFinanceChart() {
-  const now = new Date(), months = [], txs = getFinanceTransactions();
-  for (let i=7; i>=0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
-    const k = monthKey(d);
-    const mTxs = txs.filter(t => t.date.slice(0,7) === k && t.category !== 'transfer');
-    const inc = mTxs.filter(t => t.category === 'income').reduce((s,t) => s + Math.abs(t.amount), 0);
-    const exp = mTxs.filter(t => t.category !== 'income').reduce((s,t) => s + Math.abs(t.amount), 0);
-    months.push({
-      label: d.toLocaleDateString('en-GB',{month:'short',year:'2-digit'}),
-      income: +inc.toFixed(2),
-      expenses: +exp.toFixed(2),
-    });
-  }
-  const labels = months.map(m=>m.label);
-  const income = months.map(m=>m.income);
-  const expenses = months.map(m=>m.expenses);
-  const net = months.map((m,i)=>+(income[i]-expenses[i]).toFixed(2));
-
-  if (_financeChart) {
-    _financeChart.data.labels = labels;
-    _financeChart.data.datasets[0].data = income;
-    _financeChart.data.datasets[1].data = expenses;
-    _financeChart.data.datasets[2].data = net;
-    _financeChart.update();
-    return;
-  }
-  rmSkel('finance-chart');
-  _financeChart = new Chart(document.getElementById('finance-chart'), {
-    type: 'bar',
-    data: { labels, datasets: [
-      { label:'Income', data:income, backgroundColor:'#6b9e7a', borderRadius:4 },
-      { label:'Expenses', data:expenses, backgroundColor:'#e05c5c', borderRadius:4 },
-      { label:'Net', data:net, type:'line', borderColor:'#3b82f6', borderDash:[6,4], borderWidth:2, pointRadius:3, fill:false, tension:0 },
-    ]},
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{position:'bottom', labels:{boxWidth:8,font:{size:10}}}},
-      scales:{
-        y:{grid:{color:'#FBF1E7'}, ticks:{font:{size:10}, callback:v=>fmtGBP(v)}},
-        x:{grid:{display:false}, ticks:{font:{size:10}}}
-      }
-    }
-  });
-}
-
-// — Income & Expenses —
-function changeFinanceMonth(delta) {
-  financeViewDate.setMonth(financeViewDate.getMonth()+delta);
-  renderFinanceIncomeExpenses();
-}
-function renderFinanceIncomeExpenses() {
-  const key = monthKey(financeViewDate);
-  set('fin-month-label', financeViewDate.toLocaleDateString('en-GB', {month:'long', year:'numeric'}));
-
-  const txs = getFinanceTransactions();
-  const monthTxs = txs.filter(t => t.date.slice(0,7) === key && t.category !== 'transfer');
-
-  // Income: only transactions explicitly categorised as 'income'
-  const incomeTxs = monthTxs.filter(t => t.category === 'income');
-  const incomeTotal = incomeTxs.reduce((s,t) => s + Math.abs(t.amount), 0);
-
-  // Group income by description for display
-  const incomeGroups = {};
-  incomeTxs.forEach(t => { incomeGroups[t.description] = (incomeGroups[t.description] || 0) + Math.abs(t.amount); });
-  const incomeRows = Object.entries(incomeGroups)
-    .sort((a,b) => b[1]-a[1])
-    .map(([desc,amt]) => `<div class="row"><span style="flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px" title="${escHtml(desc)}">${escHtml(desc)}</span><span style="font-size:14px;font-weight:600;color:#6b9e7a">${fmtGBP(amt)}</span></div>`)
-    .join('');
-
-  // Expenses: only transactions categorised as one of the expense categories
-  const expenseTxs = monthTxs.filter(t => t.category !== 'income');
-  const byCategory = {};
-  const txsByCategory = {};
-  Object.keys(EXPENSE_LABELS).forEach(cat => {
-    const catTxs = expenseTxs.filter(t => t.category === cat).sort((a,b) => b.date.localeCompare(a.date));
-    byCategory[cat] = catTxs.reduce((s,t) => s + Math.abs(t.amount), 0);
-    txsByCategory[cat] = catTxs;
-  });
-  const expenseTotal = Object.values(byCategory).reduce((s,v) => s+v, 0);
-  const net = incomeTotal - expenseTotal;
-
-  setH('fin-income-fields',
-    (incomeRows || `<div class="sub" style="font-style:italic;padding:8px 0">No income for this month.</div>`) +
-    `<div class="row" style="font-weight:700;border-top:1px solid #eee;margin-top:6px;padding-top:6px">
-      <span style="flex:1;font-size:13px">Total</span>
-      <span id="fin-income-total" style="font-size:14px;color:#6b9e7a">${fmtGBP(incomeTotal)}</span>
-    </div>`);
-
-  setH('fin-expense-fields',
-    Object.entries(EXPENSE_LABELS).map(([cat,label]) => {
-      const txList = txsByCategory[cat];
-      const hasItems = txList.length > 0;
-      const subRows = txList.map(t =>
-        `<div class="row" style="padding:5px 0 5px 12px;border-left:2px solid #FBF1E7;margin-left:4px">
-          <span class="sub" style="flex:1;font-size:12px">${fmtDate(t.date)} · ${escHtml(t.description)}</span>
-          <span style="font-size:12px;font-weight:600;color:#e05c5c">${fmtGBP(Math.abs(t.amount))}</span>
-        </div>`).join('');
-      return `
-        <div onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.querySelector('.fin-chevron').style.transform=this.nextElementSibling.style.display==='block'?'rotate(90deg)':'';"
-          class="row" style="cursor:${hasItems?'pointer':'default'};user-select:none">
-          <span style="flex:1;font-size:13px">${label}</span>
-          <span style="font-size:14px;font-weight:600;color:#e05c5c;margin-right:${hasItems?'8':'0'}px">${fmtGBP(byCategory[cat])}</span>
-          ${hasItems ? `<span class="fin-chevron" style="font-size:11px;color:#aaa;transition:transform .2s;display:inline-block">▶</span>` : ''}
-        </div>
-        <div style="display:none">${subRows}</div>`;
-    }).join('') +
-    `<div class="row" style="font-weight:700;border-top:1px solid #eee;margin-top:6px;padding-top:6px">
-      <span style="flex:1;font-size:13px">Total Expenses</span>
-      <span id="fin-expense-total" style="font-size:14px;color:#e05c5c">${fmtGBP(expenseTotal)}</span>
-    </div>
-    <div class="row" style="font-weight:700">
-      <span style="flex:1;font-size:13px">Net</span>
-      <span style="font-size:14px;color:${net>=0?'#6b9e7a':'#e05c5c'}">${fmtGBP(net)}</span>
-    </div>`);
-
-  buildExpenseDonut(byCategory);
-}
-function saveFinanceField(group, cat, value) {
-  const fin = getFinance();
-  const key = monthKey(financeViewDate);
-  if (!fin.monthly[key]) fin.monthly[key] = DEFAULT_MONTH();
-  fin.monthly[key][group][cat] = +value || 0;
-  saveFinance(fin);
-  renderFinanceIncomeExpenses();
-  if (key === monthKey(new Date())) {
-    renderFinanceDashboardCard();
-    if (initialised.finance) renderFinanceOverview();
-  }
-}
-function buildExpenseDonut(byCategory) {
-  const canvas = document.getElementById('expense-donut');
-  if (!canvas) return;
-  const cats = Object.keys(EXPENSE_LABELS);
-  const data = cats.map(c => byCategory[c] || 0);
-  if (_expenseDonut) {
-    _expenseDonut.data.datasets[0].data = data;
-    _expenseDonut.update();
-    return;
-  }
-  _expenseDonut = new Chart(canvas, {
-    type:'doughnut',
-    data:{ labels: cats.map(c=>EXPENSE_LABELS[c]), datasets:[{ data, backgroundColor:EXPENSE_COLORS, borderWidth:0 }]},
-    options:{ responsive:true, maintainAspectRatio:false, cutout:'68%',
-      plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8,font:{size:11}}}}}
-  });
-}
-
-// — Investments —
-function addInvestmentEntry() {
-  const date = document.getElementById('invest-date').value;
-  const value = +document.getElementById('invest-value').value;
-  const note = document.getElementById('invest-note').value.trim();
-  if (!date || !value) return;
-  const fin = getFinance();
-  fin.investments.push({ date, value, note });
-  fin.investments.sort((a,b)=>new Date(a.date)-new Date(b.date));
-  saveFinance(fin);
-  document.getElementById('invest-date').value = '';
-  document.getElementById('invest-value').value = '';
-  document.getElementById('invest-note').value = '';
-  renderInvestments();
-}
-function deleteInvestmentEntry(idx) {
-  const fin = getFinance();
-  fin.investments.splice(idx,1);
-  saveFinance(fin);
-  renderInvestments();
-}
-function renderInvestments() {
-  const fin = getFinance();
-  const entries = fin.investments;
-
-  const current = entries.length ? entries[entries.length-1].value : 0;
-  const first = entries.length ? entries[0].value : 0;
-  const gain = current - first;
-  const gainPct = first ? (gain/first*100) : 0;
-
-  set('invest-current', fmtGBP(current));
-  const gainEl = document.getElementById('invest-gain');
-  if (gainEl) { gainEl.textContent = (gain>=0?'+':'')+fmtGBP(gain); gainEl.style.color = gain>=0?'#6b9e7a':'#e05c5c'; }
-  set('invest-gain-pct', entries.length>1 ? `${gainPct>=0?'+':''}${gainPct.toFixed(1)}%` : '—');
-  set('invest-count', entries.length);
-
-  buildInvestChart(entries);
-  renderInvestList(entries);
-}
-function buildInvestChart(entries) {
-  const labels = entries.map(e=>fmtDate(e.date));
-  const data = entries.map(e=>e.value);
-  if (_investChart) {
-    _investChart.data.labels = labels;
-    _investChart.data.datasets[0].data = data;
-    _investChart.update();
-    return;
-  }
-  rmSkel('invest-chart');
-  _investChart = new Chart(document.getElementById('invest-chart'), {
-    type:'line',
-    data:{ labels, datasets:[{
-      label:'Portfolio Value', data,
-      borderColor:'#6366f1', backgroundColor:'#6366f144', borderWidth:2,
-      pointRadius:4, pointBackgroundColor:'#6366f1', fill:true, tension:0.3
-    }]},
-    options:{ responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
-      scales:{
-        y:{grid:{color:'#FBF1E7'}, ticks:{font:{size:10}, callback:v=>fmtGBP(v)}},
-        x:{grid:{display:false}, ticks:{maxTicksLimit:8, font:{size:10}}}
-      }}
-  });
-}
-function renderInvestList(entries) {
-  if (!entries.length) {
-    setH('invest-list', '<div class="sub" style="font-style:italic;padding:8px 0">No entries yet — log your first portfolio value above.</div>');
-    return;
-  }
-  setH('invest-list', entries.slice().reverse().map((e,i)=>{
-    const idx = entries.length-1-i;
-    const prev = idx>0 ? entries[idx-1].value : null;
-    const change = prev!==null ? e.value-prev : null;
-    const changeHtml = change===null ? '<span class="sub">—</span>'
-      : `<span style="color:${change>=0?'#6b9e7a':'#e05c5c'};font-weight:600;font-size:13px">${change>=0?'+':''}${fmtGBP(change)}</span>`;
-    return `<div class="row">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600">${fmtDate(e.date)}</div>
-        ${e.note ? `<div class="sub">${escHtml(e.note)}</div>` : ''}
-      </div>
-      <div style="font-size:14px;font-weight:700;text-align:right;min-width:80px">${fmtGBP(e.value)}</div>
-      <div style="min-width:70px;text-align:right">${changeHtml}</div>
-      <button onclick="deleteInvestmentEntry(${idx})" title="Delete entry" style="background:none;border:none;color:#ccc;cursor:pointer;font-size:13px;padding:0;flex-shrink:0">🗑️</button>
-    </div>`;
-  }).join(''));
-}
-
-// — Dashboard card —
-function renderFinanceDashboardCard() {
-  const fin = getFinance();
-  const m = getMonthEntry(fin, monthKey(new Date()));
-  const income = monthIncome(m), expenses = monthExpenses(m), net = income-expenses;
-  const rate = income>0 ? (net/income*100) : 0;
-
-  const netEl = document.getElementById('dash-fin-net');
-  if (netEl) { netEl.textContent = `Net: ${fmtGBP(net)}`; netEl.style.color = net>=0?'#6b9e7a':'#e05c5c'; }
-
-  const cls = rate<0?'b-red':rate<=20?'b-amber':'b-sage';
-  setH('dash-fin-savings-badge', `<span class="badge ${cls}">Savings rate: ${rate.toFixed(0)}%</span>`);
-
-  const limit = +fin.overdraft_limit || 0;
-  const bar = document.getElementById('dash-fin-overdraft-bar');
-  if (limit >= 0) {
-    if (bar) { bar.style.width='100%'; bar.style.background='#6b9e7a'; }
-    set('dash-fin-overdraft-label', '✓ Out of the overdraft!');
-    return;
-  }
-  const balance = limit + cumulativeNet(fin);
-  const pct = Math.max(0, Math.min(100, ((balance-limit)/(0-limit))*100));
-  if (bar) { bar.style.width = pct+'%'; bar.style.background = balance>=0?'#6b9e7a':'#3b82f6'; }
-  set('dash-fin-overdraft-label', balance>=0 ? '✓ Out of the overdraft!' : `${fmtGBP(-balance)} to go until you're out of the overdraft`);
-}
-
-// — Statements: upload, parse, categorise, budget-vs-actual, net worth —
-// Only flag transfers between Philip's own Halifax & Santander accounts
-const TRANSFER_KEYWORDS = ['philip cobon','santan from p cobon','santan from philip','p cobon halifax','p cobon santan'];
-const FINANCE_CATEGORY_KEYWORDS = {
-  rent: ['jarguz','property trading','rent','mortgage','landlord','council tax','utilities','water rates','electricity','broadband','bt ','sky ','virgin media','phone bill','ee ','o2 ','three ','vodafone'],
-  groceries: ['tesco stores','tesco-stores','tesco pfs','sainsburys','sainsbury','asda','aldi','lidl','waitrose','morrisons','co-op group','coop','co op ','m&s simply food','marks & spencer food','iceland','farmfoods','ocado','grocery','supermarket'],
-  eatingout: ['kfc','mcdonald','tortilla','deliveroo','just eat','justeat','uber eats','ubereats','wolt','nando','greggs','burger king','subway','wagamama','wetherspoon','costa ','starbucks','pret ','susu trading','venue catering','whitez','chester tavern','noah\'s yard','pub on the pond','oriental express'],
-  transport: ['trainpal','uber *trip','uber*trip','tfl','trainline','railway','national rail','national express','first west','first cymru','first bus','arriva','stagecoach','crosscountry','gwr ','avanti','thameslink','petrol','fuel','shell','bp ','esso','parking','taxi','new adventure travel'],
-  shopping: ['amznmktplace','www.amazon','amazon*','amazon ','asos','home bargains','slater','zara','h&m','primark','ebay','etsy','argos','currys','john lewis','boots ','superdrug','ikea','b&m','the range','matalan','new look','river island','nike','adidas','sharkninja'],
-  subscriptions: ['spotify','netflix','google one','google *google','apple.com/bill','itunes','youtube premium','adobe','microsoft','disney','plum ref','google*'],
-  savings: ['moneybox','trading 212','trading212','vanguard','hargreaves','nutmeg'],
-  leisure: ['odeon','cineworld','vue cinema','cinema','bowling','topgolf','minigolf','laser','escape room','trampoline','go ape','aquarium','museum','theatre','concert','ticketmaster','eventbrite','skiddle','see tickets','paintball','karting','climbing','gym','leisure centre','swimming pool','spa ','sauna','massage','beauty','nails ','barbershop','barber','hairdress','salon'],
-};
-
-function categorizeTransaction(description, amount) {
-  const d = (description || '').toLowerCase();
-  if (TRANSFER_KEYWORDS.some(kw => d.includes(kw))) return 'transfer';
-  if (amount > 0) return 'income';
-  for (const [cat, keywords] of Object.entries(FINANCE_CATEGORY_KEYWORDS)) {
-    if (keywords.some(kw => d.includes(kw))) return cat;
-  }
-  return 'misc';
-}
-
-function simpleHash(str) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
-  return (h >>> 0).toString(36);
-}
-
-function pad2(n) { return String(n).padStart(2, '0'); }
-
-function parseMoney(str) {
-  if (str == null) return null;
-  let s = String(str).trim();
-  if (!s) return null;
-  let neg = false;
-  if (/^\(.*\)$/.test(s)) { neg = true; s = s.slice(1, -1); }
-  if (/\bDR\b/i.test(s)) neg = true;
-  s = s.replace(/[^0-9.\-]/g, '');
-  if (!s || s === '-' || s === '.') return null;
-  let v = parseFloat(s);
-  if (isNaN(v)) return null;
-  if (neg) v = -Math.abs(v);
-  return v;
-}
-
-let _financeUSDateFmt = false; // set from checkbox before parsing
-
-function parseStatementDate(str) {
-  if (!str) return null;
-  const s = String(str).trim();
-  let m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/);
-  if (m) return `${m[1]}-${pad2(m[2])}-${pad2(m[3])}`;
-  m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
-  if (m) {
-    let [, a, b, y] = m;
-    // If b > 12 it must be the day (M/D/Y US); if a > 12 it must be the day (D/M/Y UK)
-    // Otherwise use the checkbox flag to disambiguate
-    let day, mo;
-    if (+b > 12) { mo = a; day = b; }        // unambiguously M/D/Y
-    else if (+a > 12) { day = a; mo = b; }   // unambiguously D/M/Y
-    else if (_financeUSDateFmt) { mo = a; day = b; }  // user says M/D
-    else { day = a; mo = b; }                // default D/M/Y (UK)
-    if (y.length === 2) y = (+y < 50 ? '20' : '19') + y;
-    return `${y}-${pad2(mo)}-${pad2(day)}`;
-  }
-  m = s.match(/^(\d{1,2})\s+([A-Za-z]{3,})\s+(\d{2,4})$/);
-  if (m) {
-    const months = { jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12 };
-    const mo = months[m[2].slice(0,3).toLowerCase()];
-    if (!mo) return null;
-    let y = m[3]; if (y.length === 2) y = (+y < 50 ? '20' : '19') + y;
-    return `${y}-${pad2(mo)}-${pad2(m[1])}`;
-  }
-  // Don't fall back to new Date() — too browser-dependent and causes Jan 1 phantom dates
-  return null;
-}
-
-// CSV parsing — auto-detects a date column, a description column, and either
-// a single signed amount column or separate debit/credit columns, plus an
-// optional running-balance column (used later to seed net-worth tracking).
-function parseCSVStatement(text) {
-  const lines = text.split(/\r?\n/).filter(l => l.trim());
-  if (!lines.length) return [];
-  const splitLine = line => {
-    const cells = []; let cur = ''; let inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i];
-      if (c === '"') { inQ = !inQ; continue; }
-      if (c === ',' && !inQ) { cells.push(cur); cur = ''; continue; }
-      cur += c;
-    }
-    cells.push(cur);
-    return cells.map(s => s.trim());
-  };
-  const header = splitLine(lines[0]).map(h => h.toLowerCase());
-  const findCol = (...names) => header.findIndex(h => names.some(n => h.includes(n)));
-  const dateCol = findCol('date');
-  const descCol = findCol('description', 'narrative', 'memo', 'merchant', 'counterparty', 'reference', 'details');
-  const amountCol = findCol('amount', 'value');
-  const debitCol = findCol('debit', 'paid out', 'withdrawal');
-  const creditCol = findCol('credit', 'paid in', 'deposit');
-  const balanceCol = findCol('balance');
-  const categoryCol = findCol('category');
-  const typeCol = findCol('type');
-  const addlDetailsCol = findCol('additional details');
-  const merchantNameCol = header.findIndex(h => h === 'merchant' || h === 'merchant name');
-  const accountCol = findCol('account');
-  const hasHeader = dateCol !== -1 || descCol !== -1 || amountCol !== -1 || debitCol !== -1 || creditCol !== -1;
-  const dataLines = hasHeader ? lines.slice(1) : lines;
-
-  const txs = [];
-  dataLines.forEach(line => {
-    const cells = splitLine(line);
-    if (cells.length < 2) return;
-    const rawDate = hasHeader && dateCol !== -1 ? cells[dateCol] : cells[0];
-    const date = parseStatementDate(rawDate);
-    if (!date) return;
-    const description = hasHeader && descCol !== -1 ? cells[descCol] : (cells[1] || '');
-    let amount = null;
-    if (hasHeader && amountCol !== -1) {
-      amount = parseMoney(cells[amountCol]);
-    } else if (hasHeader && (debitCol !== -1 || creditCol !== -1)) {
-      const debit = debitCol !== -1 ? parseMoney(cells[debitCol]) : 0;
-      const credit = creditCol !== -1 ? parseMoney(cells[creditCol]) : 0;
-      amount = (credit || 0) - Math.abs(debit || 0);
-    } else {
-      for (let i = cells.length - 1; i >= 0; i--) {
-        const v = parseMoney(cells[i]);
-        if (v !== null) { amount = v; break; }
-      }
-    }
-    if (amount === null) return;
-    const balance = hasHeader && balanceCol !== -1 ? parseMoney(cells[balanceCol]) : null;
-    // Use pre-supplied category/type from the CSV if available
-    const csvCat = (hasHeader && categoryCol !== -1 ? cells[categoryCol] : '').toLowerCase().trim();
-    const csvType = (hasHeader && typeCol !== -1 ? cells[typeCol] : '').toLowerCase().trim();
-    let preCategory = null;
-    // Use category (not type) to detect transfers — Emma marks many normal bank payments as type=Transfer
-    if (csvCat === 'transfer') preCategory = 'transfer';
-    else if (csvCat === 'groceries' || csvCat === 'food' || csvCat === 'supermarket') preCategory = 'groceries';
-    else if (csvCat === 'eating out' || csvCat === 'restaurants' || csvCat === 'takeaway') preCategory = 'eatingout';
-    else if (csvCat === 'transport' || csvCat === 'travel') preCategory = 'transport';
-    else if (csvCat === 'shopping') preCategory = 'shopping';
-    else if (csvCat === 'entertainment') preCategory = 'leisure';
-    else if (csvCat === 'subscriptions' || csvCat === 'business') preCategory = 'subscriptions';
-    else if (csvCat === 'investments') preCategory = 'savings';
-    else if (csvCat === 'leisure' || csvCat === 'entertainment' || csvCat === 'personal care' || csvCat === 'sport & fitness') preCategory = 'leisure';
-    else if (csvCat === 'charity') preCategory = 'misc';
-    else if (csvCat === 'rent' || csvCat === 'housing') preCategory = 'rent';
-    else if (csvCat === 'income') preCategory = 'income';
-    txs.push({
-      date, description: description || '(no description)', amount, balance,
-      account: (hasHeader && accountCol !== -1 ? cells[accountCol] : '') || undefined,
-      _csvCat: preCategory || undefined,
-      _txType: (hasHeader && typeCol !== -1 ? cells[typeCol] : '') || undefined,
-      _details: (hasHeader && addlDetailsCol !== -1 ? cells[addlDetailsCol] : '') || undefined,
-      _merchant: (hasHeader && merchantNameCol !== -1 ? cells[merchantNameCol] : '') || undefined,
-    });
-  });
-  return txs;
-}
-
-// PDF parsing — extracts text via pdf.js grouped back into lines by vertical
-// position, then applies the same line-heuristic as a raw-text fallback.
-// Best-effort: bank statement layouts vary enormously, so this won't be as
-// reliable as a CSV export.
-async function parsePDFStatement(file) {
-  const buf = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-  let fullText = '';
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    const lineMap = new Map();
-    content.items.forEach(item => {
-      const y = Math.round(item.transform[5]);
-      if (!lineMap.has(y)) lineMap.set(y, []);
-      lineMap.get(y).push(item);
-    });
-    const ys = Array.from(lineMap.keys()).sort((a, b) => b - a);
-    ys.forEach(y => {
-      const lineItems = lineMap.get(y).sort((a, b) => a.transform[4] - b.transform[4]);
-      fullText += lineItems.map(it => it.str).join(' ') + '\n';
-    });
-  }
-  return parseStatementTextLines(fullText);
-}
-
-function parseStatementTextLines(text) {
-  const txs = [];
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  const dateAtStart = /^(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}|\d{4}-\d{1,2}-\d{1,2}|\d{1,2}\s+[A-Za-z]{3,9}\s+\d{2,4})\b/;
-  const moneyToken = /-?\(?£?\$?-?[0-9][0-9,]*\.\d{2}\)?\s?(?:DR|CR)?/gi;
-  lines.forEach(line => {
-    const dm = line.match(dateAtStart);
-    if (!dm) return;
-    const date = parseStatementDate(dm[1]);
-    if (!date) return;
-    const rest = line.slice(dm[0].length).trim();
-    const moneyMatches = rest.match(moneyToken);
-    if (!moneyMatches || !moneyMatches.length) return;
-    let amountStr, balanceStr = null;
-    if (moneyMatches.length >= 2) {
-      amountStr = moneyMatches[moneyMatches.length - 2];
-      balanceStr = moneyMatches[moneyMatches.length - 1];
-    } else {
-      amountStr = moneyMatches[0];
-    }
-    const amount = parseMoney(amountStr);
-    if (amount === null) return;
-    const balance = balanceStr ? parseMoney(balanceStr) : null;
-    const cutToken = moneyMatches.length >= 2 ? moneyMatches[moneyMatches.length - 2] : moneyMatches[moneyMatches.length - 1];
-    let description = rest.slice(0, rest.lastIndexOf(cutToken)).trim().replace(/\s{2,}/g, ' ');
-    txs.push({ date, description: description || '(no description)', amount, balance });
-  });
-  return txs;
-}
-
-function clearAllFinanceData() {
-  if (!confirm('Delete all imported transactions and account data? This cannot be undone.')) return;
-  localStorage.removeItem('finance_transactions');
-  localStorage.removeItem('finance_accounts');
-  syncPush('finance_transactions', []);
-  syncPush('finance_accounts', {});
-  refreshFinanceFromTransactions();
-  document.getElementById('stmt-upload-status').textContent = 'All finance data cleared.';
-}
-
-function getFinanceTransactions() {
-  try { return JSON.parse(localStorage.getItem('finance_transactions')) || []; } catch { return []; }
-}
-function saveFinanceTransactions(txs) {
-  localStorage.setItem('finance_transactions', JSON.stringify(txs));
-  syncPush('finance_transactions', txs);
-}
-function getFinanceAccounts() {
-  try { return JSON.parse(localStorage.getItem('finance_accounts')) || {}; } catch { return {}; }
-}
-function saveFinanceAccounts(accs) {
-  localStorage.setItem('finance_accounts', JSON.stringify(accs));
-  syncPush('finance_accounts', accs);
-}
-
-function updateAccountBalancesFromTransactions(rows) {
-  const withBalance = rows.filter(r => r.balance !== null && r.balance !== undefined && !isNaN(r.balance));
-  if (!withBalance.length) return;
-  const accounts = getFinanceAccounts();
-  const latestPerAccount = {};
-  withBalance.forEach(r => {
-    if (!latestPerAccount[r.account] || r.date >= latestPerAccount[r.account].date) latestPerAccount[r.account] = r;
-  });
-  Object.entries(latestPerAccount).forEach(([acc, r]) => {
-    if (!accounts[acc]) accounts[acc] = { balance: 0, asOf: null, history: [] };
-    if (!accounts[acc].asOf || r.date >= accounts[acc].asOf) {
-      accounts[acc].balance = r.balance;
-      accounts[acc].asOf = r.date;
-    }
-    if (!accounts[acc].history.some(h => h.date === r.date && h.balance === r.balance)) {
-      accounts[acc].history.push({ date: r.date, balance: r.balance });
-      accounts[acc].history.sort((a, b) => a.date.localeCompare(b.date));
-    }
-  });
-  saveFinanceAccounts(accounts);
-}
-
-function gSheetCsvUrl(rawUrl) {
-  const gid = (rawUrl.match(/[#&?]gid=(\d+)/) || [])[1] || '0';
-  // Published-to-web URL: /spreadsheets/d/e/PUBID/pub...
-  const pubMatch = rawUrl.match(/\/spreadsheets\/d\/e\/([a-zA-Z0-9-_]+)\//);
-  if (pubMatch) {
-    return `https://docs.google.com/spreadsheets/d/e/${pubMatch[1]}/pub?output=csv&gid=${gid}&single=true`;
-  }
-  // Regular sheet URL: /spreadsheets/d/SHEETID/
-  const idMatch = rawUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-  if (idMatch) {
-    return `https://docs.google.com/spreadsheets/d/${idMatch[1]}/pub?output=csv&gid=${gid}&single=true`;
-  }
-  return null;
-}
-
-async function syncGoogleSheet() {
-  const urlEl = document.getElementById('gsheet-url');
-  const statusEl = document.getElementById('gsheet-status');
-  const url = (urlEl?.value || '').trim();
-  if (!url) { statusEl.textContent = 'Paste your Google Sheet URL first.'; return; }
-  const csvUrl = gSheetCsvUrl(url);
-  if (!csvUrl) { statusEl.textContent = 'That doesn\'t look like a Google Sheets URL.'; return; }
-  localStorage.setItem('gsheet_url', url);
-  localStorage.setItem('gsheet_auto', document.getElementById('gsheet-auto')?.checked ? '1' : '0');
-  statusEl.textContent = 'Syncing…';
-  try {
-    const proxyUrl = '/sheets-proxy?url=' + encodeURIComponent(csvUrl);
-    const resp = await fetch(proxyUrl);
-    const text = await resp.text();
-    if (!resp.ok) throw new Error(text || `Server returned ${resp.status} — is the sheet published to web?`);
-    _financeUSDateFmt = true; // Emma Google Sheet always exports M/D/YYYY
-    const rows = parseCSVStatement(text);
-    if (!rows.length) {
-      const firstLines = text.trim().split('\n').slice(0, 3).map(l => l.slice(0, 120)).join('\n');
-      setH('gsheet-status', `<span style="color:#e05c5c">❌ No transactions parsed.</span><br><span style="font-size:11px;color:#888">First rows received:<br><pre style="font-size:10px;overflow:auto;background:#FAF3EC;padding:6px;border-radius:4px;white-space:pre-wrap">${escHtml(firstLines)}</pre></span>`);
-      localStorage.setItem('gsheet_last_error', 'No transactions parsed from the last sync.');
-      if (typeof renderSystemAlerts === 'function') renderSystemAlerts();
-      return;
-    }
-    const flipSigns = document.getElementById('stmt-flip-signs')?.checked;
-    rows.forEach(r => { r.account = r.account || 'Google Sheet'; if (flipSigns) r.amount = -r.amount; });
-    finaliseImport(rows, [], 'gsheet-status');
-    localStorage.setItem('gsheet_last_sync', new Date().toISOString());
-    localStorage.removeItem('gsheet_last_error');
-    if (typeof renderSystemAlerts === 'function') renderSystemAlerts();
-    const lastEl = document.getElementById('gsheet-last-sync');
-    if (lastEl) lastEl.textContent = 'Last synced: just now';
-  } catch (e) {
-    setH('gsheet-status', `<span style="color:#e05c5c">❌ ${escHtml(e.message)}</span>`);
-    localStorage.setItem('gsheet_last_error', e.message || 'Sync failed');
-    if (typeof renderSystemAlerts === 'function') renderSystemAlerts();
-  }
-}
-
-function initGSheetUI() {
-  const saved = localStorage.getItem('gsheet_url') || '';
-  const auto = localStorage.getItem('gsheet_auto') === '1';
-  const lastSync = localStorage.getItem('gsheet_last_sync');
-  const urlEl = document.getElementById('gsheet-url');
-  const autoEl = document.getElementById('gsheet-auto');
-  if (urlEl) urlEl.value = saved;
-  if (autoEl) autoEl.checked = auto;
-  const lastEl = document.getElementById('gsheet-last-sync');
-  if (lastEl && lastSync) lastEl.textContent = 'Last synced: ' + new Date(lastSync).toLocaleString('en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
-  if (auto && saved) syncGoogleSheet();
-}
-
-async function handleStatementFiles(fileList) {
-  const files = Array.from(fileList || []);
-  if (!files.length) return;
-  _financeUSDateFmt = document.getElementById('stmt-us-dates')?.checked || false;
-  if (typeof pdfjsLib !== 'undefined' && pdfjsLib.GlobalWorkerOptions) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-  }
-  set('stmt-upload-status', `Reading ${files.length} file${files.length > 1 ? 's' : ''}…`);
-
-  let allParsed = [];
-  let errors = [];
-  for (const file of files) {
-    try {
-      const ext = (file.name.split('.').pop() || '').toLowerCase();
-      let rows = [];
-      if (ext === 'csv') {
-        rows = parseCSVStatement(await file.text());
-      } else if (ext === 'pdf') {
-        if (typeof pdfjsLib === 'undefined') throw new Error('PDF reader library failed to load');
-        rows = await parsePDFStatement(file);
-      }
-      if (!rows.length) throw new Error('no transactions recognised in this file');
-      const accountName = file.name.replace(/\.(csv|pdf)$/i, '');
-      const flipSigns = document.getElementById('stmt-flip-signs')?.checked;
-      rows.forEach(r => { r.account = accountName; if (flipSigns) r.amount = -r.amount; });
-      allParsed = allParsed.concat(rows);
-    } catch (e) {
-      errors.push(`${file.name}: ${e.message}`);
-    }
-  }
-
-  if (!allParsed.length) {
-    setH('stmt-upload-status', `<div style="color:#e05c5c">Couldn't read any transactions.${errors.length ? '<br>' + errors.map(escHtml).join('<br>') : ''} CSV exports parse most reliably — try that if your bank offers one.</div>`);
-    return;
-  }
-  finaliseImport(allParsed, errors, 'stmt-upload-status');
-  const input = document.getElementById('stmt-file-input');
-  if (input) input.value = '';
-}
-
-function finaliseImport(allParsed, errors, statusElId) {
-  errors = errors || [];
-  if (!allParsed.length) {
-    setH(statusElId, `<div style="color:#e05c5c">No transactions found.${errors.length ? '<br>' + errors.map(escHtml).join('<br>') : ''}</div>`);
-    return { added: 0, skipped: 0 };
-  }
-  const seenThisPass = {};
-  allParsed.forEach(t => {
-    const base = `${t.date}|${t.description}|${t.amount}|${t.account}`;
-    seenThisPass[base] = (seenThisPass[base] || 0) + 1;
-    t.id = simpleHash(base + '#' + seenThisPass[base]);
-    t.category = t._csvCat || categorizeTransaction(t.description, t.amount);
-    delete t._csvCat;
-  });
-  const existing = getFinanceTransactions();
-  const existingIds = new Set(existing.map(t => t.id));
-  const newOnes = allParsed.filter(t => !existingIds.has(t.id));
-  const merged = existing.concat(newOnes).sort((a, b) => a.date.localeCompare(b.date));
-  saveFinanceTransactions(merged);
-  updateAccountBalancesFromTransactions(allParsed);
-  const skipped = allParsed.length - newOnes.length;
-  setH(statusElId, `<div style="color:#6b9e7a">✓ Imported ${newOnes.length} new transaction${newOnes.length === 1 ? '' : 's'}${skipped ? ` (${skipped} already imported, skipped)` : ''}.</div>${errors.length ? `<div style="color:#d97706;margin-top:4px">${errors.map(escHtml).join('<br>')}</div>` : ''}`);
-  refreshFinanceFromTransactions();
-  return { added: newOnes.length, skipped };
-}
-
-let statementViewDate = (() => { const d = new Date(); d.setDate(1); d.setHours(0,0,0,0); return d; })();
-let _stmtCategoryDonut = null, _stmtTrendsChart = null, _stmtNetWorthChart = null;
-
-function changeStatementMonth(delta) {
-  statementViewDate.setMonth(statementViewDate.getMonth() + delta);
-  renderStatements();
-}
-
-function renderStatements() {
-  set('stmt-month-label', statementViewDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }));
-  const txs = getFinanceTransactions();
-  const key = monthKey(statementViewDate);
-  const monthTxs = txs.filter(t => t.date.slice(0, 7) === key);
-
-  renderCategoryBreakdown(monthTxs);
-  renderBudgetVsActual(monthTxs);
-  buildStatementTrendsChart(txs);
-  renderNetWorth();
-  // When searching, show across all months; otherwise show current month only
-  renderTransactionList(_txSearch ? txs : monthTxs);
-}
-
-function renderCategoryBreakdown(monthTxs) {
-  const canvas = document.getElementById('stmt-category-donut');
-  if (!canvas) return;
-  const cats = Object.keys(EXPENSE_LABELS);
-  const totals = cats.map(c => monthTxs.filter(t => t.category === c).reduce((s, t) => s + Math.abs(t.amount), 0));
-  const empty = document.getElementById('stmt-category-empty');
-  if (!totals.some(v => v > 0)) {
-    canvas.style.display = 'none';
-    if (!empty) canvas.parentElement.insertAdjacentHTML('beforeend', `<div id="stmt-category-empty" class="sub" style="font-style:italic;padding:20px 0;text-align:center">No categorised spending for this month yet — upload a statement above.</div>`);
-    return;
-  }
-  canvas.style.display = 'block';
-  if (empty) empty.remove();
-  if (_stmtCategoryDonut) {
-    _stmtCategoryDonut.data.datasets[0].data = totals;
-    _stmtCategoryDonut.update();
-    return;
-  }
-  _stmtCategoryDonut = new Chart(canvas, {
-    type: 'doughnut',
-    data: { labels: cats.map(c => EXPENSE_LABELS[c]), datasets: [{ data: totals, backgroundColor: EXPENSE_COLORS, borderWidth: 0 }] },
-    options: { responsive: true, maintainAspectRatio: false, cutout: '68%',
-      plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, font: { size: 11 } } } } }
-  });
-}
-
-function renderBudgetVsActual(monthTxs) {
-  const fin = getFinance();
-  const budget = getMonthEntry(fin, monthKey(statementViewDate)).expenses;
-  const cats = Object.keys(EXPENSE_LABELS);
-  setH('stmt-budget-actual', cats.map(c => {
-    const actual = monthTxs.filter(t => t.category === c).reduce((s, t) => s + Math.abs(t.amount), 0);
-    const budgeted = +budget[c] || 0;
-    const pct = budgeted ? (actual / budgeted) * 100 : (actual > 0 ? 100 : 0);
-    const over = budgeted > 0 && actual > budgeted;
-    return `<div style="margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-        <span>${EXPENSE_LABELS[c]}</span>
-        <span style="color:${over ? '#e05c5c' : '#666'}">${fmtGBP(actual)}${budgeted ? ` / ${fmtGBP(budgeted)}` : ' (no budget set)'}</span>
-      </div>
-      <div style="background:#FBF1E7;border-radius:99px;height:6px;overflow:hidden">
-        <div style="background:${over ? '#e05c5c' : '#6b9e7a'};height:100%;width:${Math.min(100, pct)}%"></div>
-      </div>
-    </div>`;
-  }).join(''));
-}
-
-function buildStatementTrendsChart(txs) {
-  const canvas = document.getElementById('stmt-trends-chart');
-  if (!canvas) return;
-  const now = new Date(), months = [];
-  for (let i = 7; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const key = monthKey(d);
-    const mTxs = txs.filter(t => t.date.slice(0, 7) === key && t.category !== 'transfer');
-    const income = mTxs.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
-    const expenses = mTxs.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
-    months.push({ label: d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }), income: +income.toFixed(2), expenses: +expenses.toFixed(2) });
-  }
-  const labels = months.map(m => m.label);
-  const income = months.map(m => m.income);
-  const expenses = months.map(m => m.expenses);
-  const net = months.map((m, i) => +(income[i] - expenses[i]).toFixed(2));
-
-  if (_stmtTrendsChart) {
-    _stmtTrendsChart.data.labels = labels;
-    _stmtTrendsChart.data.datasets[0].data = income;
-    _stmtTrendsChart.data.datasets[1].data = expenses;
-    _stmtTrendsChart.data.datasets[2].data = net;
-    _stmtTrendsChart.update();
-    return;
-  }
-  rmSkel('stmt-trends-chart');
-  _stmtTrendsChart = new Chart(canvas, {
-    type: 'bar',
-    data: { labels, datasets: [
-      { label: 'Income', data: income, backgroundColor: '#6b9e7a', borderRadius: 4 },
-      { label: 'Expenses', data: expenses, backgroundColor: '#e05c5c', borderRadius: 4 },
-      { label: 'Net', data: net, type: 'line', borderColor: '#3b82f6', borderDash: [6,4], borderWidth: 2, pointRadius: 3, fill: false, tension: 0 },
-    ]},
-    options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 10 } } } },
-      scales: { y: { grid: { color: '#FBF1E7' }, ticks: { font: { size: 10 }, callback: v => fmtGBP(v) } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } } }
-  });
-}
-
-function renderNetWorth() {
-  const accounts = getFinanceAccounts();
-  const names = Object.keys(accounts);
-  const total = names.reduce((s, n) => s + (+accounts[n].balance || 0), 0);
-  set('stmt-networth-total', fmtGBP(total));
-
-  setH('stmt-accounts-list', names.length ? names.map(n => {
-    const a = accounts[n];
-    return `<div class="row">
-      <span style="flex:1;font-size:13px">${escHtml(n)}${a.asOf ? `<span class="sub" style="display:block">as of ${fmtDate(a.asOf)}</span>` : ''}</span>
-      <span style="font-size:14px;font-weight:700;margin-right:8px">${fmtGBP(a.balance)}</span>
-      <button data-account="${escHtml(n)}" onclick="deleteAccount(this.dataset.account)" title="Remove account" style="background:none;border:none;color:#ccc;cursor:pointer;font-size:13px">🗑️</button>
-    </div>`;
-  }).join('') : `<div class="sub" style="font-style:italic">No accounts yet — set a balance below, or upload a statement that includes a running balance column.</div>`);
-
-  buildNetWorthChart(accounts);
-}
-
-function setAccountBalance() {
-  const nameInput = document.getElementById('stmt-acc-name');
-  const balInput = document.getElementById('stmt-acc-balance');
-  const name = nameInput.value.trim();
-  const balance = +balInput.value;
-  if (!name || isNaN(balance)) return;
-  const accounts = getFinanceAccounts();
-  const today = new Date().toLocaleDateString('en-CA');
-  if (!accounts[name]) accounts[name] = { balance: 0, asOf: null, history: [] };
-  accounts[name].balance = balance;
-  accounts[name].asOf = today;
-  const existingToday = accounts[name].history.find(h => h.date === today);
-  if (existingToday) existingToday.balance = balance;
-  else accounts[name].history.push({ date: today, balance });
-  accounts[name].history.sort((a, b) => a.date.localeCompare(b.date));
-  saveFinanceAccounts(accounts);
-  nameInput.value = '';
-  balInput.value = '';
-  renderNetWorth();
-}
-function deleteAccount(name) {
-  const accounts = getFinanceAccounts();
-  delete accounts[name];
-  saveFinanceAccounts(accounts);
-  renderNetWorth();
-}
-
-function buildNetWorthChart(accounts) {
-  const canvas = document.getElementById('stmt-networth-chart');
-  if (!canvas) return;
-  const allDates = new Set();
-  Object.values(accounts).forEach(a => a.history.forEach(h => allDates.add(h.date)));
-  const dates = Array.from(allDates).sort();
-  if (!dates.length) { canvas.style.display = 'none'; return; }
-  canvas.style.display = 'block';
-  // Carry forward each account's last-known balance across dates, so net
-  // worth at any point reflects every account's most recent balance, not
-  // just the ones that happened to change on that exact date.
-  const lastKnown = {};
-  const totals = dates.map(date => {
-    Object.keys(accounts).forEach(n => {
-      const hit = accounts[n].history.find(h => h.date === date);
-      if (hit) lastKnown[n] = hit.balance;
-    });
-    return Object.values(lastKnown).reduce((s, v) => s + (+v || 0), 0);
-  });
-  if (_stmtNetWorthChart) {
-    _stmtNetWorthChart.data.labels = dates.map(fmtDate);
-    _stmtNetWorthChart.data.datasets[0].data = totals;
-    _stmtNetWorthChart.update();
-    return;
-  }
-  _stmtNetWorthChart = new Chart(canvas, {
-    type: 'line',
-    data: { labels: dates.map(fmtDate), datasets: [{ label: 'Net Worth', data: totals, borderColor: '#6366f1', backgroundColor: '#6366f144', borderWidth: 2, pointRadius: 3, fill: true, tension: 0.3 }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-      scales: { y: { grid: { color: '#FBF1E7' }, ticks: { font: { size: 10 }, callback: v => fmtGBP(v) } }, x: { grid: { display: false }, ticks: { maxTicksLimit: 8, font: { size: 10 } } } } }
-  });
-}
-
-let _txFilter = 'all';
-let _txSearch = '';
-function setTxFilter(cat) { _txFilter = cat; renderStatements(); }
-function setTxSearch(val) { _txSearch = val; renderStatements(); }
-
-let _txTooltipMap = {};
-function showTxCard(el, id) {
-  const t = _txTooltipMap[id];
-  if (!t) return;
-  const rows = [];
-  if (t.account) rows.push(['From', t.account]);
-  if (t._merchant && t._merchant !== t.description) rows.push(['Merchant', t._merchant]);
-  if (t._txType) rows.push(['Type', t._txType]);
-  if (t.balance !== null && t.balance !== undefined) rows.push(['Balance after', fmtGBP(t.balance)]);
-  if (t._details) rows.push(['Reference', t._details]);
-  if (!rows.length) return;
-  let card = document.getElementById('tx-hover-card');
-  if (!card) {
-    card = document.createElement('div');
-    card.id = 'tx-hover-card';
-    card.style.cssText = 'display:none;position:fixed;z-index:9999;background:#2B2118;color:#fff;border-radius:10px;padding:12px 16px;font-size:12px;pointer-events:none;min-width:200px;max-width:300px;box-shadow:0 8px 24px rgba(0,0,0,0.3);line-height:1.7';
-    document.body.appendChild(card);
-  }
-  card.innerHTML = rows.map(([k,v]) => `<div><span style="color:#888;display:inline-block;min-width:90px">${k}</span><span style="font-weight:600">${escHtml(String(v))}</span></div>`).join('');
-  card.style.display = 'block';
-  const r = el.getBoundingClientRect();
-  const cardW = 300;
-  let left = r.left;
-  if (left + cardW > window.innerWidth - 8) left = window.innerWidth - cardW - 8;
-  let top = r.bottom + 4;
-  card.style.left = left + 'px';
-  card.style.top = top + 'px';
-}
-function hideTxCard() {
-  const card = document.getElementById('tx-hover-card');
-  if (card) card.style.display = 'none';
-}
-
-function renderTransactionList(txs) {
-  _txTooltipMap = {};
-  txs.forEach(t => { _txTooltipMap[t.id] = t; });
-  const allSorted = txs.slice().sort((a, b) => b.date.localeCompare(a.date));
-  const catOptions = ['income', 'transfer', ...Object.keys(EXPENSE_LABELS)];
-  const catLabel = c => c === 'income' ? 'Income' : c === 'transfer' ? '↔ Transfer' : EXPENSE_LABELS[c];
-
-  // Filter pills
-  const allCats = ['all', ...catOptions];
-  const pillStyle = (c) => {
-    const active = _txFilter === c;
-    return `display:inline-block;padding:4px 11px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;margin:0 3px 4px 0;border:1px solid ${active ? '#2B2118' : '#F0E1D2'};background:${active ? '#2B2118' : '#fff'};color:${active ? '#fff' : '#666'}`;
-  };
-  const pillLabel = c => c === 'all' ? 'All' : catLabel(c);
-  const pillsHtml = `<div style="margin-bottom:12px;line-height:2">${allCats.map(c => `<span style="${pillStyle(c)}" onclick="setTxFilter('${c}')">${pillLabel(c)}</span>`).join('')}</div>`;
-
-  const catFiltered = _txFilter === 'all' ? allSorted.filter(t => t.category !== 'transfer') : allSorted.filter(t => t.category === _txFilter);
-  const q = _txSearch.toLowerCase().trim();
-  const filtered = q ? catFiltered.filter(t =>
-    t.description.toLowerCase().includes(q) ||
-    (t.account && t.account.toLowerCase().includes(q)) ||
-    (t._merchant && t._merchant.toLowerCase().includes(q)) ||
-    (t._details && t._details.toLowerCase().includes(q)) ||
-    String(Math.abs(t.amount)).includes(q)
-  ) : catFiltered;
-  const searchNote = q ? ` matching "${q}"` : '';
-  set('stmt-tx-count', `${filtered.length}${_txFilter !== 'all' ? ` ${pillLabel(_txFilter)}` : ''}${searchNote} of ${txs.length} total`);
-
-  if (!allSorted.length) {
-    setH('stmt-tx-list', `<div class="sub" style="font-style:italic;padding:8px 0">No transactions imported yet.</div>`);
-    return;
-  }
-
-  const shown = filtered.slice(0, q ? 500 : 150);
-  setH('stmt-tx-list', pillsHtml + (shown.length ? shown.map(t => {
-    const isTransfer = t.category === 'transfer';
-    const isIncome = !isTransfer && t.amount > 0;
-    const amtColor = isTransfer ? '#A6937F' : isIncome ? '#6b9e7a' : '#e05c5c';
-    return `<div class="row" style="${isTransfer ? 'opacity:0.6' : ''}" onmouseenter="showTxCard(this,'${t.id}')" onmouseleave="hideTxCard()">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600">${escHtml(t.description)}</div>
-        <div class="sub">${fmtDate(t.date)}${t.account ? ` · ${escHtml(t.account)}` : ''}${isTransfer ? ' · <em>transfer — excluded from totals</em>' : ''}</div>
-      </div>
-      <select onchange="setTransactionCategory('${t.id}', this.value)" style="font-size:11px;padding:4px 6px;border:1px solid #F0E1D2;border-radius:6px;margin-right:8px">
-        ${catOptions.map(c => `<option value="${c}" ${t.category === c ? 'selected' : ''}>${catLabel(c)}</option>`).join('')}
-      </select>
-      <span style="font-size:14px;font-weight:700;min-width:80px;text-align:right;color:${amtColor}">${isIncome ? '+' : ''}${fmtGBP(t.amount)}</span>
-      <button onclick="deleteTransaction('${t.id}')" title="Delete" style="background:none;border:none;color:#ccc;cursor:pointer;font-size:13px;margin-left:8px">🗑️</button>
-    </div>`;
-  }).join('') : `<div class="sub" style="font-style:italic;padding:8px 0">No ${pillLabel(_txFilter)} transactions.</div>`));
-}
-
-function setTransactionCategory(id, category) {
-  const txs = getFinanceTransactions();
-  const t = txs.find(t => t.id === id);
-  if (!t) return;
-  t.category = category;
-  t.manualCategory = true;
-  saveFinanceTransactions(txs);
-  refreshFinanceFromTransactions();
-}
-function deleteTransaction(id) {
-  const txs = getFinanceTransactions().filter(t => t.id !== id);
-  saveFinanceTransactions(txs);
-  refreshFinanceFromTransactions();
-}
-
-// Refresh all transaction-driven finance views in one call
-function refreshFinanceFromTransactions() {
-  renderStatements();
-  if (initialised.finance) { renderFinanceOverview(); renderFinanceIncomeExpenses(); renderFinanceDashboardCard(); }
-}
-
-// — Lazy init —
-function initFinanceOverview() { renderFinanceOverview(); }
-function initFinanceIncome() { renderFinanceIncomeExpenses(); }
-function initFinanceInvestments() { renderInvestments(); }
-function initFinanceStatements() { renderStatements(); initGSheetUI(); }
-
-renderFinanceDashboardCard();
-
 // ── Habit History ────────────────────────────────────────────────────────────
 function renderHabitHistory() {
   const log      = getHabitLog();
@@ -9486,35 +6996,6 @@ let pendingCharts = {};
 
 // ── Year 4 Calendar ──────────────────────────────────────────────────────────
 function renderYear4Cal() {
-  // Year 3 urgency alert
-  const Y3_ITEMS = [
-    { accId: 'sa67',     label: 'Dermatology sign-off',        deadline: '2026-07-24' },
-  ];
-  const today = new Date(); today.setHours(0,0,0,0);
-  const daysLeft = Math.ceil((new Date('2026-07-24') - today) / 864e5);
-  // Check which accordions are complete
-  const doneAccs = {};
-  ACCORDIONS.forEach(a => { doneAccs[a.id] = getSignoff(a.storageKey); });
-  const pending = Y3_ITEMS.filter(item => {
-    const acc = ACCORDIONS.find(a => a.id === item.accId);
-    if (!acc) return false;
-    const done = doneAccs[item.accId];
-    if (item.accId === 'sa67') return acc.items.some(s => s.toLowerCase().includes('dermatology') && !done.includes(s));
-    return false;
-  });
-  const alertEl = document.getElementById('y3-alert');
-  if (pending.length && daysLeft >= 0) {
-    const urgency = daysLeft <= 3 ? 'w-danger' : daysLeft <= 7 ? 'w-caution' : 'w-info';
-    const icon = daysLeft <= 3 ? '🚨' : '⚠️';
-    alertEl.innerHTML = `<div class="warn ${urgency}" style="margin-bottom:14px">
-      ${icon} <span><strong>Year 3 sign-offs due ${daysLeft === 0 ? 'today' : daysLeft + ' days'}:</strong>
-      Dermatology sign-off.
-      <button onclick="switchTab('medicine')" style="background:none;border:none;cursor:pointer;font-weight:700;text-decoration:underline;padding:0;color:inherit;margin-left:4px">View sign-offs →</button></span>
-    </div>`;
-  } else {
-    alertEl.innerHTML = '';
-  }
-
   // Build SVG Gantt
   const rowH = 13, headerH = 24;
   const teachW = 66, wcW = 72, travelW = 100, blockW = 248;
@@ -9585,18 +7066,16 @@ function renderYear4Cal() {
 }
 
 function switchTab(name) {
-  if (typeof _rsvpPlaying !== 'undefined' && _rsvpPlaying) rsvpPause();
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-pane').forEach(p => {
     p.classList.remove('active');
     p.style.display = 'none';
     p.style.opacity = '0';
   });
-  // Multiple nav elements can share a data-tab (top nav, bottom nav, "More" sheet)
+  // Multiple nav elements can share a data-tab (top nav plus any duplicate ids)
   document.querySelectorAll(`[data-tab="${name}"]`).forEach(b => b.classList.add('active'));
   const topBtn = document.querySelector(`.tab-nav .tab-btn[data-tab="${name}"]`);
   if (topBtn) topBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-  if (typeof updateBottomNavActive === 'function') updateBottomNavActive(name);
   const pane = document.getElementById('tab-' + name);
   pane.style.display = 'block';
   requestAnimationFrame(() => { pane.style.opacity = '1'; pane.classList.add('active'); });
@@ -9605,7 +7084,6 @@ function switchTab(name) {
   if (name === 'notes') renderNotes();
   if (name === 'habits') { renderHabitHistory(); }
   if (name === 'year4') renderYear4Cal();
-  if (name === 'reading') renderReadingLibrary();
   if (name === 'calendar' && typeof loadTodayCalendar === 'function') loadTodayCalendar();
   // Dashboard uses a fixed-height grid — override display:block
   if (name === 'dashboard') { pane.style.display = 'block'; document.body.style.overflow = 'hidden'; }
@@ -9618,25 +7096,6 @@ function switchTab(name) {
 
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => switchTab(btn.dataset.tab));
-});
-
-// ── Mobile bottom nav + "More" sheet ─────────────────────────────────────────
-function updateBottomNavActive(name) {
-  const moreBtn = document.getElementById('bn-more-btn');
-  if (!moreBtn) return;
-  const primary = ['dashboard', 'whoop', 'training'];
-  moreBtn.classList.toggle('active', !primary.includes(name));
-}
-function toggleMoreSheet(force) {
-  const sheet = document.getElementById('more-sheet');
-  const backdrop = document.getElementById('more-sheet-backdrop');
-  if (!sheet || !backdrop) return;
-  const open = typeof force === 'boolean' ? force : !sheet.classList.contains('open');
-  sheet.classList.toggle('open', open);
-  backdrop.classList.toggle('open', open);
-}
-document.querySelectorAll('.more-item').forEach(btn => {
-  btn.addEventListener('click', () => toggleMoreSheet(false));
 });
 
 // Restore last active tab on load
@@ -9752,14 +7211,7 @@ function setupSubTabs(paneId, storageKey) {
 setupSubTabs('tab-whoop', 'active_whoop_subtab');
 setupSubTabs('tab-medicine', 'active_med_subtab');
 setupSubTabs('tab-training', 'active_train_subtab');
-setupSubTabs('tab-finance', 'active_finance_subtab');
 setupSubTabs('tab-planner', 'active_planner_subtab');
-
-// ── Finance lazy init ────────────────────────────────────────────────────────
-if (initialised.finance) initFinanceOverview(); else pendingCharts.finance = initFinanceOverview;
-if (initialised['fin-income']) initFinanceIncome(); else pendingCharts['fin-income'] = initFinanceIncome;
-if (initialised['fin-investments']) initFinanceInvestments(); else pendingCharts['fin-investments'] = initFinanceInvestments;
-if (initialised['fin-statements']) initFinanceStatements(); else pendingCharts['fin-statements'] = initFinanceStatements;
 
 // ── Weight trend lazy init ──────────────────────────────────────────────────
 if (initialised.dashboard) renderWeightTrend(); else pendingCharts.dashboard = renderWeightTrend;
@@ -10960,7 +8412,6 @@ function renderCardioFocus() {
 
 fetchHealthData();
 fetchWeather();
-renderStudyStreak();
 renderDailyBriefing(); // initial render from local data; re-fires after weather/health loads
 renderHomeGoals();
 renderTasks();
@@ -11097,9 +8548,6 @@ function applySyncUpdates(updated) {
   if (updated.includes('progress_log')) safe(() => { renderWeightTrend(); buildWhoopWeightChart(); });
   if (updated.includes('monthly_km_goal')) safe(() => renderMonthlyGoal(_acts));
   if (updated.includes('pb_log')) safe(buildPBChart);
-  if (updated.includes('study_activity_log')) safe(renderStudyStreak);
-  if (updated.includes('finance_data')) safe(() => { renderFinanceOverview(); renderFinanceIncomeExpenses(); renderFinanceDashboardCard(); });
-  if (updated.includes('finance_transactions') || updated.includes('finance_accounts')) safe(refreshFinanceFromTransactions);
   if (updated.includes('rev_schedule_log')) safe(() => { renderDailyBriefing(); if (typeof renderExamCountdown === 'function') renderExamCountdown(); });
   if (updated.includes('tasks_priority')) safe(renderTasks);
   if (updated.includes('shopping_items')) safe(renderShopping);
@@ -11285,86 +8733,8 @@ const _origRenderDailyBriefing = renderDailyBriefing;
 renderDailyBriefing = function() {
   _origRenderDailyBriefing.apply(this, arguments);
   renderReadinessChip();
-  renderGoalCountdown();
   renderWeeklyReview();
 };
-
-// ═══════════════════════════════════════════════════════════════════════════
-// TASK 2 — Goal / Race Countdown Widget
-// ═══════════════════════════════════════════════════════════════════════════
-function toggleGoalModal() {
-  const modal = document.getElementById('goal-modal');
-  if (!modal) return;
-  const open = modal.style.display !== 'none' && modal.style.display !== '';
-  modal.style.display = open ? 'none' : 'flex';
-  if (!open) {
-    const saved = JSON.parse(localStorage.getItem('training_goal') || 'null');
-    const nameEl = document.getElementById('goal-name-input');
-    const dateEl = document.getElementById('goal-date-input');
-    const delBtn = document.getElementById('goal-delete-btn');
-    if (saved) {
-      if (nameEl) nameEl.value = saved.name || '';
-      if (dateEl) dateEl.value = saved.date || '';
-      if (delBtn) delBtn.style.display = 'block';
-    } else {
-      if (nameEl) nameEl.value = '';
-      if (dateEl) dateEl.value = '';
-      if (delBtn) delBtn.style.display = 'none';
-    }
-  }
-}
-
-function saveGoal() {
-  const name = (document.getElementById('goal-name-input') || {}).value || '';
-  const date = (document.getElementById('goal-date-input') || {}).value || '';
-  if (!name || !date) return;
-  localStorage.setItem('training_goal', JSON.stringify({ name, date }));
-  toggleGoalModal();
-  renderGoalCountdown();
-}
-
-function deleteGoal() {
-  if (!confirm('Remove this goal?')) return;
-  localStorage.removeItem('training_goal');
-  toggleGoalModal();
-  renderGoalCountdown();
-}
-
-function renderGoalCountdown() {
-  const el = document.getElementById('goal-countdown-banner');
-  if (!el) return;
-  const goal = JSON.parse(localStorage.getItem('training_goal') || 'null');
-  if (!goal || !goal.date) { el.style.display = 'none'; return; }
-  const today = new Date(); today.setHours(0,0,0,0);
-  const target = new Date(goal.date); target.setHours(0,0,0,0);
-  const days = Math.round((target - today) / 86400000);
-  if (days < 0) { el.style.display = 'none'; return; }
-  el.style.display = 'block';
-  const weeks = Math.floor(days / 7), rem = days % 7;
-  const timeStr = weeks > 0 ? `${weeks}w ${rem}d` : `${days}d`;
-  el.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:linear-gradient(90deg,#6b9e7a22,#4f7a5c22);border-radius:10px;cursor:pointer" onclick="toggleGoalModal()">
-    <span style="font-size:18px">🎯</span>
-    <div style="flex:1">
-      <div style="font-size:11px;color:#6b9e7a;font-weight:700;text-transform:uppercase;letter-spacing:.05em">Goal</div>
-      <div style="font-size:13px;font-weight:600">${escHtml(goal.name)}</div>
-    </div>
-    <div style="text-align:right">
-      <div style="font-size:22px;font-weight:800;color:#6b9e7a;line-height:1">${timeStr}</div>
-      <div style="font-size:10px;color:#A6937F">${days} days</div>
-    </div>
-  </div>`;
-}
-
-// Inject goal countdown banner into home tab if not already present
-(function() {
-  const briefing = document.getElementById('daily-briefing-body');
-  if (briefing && !document.getElementById('goal-countdown-banner')) {
-    const div = document.createElement('div');
-    div.id = 'goal-countdown-banner';
-    div.style.cssText = 'display:none;padding:0 14px 4px';
-    briefing.insertBefore(div, briefing.firstChild);
-  }
-})();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TASK 3 — Weekly Review Card (injected into home tab)
@@ -11521,155 +8891,6 @@ pendingCharts['whoop-sleep'] = function() {
   buildSleepHrvScatter();
 };
 if (initialised['whoop-sleep']) buildSleepHrvScatter();
-
-// ═══════════════════════════════════════════════════════════════════════════
-// TASK 6 — Injury / Niggle Log
-// ═══════════════════════════════════════════════════════════════════════════
-function getInjuryLog() {
-  try { return JSON.parse(localStorage.getItem('injury_log')) || []; } catch { return []; }
-}
-function saveInjuryLog(log) { localStorage.setItem('injury_log', JSON.stringify(log)); }
-
-function addInjuryEntry() {
-  const part = (document.getElementById('inj-body-part') || {}).value || '';
-  const sev  = (document.getElementById('inj-severity') || {}).value || 'mild';
-  const notes = (document.getElementById('inj-notes') || {}).value || '';
-  if (!part.trim()) return;
-  const log = getInjuryLog();
-  log.unshift({ id: Date.now(), date: new Date().toLocaleDateString('en-CA'), part: part.trim(), severity: sev, notes: notes.trim(), resolved: false });
-  saveInjuryLog(log);
-  if (document.getElementById('inj-body-part')) document.getElementById('inj-body-part').value = '';
-  if (document.getElementById('inj-notes')) document.getElementById('inj-notes').value = '';
-  renderInjuryLog();
-}
-
-function deleteInjuryEntry(id) {
-  if (!confirm('Remove this entry?')) return;
-  saveInjuryLog(getInjuryLog().filter(e => e.id !== id));
-  renderInjuryLog();
-}
-
-function toggleInjuryResolved(id) {
-  const log = getInjuryLog().map(e => e.id === id ? { ...e, resolved: !e.resolved } : e);
-  saveInjuryLog(log);
-  renderInjuryLog();
-}
-
-function renderInjuryLog() {
-  const el = document.getElementById('injury-log-list');
-  if (!el) return;
-  const log = getInjuryLog();
-  if (!log.length) { el.innerHTML = '<div style="text-align:center;color:#bbb;font-size:12px;padding:16px">No entries yet</div>'; return; }
-  const sevColor = { mild: '#f59e0b', moderate: '#f97316', severe: '#ef4444' };
-  el.innerHTML = log.map(e => `
-    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #FBF1E7;${e.resolved?'opacity:.5':''}">
-      <div style="flex:1">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
-          <span style="font-weight:600;font-size:13px">${escHtml(e.part)}</span>
-          <span style="font-size:10px;padding:1px 7px;border-radius:99px;background:${sevColor[e.severity]||'#A6937F'}22;color:${sevColor[e.severity]||'#A6937F'};font-weight:700">${e.severity}</span>
-          ${e.resolved ? '<span style="font-size:10px;color:#6b9e7a;font-weight:700">✓ resolved</span>' : ''}
-        </div>
-        ${e.notes ? `<div style="font-size:12px;color:#7A6656">${escHtml(e.notes)}</div>` : ''}
-        <div style="font-size:10px;color:#bbb;margin-top:2px">${e.date}</div>
-      </div>
-      <div style="display:flex;gap:6px;flex-shrink:0">
-        <button onclick="toggleInjuryResolved(${e.id})" style="background:none;border:1px solid #F0E1D2;border-radius:6px;padding:3px 7px;font-size:11px;cursor:pointer" title="${e.resolved?'Reopen':'Mark resolved'}">${e.resolved?'↩':'✓'}</button>
-        <button onclick="deleteInjuryEntry(${e.id})" style="background:none;border:1px solid #fee2e2;border-radius:6px;padding:3px 7px;font-size:11px;cursor:pointer;color:#ef4444">✕</button>
-      </div>
-    </div>`).join('');
-}
-
-// Hook injury log render into training tab
-const _origTrainTabPending = pendingCharts['train-injuries'];
-pendingCharts['train-injuries'] = function() {
-  if (_origTrainTabPending) _origTrainTabPending();
-  renderInjuryLog();
-};
-// Also wire sub-tab clicks
-document.querySelectorAll('[data-subtab="train-injuries"]').forEach(btn => {
-  btn.addEventListener('click', () => setTimeout(renderInjuryLog, 50));
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
-// TASK 8 — Study Question Tracker (Medicine tab)
-// ═══════════════════════════════════════════════════════════════════════════
-function getStudyQData() {
-  try { return JSON.parse(localStorage.getItem('study_q_data')) || {}; } catch { return {}; }
-}
-function saveStudyQData(d) { localStorage.setItem('study_q_data', JSON.stringify(d)); }
-
-function adjustQCount(delta) {
-  const data = getStudyQData();
-  const today = new Date().toLocaleDateString('en-CA');
-  if (!data.days) data.days = {};
-  data.days[today] = Math.max(0, (data.days[today] || 0) + delta);
-  saveStudyQData(data);
-  renderStudyQTracker();
-}
-
-function promptStudyGoal() {
-  const goal = prompt('Daily question goal:', localStorage.getItem('study_q_goal') || '50');
-  if (goal !== null && !isNaN(+goal) && +goal > 0) {
-    localStorage.setItem('study_q_goal', Math.round(+goal));
-    renderStudyQTracker();
-  }
-}
-
-function renderStudyQTracker() {
-  const countEl  = document.getElementById('study-q-count');
-  const goalEl   = document.getElementById('study-q-goal');
-  const barEl    = document.getElementById('study-q-bar');
-  const streakEl = document.getElementById('study-q-streak');
-  const dateEl   = document.getElementById('study-q-date');
-  const heatEl   = document.getElementById('study-q-heatmap');
-  if (!countEl) return;
-
-  const data  = getStudyQData();
-  const today = new Date().toLocaleDateString('en-CA');
-  const goal  = +(localStorage.getItem('study_q_goal') || 50);
-  const count = (data.days || {})[today] || 0;
-
-  countEl.textContent = count;
-  if (goalEl) goalEl.textContent = goal;
-  if (dateEl) dateEl.textContent = today;
-  if (barEl) barEl.style.width = Math.min(100, Math.round(count / goal * 100)) + '%';
-  if (barEl) barEl.style.background = count >= goal ? '#22c55e' : '#6b9e7a';
-
-  // Streak
-  if (streakEl && data.days) {
-    let streak = 0;
-    const d = new Date(); d.setHours(0,0,0,0);
-    // Don't penalise if today not yet done — check from yesterday
-    d.setDate(d.getDate() - 1);
-    while (true) {
-      const k = d.toLocaleDateString('en-CA');
-      if ((data.days[k] || 0) >= goal) { streak++; d.setDate(d.getDate()-1); }
-      else break;
-    }
-    streakEl.textContent = count >= goal ? `Streak: ${streak+1}d 🔥` : `Streak: ${streak}d`;
-  }
-
-  // 14-day heatmap
-  if (heatEl) {
-    const cells = [];
-    for (let i = 13; i >= 0; i--) {
-      const d = new Date(); d.setDate(d.getDate() - i);
-      const k = d.toLocaleDateString('en-CA');
-      const v = (data.days || {})[k] || 0;
-      const pct = Math.min(1, v / goal);
-      const alpha = (0.1 + pct * 0.9).toFixed(2);
-      const isToday = k === today;
-      cells.push(`<div title="${k}: ${v} Qs" style="width:16px;height:16px;border-radius:3px;background:rgba(107,158,122,${alpha});${isToday?'outline:2px solid #4A3B2E':''}"></div>`);
-    }
-    heatEl.innerHTML = cells.join('');
-  }
-}
-
-// Render on page load and hook into Medicine sub-tab
-renderStudyQTracker();
-document.querySelectorAll('[data-subtab^="med"]').forEach(btn => {
-  btn.addEventListener('click', () => setTimeout(renderStudyQTracker, 50));
-});
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TASK 10 — Personal Records Tracker
@@ -12047,70 +9268,6 @@ _pomoLoadSessions();
 pomoUpdateDisplay();
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TASK 16 — Topic Weakness Heatmap
-// ═══════════════════════════════════════════════════════════════════════════
-function getTopicData() {
-  try { return JSON.parse(localStorage.getItem('topic_weakness') || '[]'); } catch { return []; }
-}
-function saveTopicData(d) { localStorage.setItem('topic_weakness', JSON.stringify(d)); }
-
-function showTopicInput() {
-  const r = document.getElementById('topic-input-row');
-  if (r) r.style.display = r.style.display === 'none' ? 'block' : 'none';
-}
-
-function addTopicEntry() {
-  const name = (document.getElementById('topic-name-input') || {}).value || '';
-  const conf = (document.getElementById('topic-confidence') || {}).value || 'shaky';
-  if (!name.trim()) return;
-  const data = getTopicData();
-  // Update existing or add new
-  const idx = data.findIndex(t => t.name.toLowerCase() === name.trim().toLowerCase());
-  if (idx >= 0) data[idx] = { ...data[idx], confidence: conf, updated: new Date().toLocaleDateString('en-CA') };
-  else data.unshift({ id: Date.now(), name: name.trim(), confidence: conf, updated: new Date().toLocaleDateString('en-CA') });
-  saveTopicData(data);
-  const inp = document.getElementById('topic-name-input');
-  if (inp) inp.value = '';
-  document.getElementById('topic-input-row').style.display = 'none';
-  renderTopicWeakness();
-}
-
-function deleteTopicEntry(id) {
-  saveTopicData(getTopicData().filter(t => t.id !== id));
-  renderTopicWeakness();
-}
-
-function cycleTopicConfidence(id) {
-  const cycle = ['weak', 'shaky', 'ok', 'strong'];
-  const data = getTopicData().map(t => t.id === id ? { ...t, confidence: cycle[(cycle.indexOf(t.confidence) + 1) % cycle.length] } : t);
-  saveTopicData(data);
-  renderTopicWeakness();
-}
-
-function renderTopicWeakness() {
-  const el = document.getElementById('topic-weakness-list');
-  if (!el) return;
-  const data = getTopicData();
-  if (!data.length) { el.innerHTML = '<div style="text-align:center;color:#bbb;font-size:12px;padding:12px">No topics flagged yet</div>'; return; }
-  const confColor = { weak: '#ef4444', shaky: '#f97316', ok: '#f59e0b', strong: '#22c55e' };
-  const confLabel = { weak: '🔴 Weak', shaky: '🟠 Shaky', ok: '🟡 OK', strong: '🟢 Strong' };
-  // Sort: weak first
-  const order = ['weak', 'shaky', 'ok', 'strong'];
-  const sorted = [...data].sort((a, b) => order.indexOf(a.confidence) - order.indexOf(b.confidence));
-  el.innerHTML = sorted.map(t => `
-    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #FFFBF6">
-      <button onclick="cycleTopicConfidence(${t.id})" title="Click to change confidence" style="background:${confColor[t.confidence]}22;border:none;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;color:${confColor[t.confidence]};cursor:pointer;white-space:nowrap">${confLabel[t.confidence]}</button>
-      <span style="flex:1;font-size:13px">${escHtml(t.name)}</span>
-      <span style="font-size:10px;color:#E8D8C6;cursor:pointer" onclick="deleteTopicEntry(${t.id})">✕</span>
-    </div>`).join('');
-}
-
-renderTopicWeakness();
-document.querySelectorAll('[data-subtab^="med"]').forEach(btn => {
-  btn.addEventListener('click', () => setTimeout(renderTopicWeakness, 50));
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
 // TASK 17 — Alerts: Readiness <40 and ACWR >1.5
 // ═══════════════════════════════════════════════════════════════════════════
 function renderAlertsBanner() {
@@ -12153,12 +9310,6 @@ function renderSystemAlerts() {
   if (!el) return;
   const items = [];
 
-  // Finance: Google Sheets sync failing
-  const gsheetErr = localStorage.getItem('gsheet_last_error');
-  if (gsheetErr && localStorage.getItem('gsheet_url')) {
-    items.push({ icon: '💳', text: `Finance sync is failing: ${gsheetErr}`, action: `switchTab('finance');setTimeout(()=>document.querySelector('[data-subtab=\\'fin-statements\\']')?.click(),50)`, cta: 'Check Statements' });
-  }
-
   // Calendar: never synced / stale / erroring
   if (_gcalStatus === 'error') {
     items.push({ icon: '📅', text: `Calendar sync couldn't be reached.`, action: `switchTab('calendar')`, cta: 'Open Calendar' });
@@ -12199,38 +9350,6 @@ function renderSystemAlerts() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TASK 18 — Data Export (CSV)
-// ═══════════════════════════════════════════════════════════════════════════
-function downloadCSV(filename, rows) {
-  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const a = document.createElement('a');
-  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
-  a.download = filename;
-  a.click();
-}
-
-function exportInjuryLog() {
-  const log = getInjuryLog();
-  const rows = [['Date','Body Part','Severity','Notes','Resolved']];
-  log.forEach(e => rows.push([e.date, e.part, e.severity, e.notes||'', e.resolved ? 'Yes' : 'No']));
-  downloadCSV('injury_log.csv', rows);
-}
-
-function exportStudyLog() {
-  const data = getStudyQData();
-  const rows = [['Date','Questions']];
-  Object.entries(data.days || {}).sort().forEach(([date, count]) => rows.push([date, count]));
-  downloadCSV('study_log.csv', rows);
-}
-
-function showExportMenu() {
-  // Simple choice prompt — could be a modal but keep it minimal
-  const choice = prompt('Export which dataset?\n1 = Injury log\n2 = Study log\nType 1 or 2:');
-  if (choice === '1') exportInjuryLog();
-  else if (choice === '2') exportStudyLog();
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
 // Hook new renders into renderFitnessSubTab
 // ═══════════════════════════════════════════════════════════════════════════
 const _origRenderFitnessSubTab = renderFitnessSubTab;
@@ -12243,12 +9362,14 @@ renderFitnessSubTab = function() {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TASK 19 — PWA: Register Service Worker
+// PWA/offline support removed — actively unregister any previously-installed
+// service worker and clear its caches so existing installs clean themselves up.
 // ═══════════════════════════════════════════════════════════════════════════
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
-  });
+  navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
+}
+if ('caches' in window) {
+  caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -12307,83 +9428,6 @@ function renderShoeList() {
 }
 
 pendingCharts['train-shoes'] = renderShoeList;
-
-// ═══════════════════════════════════════════════════════════════════════════
-// TASK #22 — Race Results Log
-// ═══════════════════════════════════════════════════════════════════════════
-function getRaceResults() { try { return JSON.parse(localStorage.getItem('race_results')) || []; } catch { return []; } }
-function saveRaceResults(r) { localStorage.setItem('race_results', JSON.stringify(r)); }
-
-function addRaceResult() {
-  const name = (document.getElementById('race-name-input').value || '').trim();
-  if (!name) { alert('Race name required'); return; }
-  const date = document.getElementById('race-date-input').value;
-  if (!date) { alert('Race date required'); return; }
-  const dist = parseFloat(document.getElementById('race-dist-input').value) || 0;
-  const time = (document.getElementById('race-time-input').value || '').trim();
-  const results = getRaceResults();
-  results.push({ id: Date.now(), name, date, dist, time });
-  results.sort((a, b) => b.date.localeCompare(a.date));
-  saveRaceResults(results);
-  ['race-name-input','race-date-input','race-time-input'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  renderRaceList();
-}
-
-function deleteRaceResult(id) {
-  if (!confirm('Delete this race result?')) return;
-  saveRaceResults(getRaceResults().filter(r => r.id !== id));
-  renderRaceList();
-}
-
-function _raceTimeToSecs(t) {
-  if (!t) return 0;
-  const parts = t.split(':').map(Number);
-  if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
-  if (parts.length === 2) return parts[0]*60 + parts[1];
-  return 0;
-}
-
-function _racePace(dist, time) {
-  const secs = _raceTimeToSecs(time);
-  if (!secs || !dist) return '';
-  const secPerKm = secs / dist;
-  const m = Math.floor(secPerKm / 60);
-  const s = Math.round(secPerKm % 60);
-  return `${m}:${String(s).padStart(2,'0')} /km`;
-}
-
-function _distLabel(d) {
-  if (d === 5) return '5K';
-  if (d === 10) return '10K';
-  if (d === 21.1) return 'Half Marathon';
-  if (d === 42.2) return 'Marathon';
-  return d + ' km';
-}
-
-function renderRaceList() {
-  const el = document.getElementById('race-list');
-  if (!el) return;
-  const races = getRaceResults();
-  if (!races.length) {
-    el.innerHTML = '<div style="font-size:13px;color:#A6937F;text-align:center;padding:16px">No races logged yet</div>';
-    return;
-  }
-  el.innerHTML = races.map(r => {
-    const pace = r.time && r.dist ? `<span style="font-size:11px;color:#A6937F;margin-left:6px">${_racePace(r.dist, r.time)}</span>` : '';
-    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #FBF1E7">
-      <div>
-        <div style="font-size:14px;font-weight:600">${escHtml(r.name)}</div>
-        <div style="font-size:12px;color:#7A6656">${r.date} · ${_distLabel(r.dist)}${pace}</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:15px;font-weight:700;color:#2B2118">${escHtml(r.time || '—')}</span>
-        <button onclick="deleteRaceResult(${r.id})" style="background:none;border:none;color:#e05c5c;font-size:12px;cursor:pointer">✕</button>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-pendingCharts['train-races'] = renderRaceList;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TASK #23 — Session RPE Logging
