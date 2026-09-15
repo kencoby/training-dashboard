@@ -1256,11 +1256,11 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
   <div class="sub-tab-pane" id="sub-tab-med-st1">
 
-<!-- CT SURGERY ST1 APPLICATION SCORE TRACKER -->
+<!-- CST PORTFOLIO SCORECARD -->
 <div class="section">
-<h2>🎯 ST1 Application Score</h2>
-<div class="sub" style="margin-bottom:12px">Enter your own current/max points per domain from the current CT(CTh) ST1 person specification — figures aren't pre-filled since they change year to year.</div>
-<div class="card" id="st1-tracker"></div>
+<h2>🎯 CST Portfolio Scorecard</h2>
+<div class="sub" style="margin-bottom:12px">The six self-assessment domains, A–E letter grades, and the evidence each grade actually requires. Compiled from third-party CST portfolio guides, not the official recruitment spec — confirm exact wording against the official guidance before you submit.</div>
+<div id="cst-scorecard"></div>
 </div>
 
 <!-- AUDIT CLOSED-LOOP TRACKER -->
@@ -2273,7 +2273,7 @@ const SYNC_KEYS = [
   'shopping_items',
   'notes_data',
   'mood_log', 'tutoring_log', 'habit_streaks', 'habit_reset_date',
-  'weight_goal', 'st1_scores', 'audit_cycle', 'today_priority'
+  'weight_goal', 'cst_grades', 'audit_cycle', 'today_priority'
 ];
 
 function getSyncMeta() {
@@ -3893,62 +3893,193 @@ function renderAccordions() {
 }
 renderAccordions();
 
-// ── CT Surgery ST1 Application Score Tracker ─────────────────────────────────
-// Domain names are Phil's own — pulled from what he's actually said he's
-// scoring against. Max/current points are deliberately left blank rather than
-// pre-filled: the real person-specification numbers change year to year and
-// guessing at them would just be fabricated data sitting in a "tracker".
-// Phil fills both fields in himself from the current spec.
-const ST1_DOMAINS = [
-  { key: 'higher_degrees', label: 'Higher Degrees', note: 'Bioinformatics Master\'s' },
-  { key: 'achievements',   label: 'Achievements Outside Medicine', note: 'e.g. county music — recency rules may apply' },
-  { key: 'teaching',       label: 'Teaching', note: 'Tutoring is non-medical, scores zero here' },
-  { key: 'audit',          label: 'Audit', note: 'See Audit Closed-Loop tracker below' },
-  { key: 'publications',   label: 'Publications & Presentations', note: '' },
-  { key: 'courses',        label: 'Courses & CPD', note: '' },
-  { key: 'commitment',     label: 'Commitment to Specialty', note: 'Elective, taster days, attachments' },
+// ── CST Portfolio Scorecard ───────────────────────────────────────────────
+// The real Core Surgical Training self-assessment rubric (6 domains, A–E
+// letter grades) — content Phil supplied himself, sourced from medcourse.co.uk
+// and medset.co.uk's CST portfolio guides. Verbatim criteria/evidence copy,
+// not invented: a wrong grade boundary here is worse than no tracker at all.
+const CST_GRADE_ORDER = ['A', 'B', 'C', 'D', 'E'];
+const CST_GRADE_COLORS = {
+  A: { fg: '#2D7A47', bg: '#E5F5EA' },
+  B: { fg: '#5B8C5A', bg: '#EAF3E7' },
+  C: { fg: '#B0700A', bg: '#FFEFC2' },
+  D: { fg: '#B5601E', bg: '#F7E7D2' },
+  E: { fg: '#D6483A', bg: '#FDEDE9' },
+};
+const CST_DOMAINS = [
+  {
+    id: 'operative', num: '01', label: 'Operative experience',
+    sub: 'Volume of supervised, scrubbed cases — observation alone does not count.',
+    ladder: [
+      { grade: 'A', html: 'Involved in <strong>40+</strong> cases' },
+      { grade: 'B', html: 'Involved in <strong>30–39</strong> cases' },
+      { grade: 'C', html: 'Involved in <strong>20–29</strong> cases' },
+      { grade: 'D', html: 'Involved in <strong>11–19</strong> cases' },
+      { grade: 'E', html: 'Fewer than 10 cases, or no evidence' },
+    ],
+    evidence: ['Consolidation report from your eLogbook (a summary report, not the full raw logbook)', 'Procedure summary sheet with case numbers and date ranges', 'Consultant signature, full name, and GMC number'],
+  },
+  {
+    id: 'surgical', num: '02', label: 'Surgical experience',
+    sub: 'A single binary check: did you get structured exposure to a surgical specialty outside your normal rotation.',
+    ladder: [
+      { grade: 'A', html: 'Any one of:<ul style="margin:4px 0 0;padding-left:18px"><li>Surgical taster week (minimum 5 days)</li><li>Surgical elective (minimum 4 weeks)</li></ul><span style="display:block;margin-top:4px;font-size:11px;color:var(--text-faint)">Accepted specialties: cardiothoracic, ENT, general surgery, ITU, neurosurgery, oral &amp; maxillofacial, orthopaedics, paediatric surgery, plastics, urology, vascular.</span>' },
+      { grade: 'B', html: 'None of the above completed' },
+    ],
+    flag: { title: 'Changing this cycle', text: 'Foundation surgical placements (12+ weeks) are being phased out as qualifying evidence — 2025/26 is the last year they count.' },
+    evidence: ['Letter on official letterhead from your educational supervisor', 'Department, hospital, and exact dates', 'Description of theatre/clinic exposure and learning opportunities', "Supervisor's name and GMC number"],
+  },
+  {
+    id: 'qi-involvement', num: '03', label: 'Quality improvement — involvement',
+    sub: 'What role you played in an audit or QI project, and whether it actually closed the loop.',
+    ladder: [
+      { grade: 'A', html: 'Led every stage of a <strong>surgically-themed</strong> QI project or audit that demonstrated change' },
+      { grade: 'B', html: 'Led every stage of a <strong>non-surgical</strong> QI project or audit that demonstrated change' },
+      { grade: 'C', html: 'Contributed across multiple cycles, with change demonstrated' },
+      { grade: 'D', html: 'Involved in a QI project or audit in any capacity' },
+      { grade: 'E', html: 'None of the above' },
+    ],
+    flag: { title: 'Threshold to note', text: '"Demonstrated change" means at least two full cycles — a baseline, an intervention, and a re-measurement showing outcomes improved.' },
+    evidence: ['Project summary or presentation showing both cycles and the change achieved', 'Signed consultant letter with name and GMC number confirming your claimed role'],
+  },
+  {
+    id: 'qi-presenting', num: '04', label: 'Quality improvement — presenting',
+    sub: "Separate from involvement: did you actually take the project's results back to the department it was meant to improve.",
+    ladder: [
+      { grade: 'A', html: 'Presented both cycles of data, or presented the intervention and the change achieved' },
+      { grade: 'B', html: 'Presented one cycle at a meeting' },
+      { grade: 'C', html: 'Did not present' },
+    ],
+    flag: { title: 'New for 2025/26', text: 'Panels specifically want evidence the project was presented back within the department or setting it was designed to improve — not just at an external meeting.' },
+    evidence: ['Meeting acceptance letter or programme naming the project', 'Confirmation you were the presenting author', "Meeting date and organiser's name"],
+  },
+  {
+    id: 'pubs', num: '05', label: 'Presentations & publications',
+    sub: 'Academic output outside the QI project itself — authorship position and the accreditation of the venue both matter.',
+    ladder: [
+      { grade: 'A', html: 'Top prize for an oral presentation at an accredited national/international meeting, or first author on a PubMed-indexed paper (excluding case reports and editorials)' },
+      { grade: 'B', html: 'Invited oral presentation (accredited, national/international), or first author case report/editorial (PubMed), or author of a non-self-published book chapter' },
+      { grade: 'C', html: 'First author of a poster or oral-poster at an accredited national/international meeting' },
+      { grade: 'D', html: 'Oral presentation at a regional meeting, or collaborative (non-first) author on a PubMed publication' },
+      { grade: 'E', html: 'None of the above' },
+    ],
+    flag: { title: "Can't double-count", text: 'A presentation already claimed under QI-presenting (domain 4) for the same project cannot also be claimed here.' },
+    evidenceHead: 'Evidence to upload — varies by claim type',
+    evidence: ['Presentations: acceptance letter or programme, a copy of the presentation, attendance certificate, prize certificate if applicable', 'Published papers: PDF of the article showing the PubMed ID', 'In-press papers: acceptance letter confirming PubMed status', 'Collaborative authorship: published article copy showing the PubMed ID'],
+  },
+  {
+    id: 'teaching', num: '06', label: 'Teaching experience',
+    sub: 'Design and delivery both count, but formal feedback is what unlocks any points at all.',
+    ladder: [
+      { grade: 'A', html: 'Designed and organised a <strong>face-to-face</strong> teaching programme, personally delivering 4+ sessions' },
+      { grade: 'B', html: 'Designed and organised an <strong>online</strong> teaching programme, personally delivering 4+ sessions' },
+      { grade: 'C', html: 'Designed and organised a programme but personally delivered fewer than 4 sessions' },
+      { grade: 'D', html: 'Regular teaching (4+ occasions in a year), or completed a "train the trainer"-style course' },
+      { grade: 'E', html: 'None of the above' },
+    ],
+    flag: { title: 'Hard requirement', text: 'No formal feedback on record means zero points for this domain, regardless of how much teaching you actually did. Anonymised participant feedback forms are acceptable.' },
+    evidence: ['Consultant/supervisor letter confirming your design & organisation role, with name, GMC number, and dates', "Second confirmation of delivery and that feedback was collected and reviewed (the feedback forms themselves don't need to be submitted)"],
+  },
 ];
-function getSt1Scores() {
-  try { return JSON.parse(localStorage.getItem('st1_scores')) || {}; } catch { return {}; }
+const CST_TIMELINE = [
+  { label: 'Applications open', value: '~Oct 2028' },
+  { label: 'Applications close', value: '~Nov 2028' },
+  { label: 'MSRA sitting', value: '~Jan 2029' },
+  { label: 'Evidence upload opens', value: '~Feb 2029' },
+  { label: 'Evidence upload closes', value: '~Feb 2029' },
+  { label: 'Interviews', value: '~Mar 2029' },
+];
+function cstLowestGrade(domain) { return domain.ladder[domain.ladder.length - 1].grade; }
+function getCstGrades() {
+  try { return JSON.parse(localStorage.getItem('cst_grades')) || {}; } catch { return {}; }
 }
-function saveSt1Scores(scores) {
-  localStorage.setItem('st1_scores', JSON.stringify(scores));
-  syncPush('st1_scores', scores);
+function saveCstGrades(grades) {
+  localStorage.setItem('cst_grades', JSON.stringify(grades));
+  syncPush('cst_grades', grades);
 }
-function updateSt1Score(key, field, value) {
-  const scores = getSt1Scores();
-  scores[key] = scores[key] || {};
-  const n = value === '' ? null : parseFloat(value);
-  scores[key][field] = (n == null || isNaN(n)) ? null : n;
-  saveSt1Scores(scores);
-  renderSt1Tracker();
+function updateCstGrade(domainId, grade) {
+  const grades = getCstGrades();
+  grades[domainId] = grade;
+  saveCstGrades(grades);
+  renderCstScorecard();
 }
-function renderSt1Tracker() {
-  const el = document.getElementById('st1-tracker');
+function resetCstGrades() {
+  const grades = {};
+  CST_DOMAINS.forEach(d => { grades[d.id] = cstLowestGrade(d); });
+  saveCstGrades(grades);
+  renderCstScorecard();
+}
+function renderCstScorecard() {
+  const el = document.getElementById('cst-scorecard');
   if (!el) return;
-  const scores = getSt1Scores();
-  let totalCur = 0, totalMax = 0, anyMax = false;
-  const rows = ST1_DOMAINS.map(d => {
-    const s = scores[d.key] || {};
-    if (typeof s.current === 'number') totalCur += s.current;
-    if (typeof s.max === 'number') { totalMax += s.max; anyMax = true; }
-    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #FBF1E7">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600">${d.label}</div>
-        ${d.note ? `<div style="font-size:11px;color:#A6937F">${escHtml(d.note)}</div>` : ''}
+  const grades = getCstGrades();
+  CST_DOMAINS.forEach(d => { if (!grades[d.id]) grades[d.id] = cstLowestGrade(d); });
+
+  // Status grid — current grade per domain, click to jump to that section
+  const statusGrid = `<div class="card" style="padding:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div class="lbl" style="margin-bottom:0">Your current standing</div>
+      <button onclick="resetCstGrades()" style="background:none;border:none;color:var(--text-faint);font-size:11px;text-decoration:underline;cursor:pointer">Reset all</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px">
+      ${CST_DOMAINS.map(d => {
+        const g = grades[d.id], c = CST_GRADE_COLORS[g];
+        return `<div onclick="document.getElementById('cst-${d.id}').scrollIntoView({behavior:'smooth',block:'start'})" style="cursor:pointer;border:1px solid var(--border-soft);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:10px;color:var(--text-faint)">${d.num}</span>
+            <span style="font-weight:700;font-size:16px;width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:${c.fg};background:${c.bg}">${g}</span>
+          </div>
+          <span style="font-size:12px;line-height:1.3">${d.label}</span>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;background:var(--border-soft);border:1px solid var(--border-soft);border-radius:10px;overflow:hidden;margin-top:14px">
+      ${CST_TIMELINE.map(t => `<div style="background:var(--surface);padding:10px 12px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);margin-bottom:3px">${t.label}</div>
+        <div style="font-size:13px;font-weight:600">${t.value}</div>
+      </div>`).join('')}
+    </div>
+    <div class="sub" style="margin-top:10px">Based on final year 2026/27 → FY1 2027/28 → FY2 2028/29 → CST starting Aug 2029 — planning estimates, not confirmed dates. The MSRA gates your interview invite; these portfolio grades only get verified once you're in the room.</div>
+  </div>`;
+
+  // Per-domain sections
+  const domainSections = CST_DOMAINS.map(d => {
+    const g = grades[d.id];
+    const ladderHtml = d.ladder.map(rung => {
+      const c = CST_GRADE_COLORS[rung.grade];
+      const isCurrent = rung.grade === g;
+      return `<div style="display:flex;gap:12px;padding:6px 0;align-items:baseline">
+        <button onclick="updateCstGrade('${d.id}','${rung.grade}')" style="flex-shrink:0;border:${isCurrent ? '1.5px solid ' + c.fg : '1.5px solid transparent'};font-weight:700;font-size:13px;width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:${c.fg};background:${c.bg};cursor:pointer">${rung.grade}</button>
+        <div style="font-size:13px;line-height:1.5;${isCurrent ? 'font-weight:600' : ''}">${rung.html}${isCurrent ? '<span style="margin-left:8px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint)">current</span>' : ''}</div>
+      </div>`;
+    }).join('');
+    const flagHtml = d.flag ? `<div style="margin-top:10px;border-left:3px solid var(--lavender-text);background:var(--lavender);padding:8px 12px;border-radius:0 8px 8px 0;font-size:12px">
+      <div style="font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--lavender-text);margin-bottom:2px">${escHtml(d.flag.title)}</div>
+      ${escHtml(d.flag.text)}
+    </div>` : '';
+    return `<div class="card" id="cst-${d.id}" style="padding:16px;margin-top:10px;scroll-margin-top:16px">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">
+        <span style="font-size:11px;color:var(--accent-text);background:var(--accent-soft);padding:2px 7px;border-radius:5px">${d.num}</span>
+        <div style="font-family:'Quicksand',sans-serif;font-weight:700;font-size:15px;color:var(--text)">${d.label}</div>
       </div>
-      <input type="number" step="0.5" placeholder="pts" value="${s.current ?? ''}"
-        onchange="updateSt1Score('${d.key}','current',this.value)"
-        style="width:56px;border:1px solid #F0E1D2;border-radius:6px;padding:4px 6px;font-size:12px;text-align:center"/>
-      <span style="color:#A6937F;font-size:12px">/</span>
-      <input type="number" step="0.5" placeholder="max" value="${s.max ?? ''}"
-        onchange="updateSt1Score('${d.key}','max',this.value)"
-        style="width:56px;border:1px solid #F0E1D2;border-radius:6px;padding:4px 6px;font-size:12px;text-align:center"/>
+      <div class="sub" style="margin-bottom:12px">${escHtml(d.sub)}</div>
+      ${ladderHtml}
+      ${flagHtml}
+      <div style="margin-top:12px;border-top:1px solid var(--border-soft);padding-top:10px">
+        <div class="lbl" style="margin-bottom:6px">${escHtml(d.evidenceHead || 'Evidence to upload')}</div>
+        <ul style="margin:0;padding-left:18px;font-size:12.5px;color:var(--text-muted)">
+          ${d.evidence.map(e => `<li style="margin-bottom:3px">${escHtml(e)}</li>`).join('')}
+        </ul>
+      </div>
     </div>`;
   }).join('');
-  el.innerHTML = rows + `<div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;font-size:14px;font-weight:700">
-    <span>Total</span><span>${totalCur}${anyMax ? ` / ${totalMax}` : ''}</span>
+
+  const footer = `<div class="sub" style="margin-top:14px;line-height:1.6">
+    Compiled from third-party CST application guides, not the official recruitment specification — confirm exact wording and any late changes against the official portfolio guidance before you submit.<br/>
+    Sources: <a href="https://medcourse.co.uk/speciality-guide/cst-portfolio-self-assessment-scoring/" target="_blank" rel="noopener">medcourse.co.uk</a> · <a href="https://medset.co.uk/core-surgical-training-cst-portfolio-guide/" target="_blank" rel="noopener">medset.co.uk</a>
   </div>`;
+
+  el.innerHTML = statusGrid + domainSections + footer;
 }
 
 // ── Audit Closed-Loop Tracker ────────────────────────────────────────────────
@@ -4027,7 +4158,7 @@ function computeUpcomingDeadlines(limit) {
   return out.sort((a,b) => a.daysAway - b.daysAway).slice(0, limit || 4);
 }
 
-renderSt1Tracker();
+renderCstScorecard();
 renderAuditTracker();
 
 // ── UKMLA Revision Tracker ───────────────────────────────────────────────────
@@ -8828,7 +8959,7 @@ function applySyncUpdates(updated) {
   if (updated.includes('tasks_priority')) safe(renderTasks);
   if (updated.includes('shopping_items')) safe(renderShopping);
   if (updated.includes('notes_data')) safe(renderNotes);
-  if (updated.includes('st1_scores')) safe(renderSt1Tracker);
+  if (updated.includes('cst_grades')) safe(renderCstScorecard);
   if (updated.includes('audit_cycle')) safe(renderAuditTracker);
   if (updated.includes('today_priority')) safe(renderTodayPriority);
   // activity_notes intentionally not force-rendered here — it's spread across
