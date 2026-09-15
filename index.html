@@ -215,6 +215,7 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
   <!-- LEFT: Daily briefing (takes most of the width) -->
   <div class="home-briefing-col" style="display:flex;flex-direction:column;min-height:0">
+    <div id="today-priority" style="flex-shrink:0"></div>
     <div id="system-alerts" style="flex-shrink:0"></div>
     <div id="warns" style="flex-shrink:0"></div>
     <div id="alerts-banner" style="display:none"></div>
@@ -442,7 +443,10 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
 <div class="section">
 <h2>Weight Trend — 60 Days</h2>
-<div class="card"><div class="cht-sm"><canvas id="whoop-weight-chart"></canvas></div></div>
+<div class="card">
+  <div id="weight-goal-row" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px"></div>
+  <div class="cht-sm"><canvas id="whoop-weight-chart"></canvas></div>
+</div>
 </div>
 
 <div class="section">
@@ -958,6 +962,7 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
     <button class="sub-tab-btn active" data-subtab="med-signoffs">Signoffs</button>
     <button class="sub-tab-btn" data-subtab="med-assessments">Assessment Info</button>
     <button class="sub-tab-btn" data-subtab="med-calculators">Calculators</button>
+    <button class="sub-tab-btn" data-subtab="med-st1">ST1 &amp; Audit</button>
   </nav>
 
   <div class="sub-tab-pane active" id="sub-tab-med-signoffs">
@@ -1245,6 +1250,24 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
   <label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" id="calc-ottawa-foot-weight" onchange="calcOttawa()"> Unable to bear weight (4 steps), then &amp; now</label>
   <div id="calc-ottawa-foot-result" style="margin-top:8px;padding:8px;border-radius:8px;background:var(--surface-hover);text-align:center;font-size:13px;font-weight:600">Foot X-ray not indicated</div>
 </div>
+</div>
+
+  </div>
+
+  <div class="sub-tab-pane" id="sub-tab-med-st1">
+
+<!-- CT SURGERY ST1 APPLICATION SCORE TRACKER -->
+<div class="section">
+<h2>🎯 ST1 Application Score</h2>
+<div class="sub" style="margin-bottom:12px">Enter your own current/max points per domain from the current CT(CTh) ST1 person specification — figures aren't pre-filled since they change year to year.</div>
+<div class="card" id="st1-tracker"></div>
+</div>
+
+<!-- AUDIT CLOSED-LOOP TRACKER -->
+<div class="section">
+<h2>🔁 Audit Closed-Loop</h2>
+<div class="sub" style="margin-bottom:12px">Baseline → intervention → re-audit → write-up. Set a target date per stage to keep it moving before applications open.</div>
+<div class="card" id="audit-tracker"></div>
 </div>
 
   </div>
@@ -2249,7 +2272,8 @@ const SYNC_KEYS = [
   'rev_schedule_log', 'tasks_priority',
   'shopping_items',
   'notes_data',
-  'mood_log', 'tutoring_log', 'habit_streaks', 'habit_reset_date'
+  'mood_log', 'tutoring_log', 'habit_streaks', 'habit_reset_date',
+  'weight_goal', 'st1_scores', 'audit_cycle', 'today_priority'
 ];
 
 function getSyncMeta() {
@@ -2791,6 +2815,50 @@ function deleteSubtask(taskId, subtaskId) {
   const panel = document.getElementById(`subtask-panel-${taskId}`);
   if (panel) panel.style.display = 'block';
 }
+
+// ── Today's One Priority ─────────────────────────────────────────────────────
+// A single pinned line, separate from the full task list — the one thing that
+// matters most today. Auto-clears at midnight (keyed by date) so it doesn't
+// linger stale; resets to blank each new day rather than carrying over.
+function getTodayPriority() {
+  try { return JSON.parse(localStorage.getItem('today_priority')) || {}; } catch { return {}; }
+}
+function saveTodayPriority(obj) {
+  localStorage.setItem('today_priority', JSON.stringify(obj));
+  syncPush('today_priority', obj);
+}
+function setTodayPriorityText(text) {
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  saveTodayPriority({ date: todayStr, text: text.trim() });
+  renderTodayPriority();
+}
+function clearTodayPriority() {
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  saveTodayPriority({ date: todayStr, text: '' });
+  renderTodayPriority();
+}
+function promptTodayPriority() {
+  const cur = getTodayPriority();
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const input = window.prompt("Today's one priority:", cur.date === todayStr ? cur.text : '');
+  if (input === null) return;
+  setTodayPriorityText(input);
+}
+function renderTodayPriority() {
+  const el = document.getElementById('today-priority');
+  if (!el) return;
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const cur = getTodayPriority();
+  const text = cur.date === todayStr ? (cur.text || '') : '';
+  el.innerHTML = text
+    ? `<div style="background:var(--lavender);color:var(--lavender-text);border-radius:10px;padding:10px 14px;margin-bottom:6px;display:flex;align-items:center;gap:10px;cursor:pointer" onclick="promptTodayPriority()">
+        <span style="font-size:15px">🎯</span>
+        <span style="flex:1;font-size:13px;font-weight:700">${escHtml(text)}</span>
+        <button onclick="event.stopPropagation();clearTodayPriority()" style="background:none;border:none;color:inherit;opacity:.7;cursor:pointer;font-size:13px">✕</button>
+      </div>`
+    : `<div style="border:1px dashed #E8D8C6;border-radius:10px;padding:8px 14px;margin-bottom:6px;font-size:12px;color:#A6937F;cursor:pointer" onclick="promptTodayPriority()">🎯 Set today's one priority…</div>`;
+}
+renderTodayPriority();
 
 function addTaskFromDash() {
   const input    = document.getElementById('dash-task-input');
@@ -3504,6 +3572,38 @@ function saveProgressLog(log) {
   localStorage.setItem('progress_log', JSON.stringify(log));
   syncPush('progress_log', log);
 }
+function getWeightGoal() {
+  const raw = localStorage.getItem('weight_goal');
+  if (raw == null) return null;
+  const n = parseFloat(JSON.parse(raw));
+  return isNaN(n) ? null : n;
+}
+function setWeightGoal(v) {
+  localStorage.setItem('weight_goal', JSON.stringify(v));
+  syncPush('weight_goal', v);
+  renderWeightGoalRow();
+  if (initialised['whoop-monitor']) buildWhoopWeightChart();
+}
+function renderWeightGoalRow() {
+  const el = document.getElementById('weight-goal-row');
+  if (!el) return;
+  const goal = getWeightGoal();
+  if (goal == null) {
+    el.innerHTML = `<span class="sub">No goal weight set</span>
+      <button onclick="promptWeightGoal()" style="background:none;border:1px solid #F0E1D2;border-radius:8px;padding:3px 8px;font-size:11px;cursor:pointer;color:#7A6656">Set goal</button>`;
+  } else {
+    el.innerHTML = `<span class="sub">Goal: <strong style="color:#4A3B2E">${goal}kg</strong></span>
+      <button onclick="promptWeightGoal()" style="background:none;border:1px solid #F0E1D2;border-radius:8px;padding:3px 8px;font-size:11px;cursor:pointer;color:#7A6656">Edit</button>`;
+  }
+}
+function promptWeightGoal() {
+  const current = getWeightGoal();
+  const input = window.prompt('Goal weight (kg):', current != null ? current : '');
+  if (input === null) return;
+  const n = parseFloat(input);
+  if (isNaN(n) || n <= 0) return;
+  setWeightGoal(n);
+}
 function previewProgressPhoto(input) {
   const file = input.files[0];
   if (!file) return;
@@ -3792,6 +3892,143 @@ function renderAccordions() {
   ACCORDIONS.forEach(acc=>{ renderAccordionMeta(acc); renderAccordionBody(acc); });
 }
 renderAccordions();
+
+// ── CT Surgery ST1 Application Score Tracker ─────────────────────────────────
+// Domain names are Phil's own — pulled from what he's actually said he's
+// scoring against. Max/current points are deliberately left blank rather than
+// pre-filled: the real person-specification numbers change year to year and
+// guessing at them would just be fabricated data sitting in a "tracker".
+// Phil fills both fields in himself from the current spec.
+const ST1_DOMAINS = [
+  { key: 'higher_degrees', label: 'Higher Degrees', note: 'Bioinformatics Master\'s' },
+  { key: 'achievements',   label: 'Achievements Outside Medicine', note: 'e.g. county music — recency rules may apply' },
+  { key: 'teaching',       label: 'Teaching', note: 'Tutoring is non-medical, scores zero here' },
+  { key: 'audit',          label: 'Audit', note: 'See Audit Closed-Loop tracker below' },
+  { key: 'publications',   label: 'Publications & Presentations', note: '' },
+  { key: 'courses',        label: 'Courses & CPD', note: '' },
+  { key: 'commitment',     label: 'Commitment to Specialty', note: 'Elective, taster days, attachments' },
+];
+function getSt1Scores() {
+  try { return JSON.parse(localStorage.getItem('st1_scores')) || {}; } catch { return {}; }
+}
+function saveSt1Scores(scores) {
+  localStorage.setItem('st1_scores', JSON.stringify(scores));
+  syncPush('st1_scores', scores);
+}
+function updateSt1Score(key, field, value) {
+  const scores = getSt1Scores();
+  scores[key] = scores[key] || {};
+  const n = value === '' ? null : parseFloat(value);
+  scores[key][field] = (n == null || isNaN(n)) ? null : n;
+  saveSt1Scores(scores);
+  renderSt1Tracker();
+}
+function renderSt1Tracker() {
+  const el = document.getElementById('st1-tracker');
+  if (!el) return;
+  const scores = getSt1Scores();
+  let totalCur = 0, totalMax = 0, anyMax = false;
+  const rows = ST1_DOMAINS.map(d => {
+    const s = scores[d.key] || {};
+    if (typeof s.current === 'number') totalCur += s.current;
+    if (typeof s.max === 'number') { totalMax += s.max; anyMax = true; }
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #FBF1E7">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600">${d.label}</div>
+        ${d.note ? `<div style="font-size:11px;color:#A6937F">${escHtml(d.note)}</div>` : ''}
+      </div>
+      <input type="number" step="0.5" placeholder="pts" value="${s.current ?? ''}"
+        onchange="updateSt1Score('${d.key}','current',this.value)"
+        style="width:56px;border:1px solid #F0E1D2;border-radius:6px;padding:4px 6px;font-size:12px;text-align:center"/>
+      <span style="color:#A6937F;font-size:12px">/</span>
+      <input type="number" step="0.5" placeholder="max" value="${s.max ?? ''}"
+        onchange="updateSt1Score('${d.key}','max',this.value)"
+        style="width:56px;border:1px solid #F0E1D2;border-radius:6px;padding:4px 6px;font-size:12px;text-align:center"/>
+    </div>`;
+  }).join('');
+  el.innerHTML = rows + `<div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;font-size:14px;font-weight:700">
+    <span>Total</span><span>${totalCur}${anyMax ? ` / ${totalMax}` : ''}</span>
+  </div>`;
+}
+
+// ── Audit Closed-Loop Tracker ────────────────────────────────────────────────
+const AUDIT_STAGE_DEFAULTS = [
+  { key: 'baseline',     label: 'Baseline data collection' },
+  { key: 'intervention', label: 'Intervention / change implemented' },
+  { key: 'reaudit',      label: 'Re-audit' },
+  { key: 'writeup',      label: 'Write-up / presentation' },
+];
+function getAuditCycle() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('audit_cycle'));
+    if (saved && Array.isArray(saved.stages)) return saved;
+  } catch {}
+  return { title: 'Audit cycle', stages: AUDIT_STAGE_DEFAULTS.map(s => ({ ...s, date: '', done: false })) };
+}
+function saveAuditCycle(cycle) {
+  localStorage.setItem('audit_cycle', JSON.stringify(cycle));
+  syncPush('audit_cycle', cycle);
+}
+function updateAuditStage(key, field, value) {
+  const cycle = getAuditCycle();
+  const stage = cycle.stages.find(s => s.key === key);
+  if (!stage) return;
+  stage[field] = field === 'done' ? value : value;
+  saveAuditCycle(cycle);
+  renderAuditTracker();
+  if (typeof renderSystemAlerts === 'function') renderSystemAlerts();
+}
+function renderAuditTracker() {
+  const el = document.getElementById('audit-tracker');
+  if (!el) return;
+  const cycle = getAuditCycle();
+  const rows = cycle.stages.map(s => {
+    const info = s.date ? deadlineInfo(s.date) : null;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #FBF1E7">
+      <input type="checkbox" ${s.done ? 'checked' : ''} onchange="updateAuditStage('${s.key}','done',this.checked)" style="width:16px;height:16px;flex-shrink:0"/>
+      <div style="flex:1;font-size:13px;font-weight:600;${s.done ? 'text-decoration:line-through;color:#A6937F' : ''}">${s.label}</div>
+      <input type="date" value="${s.date || ''}" onchange="updateAuditStage('${s.key}','date',this.value)"
+        style="border:1px solid #F0E1D2;border-radius:6px;padding:4px 6px;font-size:11px"/>
+      ${info && !s.done ? `<span class="accordion-deadline ${info.cls}" style="font-size:10px">${info.label}</span>` : ''}
+    </div>`;
+  }).join('');
+  const doneCount = cycle.stages.filter(s => s.done).length;
+  el.innerHTML = `<div class="sub" style="margin-bottom:6px">${doneCount} / ${cycle.stages.length} stages complete</div>` + rows;
+}
+
+// ── Unified upcoming deadlines (Year 4 assessments + audit stages) ──────────
+// Feeds the "Upcoming" section on Home — merges sources that already exist
+// separately (YR4_TRAVEL assessment dates, the audit cycle above) into one
+// proximity-ranked list instead of Phil having to check three tabs.
+function computeUpcomingDeadlines(limit) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const out = [];
+
+  YR4_TRAVEL.filter(t => t.assessment).forEach(t => {
+    const d = yr4WeekDate(t.start);
+    const daysAway = Math.round((d - today) / 864e5);
+    if (daysAway >= 0) out.push({ label: t.label, daysAway, action: "switchTab('year4')", cta: 'Year 4' });
+  });
+
+  const cycle = getAuditCycle();
+  const nextStage = cycle.stages.filter(s => !s.done && s.date).sort((a,b) => new Date(a.date) - new Date(b.date))[0];
+  if (nextStage) {
+    const daysAway = Math.round((new Date(nextStage.date) - today) / 864e5);
+    if (daysAway >= 0) out.push({ label: `Audit: ${nextStage.label}`, daysAway, action: "switchTab('medicine')", cta: 'Medicine' });
+  }
+
+  const incompleteAccs = ACCORDIONS.filter(acc => getSignoff(acc.storageKey).length < acc.items.length);
+  if (incompleteAccs.length) {
+    const nearest = incompleteAccs.map(acc => ({ acc, daysAway: Math.round((new Date(acc.deadline) - today) / 864e5) }))
+      .sort((a,b) => a.daysAway - b.daysAway)[0];
+    if (nearest && nearest.daysAway >= 0) out.push({ label: `Portfolio sign-offs (${incompleteAccs.length} sections open)`, daysAway: nearest.daysAway, action: "switchTab('medicine')", cta: 'Signoffs' });
+  }
+
+  return out.sort((a,b) => a.daysAway - b.daysAway).slice(0, limit || 4);
+}
+
+renderSt1Tracker();
+renderAuditTracker();
 
 // ── UKMLA Revision Tracker ───────────────────────────────────────────────────
 const UKMLA_SYSTEMS = [
@@ -6503,6 +6740,18 @@ function renderDailyBriefing() {
   const rowStyle = 'display:flex;align-items:center;gap:8px;padding:3px 0;font-size:13px';
   const sections = [];
 
+  // ── Upcoming deadlines (today only — ranked across Year 4/audit/signoffs) ──
+  if (isToday && typeof computeUpcomingDeadlines === 'function') {
+    const deadlines = computeUpcomingDeadlines(3);
+    if (deadlines.length) {
+      const dHtml = deadlines.map(d => {
+        const when = d.daysAway === 0 ? 'today' : d.daysAway === 1 ? 'in 1 day' : `in ${d.daysAway} days`;
+        return `<div style="${rowStyle}" onclick="${d.action}" role="button" tabindex="0"><span>📌</span><span>${escHtml(d.label)} — <strong>${when}</strong></span></div>`;
+      }).join('');
+      sections.push(`<div style="${sectionStyle}"><div style="${labelStyle}">Upcoming</div>${dHtml}</div>`);
+    }
+  }
+
   // ── Training ──────────────────────────────────────────────────────────────
   // Per-session AM/PM detail lives in the interactive "Today's Training" checklist
   // card (renderTrainingTodo) — this just surfaces the load/intensity call and rest-day
@@ -6596,10 +6845,26 @@ function renderDailyBriefing() {
     const avgSleep = sleepN > 0 ? (sleepSum / sleepN).toFixed(1) : null;
     const streaks = getHabitStreaks();
     const bestStreak = Object.values(streaks).reduce((b, s) => Math.max(b, s.count || 0), 0);
+
+    // Habit completion % across the week (manual + auto-tracked ticks / possible ticks)
+    let habitDone = 0, habitPossible = 0;
+    const habitLog = getHabitLog();
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(viewDate); d.setDate(d.getDate() - i);
+      const dStr = d.toLocaleDateString('en-CA');
+      const dayTicks = habitLog[dStr] || {};
+      DAILY_HABITS.forEach(h => {
+        habitPossible++;
+        if (dayTicks[h.id]) habitDone++;
+      });
+    }
+    const habitPct = habitPossible > 0 ? Math.round(100 * habitDone / habitPossible) : null;
+
     let recapHtml = `<div style="${labelStyle}">📊 This Week</div>`;
     recapHtml += `<div style="${rowStyle}">🏃 <span>${wkActs.length} training session${wkActs.length !== 1 ? 's' : ''} logged</span></div>`;
     if (avgSleep) recapHtml += `<div style="${rowStyle}">😴 <span>Avg sleep: <strong>${avgSleep}h</strong></span></div>`;
     if (bestStreak >= 2) recapHtml += `<div style="${rowStyle}">🔥 <span>Best habit streak: <strong>${bestStreak} days</strong></span></div>`;
+    if (habitPct != null) recapHtml += `<div style="${rowStyle}">✅ <span>Habits completed: <strong>${habitPct}%</strong></span></div>`;
     sections.push(`<div style="${sectionStyle}">${recapHtml}</div>`);
   }
 
@@ -7886,24 +8151,31 @@ function buildWhoopWeightChart() {
     return _avg(window.map(w => w.weight));
   });
 
+  const goal = getWeightGoal();
+  const datasets = [
+    {
+      label: 'Weight (kg)', data: log.map(e => e.weight),
+      borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'transparent',
+      borderWidth: 1, pointRadius: 2, pointBackgroundColor: 'rgba(255,255,255,0.4)', tension: 0
+    },
+    {
+      label: '7-day avg', data: avg7,
+      borderColor: WHOOP_GREEN, backgroundColor: 'rgba(22,219,101,0.08)',
+      borderWidth: 2, pointRadius: 0, tension: 0.3, fill: true
+    }
+  ];
+  if (goal != null) {
+    datasets.push({
+      label: `Goal (${goal}kg)`, data: log.map(() => goal),
+      borderColor: 'rgba(255,180,80,0.8)', backgroundColor: 'transparent',
+      borderWidth: 1.5, borderDash: [6, 4], pointRadius: 0, tension: 0
+    });
+  }
+
   if (whoopWeightChart) whoopWeightChart.destroy();
   whoopWeightChart = new Chart(canvas, {
     type: 'line',
-    data: {
-      labels: log.map(e => fmtDate(e.date)),
-      datasets: [
-        {
-          label: 'Weight (kg)', data: log.map(e => e.weight),
-          borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'transparent',
-          borderWidth: 1, pointRadius: 2, pointBackgroundColor: 'rgba(255,255,255,0.4)', tension: 0
-        },
-        {
-          label: '7-day avg', data: avg7,
-          borderColor: WHOOP_GREEN, backgroundColor: 'rgba(22,219,101,0.08)',
-          borderWidth: 2, pointRadius: 0, tension: 0.3, fill: true
-        }
-      ]
-    },
+    data: { labels: log.map(e => fmtDate(e.date)), datasets },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, labels: { boxWidth: 12, font: { size: 11 } } } }, scales: { y: { beginAtZero: false } } }
   });
 }
@@ -8180,6 +8452,7 @@ function renderWhoopMonitor() {
   set('whoop-monitor-date', ago || '');
 
   renderFitnessTrend();
+  renderWeightGoalRow();
 
   if (initialised['whoop-monitor']) { buildWhoopWeightChart(); buildFitnessTrendChart(); }
   else pendingCharts['whoop-monitor'] = () => { buildWhoopWeightChart(); buildFitnessTrendChart(); };
@@ -8548,12 +8821,16 @@ function applySyncUpdates(updated) {
     if (typeof renderHabitHistory === 'function') renderHabitHistory();
   });
   if (updated.includes('progress_log')) safe(() => { renderWeightTrend(); buildWhoopWeightChart(); });
+  if (updated.includes('weight_goal')) safe(() => { renderWeightGoalRow(); buildWhoopWeightChart(); });
   if (updated.includes('monthly_km_goal')) safe(() => renderMonthlyGoal(_acts));
   if (updated.includes('pb_log')) safe(buildPBChart);
   if (updated.includes('rev_schedule_log')) safe(() => { renderDailyBriefing(); if (typeof renderExamCountdown === 'function') renderExamCountdown(); });
   if (updated.includes('tasks_priority')) safe(renderTasks);
   if (updated.includes('shopping_items')) safe(renderShopping);
   if (updated.includes('notes_data')) safe(renderNotes);
+  if (updated.includes('st1_scores')) safe(renderSt1Tracker);
+  if (updated.includes('audit_cycle')) safe(renderAuditTracker);
+  if (updated.includes('today_priority')) safe(renderTodayPriority);
   // activity_notes intentionally not force-rendered here — it's spread across
   // many per-sport activity lists; it'll pick up the synced value next time
   // that list is rendered (those lists already read from localStorage fresh).
@@ -9339,6 +9616,14 @@ function renderSystemAlerts() {
   );
   if (overdue.length) {
     items.push({ icon: '✅', text: `${overdue.length} task${overdue.length !== 1 ? 's are' : ' is'} overdue.`, action: `switchTab('planner')`, cta: 'Open Tasks' });
+  }
+
+  // Sleep debt: rolling 14-night deficit vs 8h/night need
+  if (typeof computeSleepDebt === 'function') {
+    const debt = computeSleepDebt();
+    if (debt && debt.debtHours >= 5) {
+      items.push({ icon: '😴', text: `Sleep debt is ${fmtHrsMin(debt.debtHours)} over the last 14 nights.`, action: `switchTab('whoop')`, cta: 'Open Health' });
+    }
   }
 
   if (!items.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
