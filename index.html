@@ -2272,7 +2272,7 @@ const SYNC_KEYS = [
   'rev_schedule_log', 'tasks_priority',
   'shopping_items',
   'notes_data',
-  'mood_log', 'tutoring_log', 'habit_streaks', 'habit_reset_date',
+  'mood_log', 'habit_streaks', 'habit_reset_date',
   'weight_goal', 'cst_grades', 'audit_cycle', 'today_priority'
 ];
 
@@ -2313,7 +2313,7 @@ async function syncPull(key) {
     if (remote._ts && remote._ts > localTs) {
       // For append-only log keys, merge remote + local so neither side loses entries.
       // Remote wins on conflicting individual dates, but local-only dates are kept.
-      const MERGE_KEYS = new Set(['habit_log','rev_log','activity_notes','tutoring_log','mood_log','pb_log']);
+      const MERGE_KEYS = new Set(['habit_log','rev_log','activity_notes','mood_log','pb_log']);
       if (MERGE_KEYS.has(key) && remote.data && typeof remote.data === 'object' && !Array.isArray(remote.data)) {
         let local;
         try { local = JSON.parse(localStorage.getItem(key)); } catch { local = null; }
@@ -3530,36 +3530,6 @@ function renderHomeGoals() {
     </div>
   </div>`;
   el.innerHTML = html;
-}
-
-// ── Tutoring log ─────────────────────────────────────────────────────────────
-function getTutoringLog() {
-  try { return JSON.parse(localStorage.getItem('tutoring_log')) || {}; } catch { return {}; }
-}
-function saveTutoringLog(log) {
-  localStorage.setItem('tutoring_log', JSON.stringify(log));
-  syncPush('tutoring_log', log);
-}
-function getTutoringRate() {
-  return parseFloat(localStorage.getItem('tutoring_rate') || '25');
-}
-function markTutoringDone(dateStr, key, done) {
-  const log = getTutoringLog();
-  if (!log[dateStr]) log[dateStr] = {};
-  log[dateStr][key] = done;
-  if (!done) delete log[dateStr][key];
-  saveTutoringLog(log);
-  renderDailyBriefing();
-}
-function calcTutoringMonth() {
-  const rate = getTutoringRate();
-  const monthStr = new Date().toLocaleDateString('en-CA').slice(0, 7);
-  const log = getTutoringLog();
-  let sessions = 0;
-  Object.keys(log).forEach(d => {
-    if (d.startsWith(monthStr)) sessions += Object.values(log[d]).filter(Boolean).length;
-  });
-  return { sessions, earnings: sessions * rate };
 }
 
 // ── Progress photo + weight log ─────────────────────────────────────────────
@@ -6686,7 +6656,7 @@ function renderRaceCalendar() {
 
 // ── Daily Briefing ───────────────────────────────────────────────────────────
 // Cross-domain summary card: recovery (Whoop/health), today's recommended session
-// (Training), and placement/calendar/tutoring context for the day.
+// (Training), and placement/calendar context for the day.
 // Called from two independent async completions (main()'s Strava load and
 // fetchHealthData()) since it depends on data from both — defensive against
 // either one not having landed yet.
@@ -6811,23 +6781,6 @@ const PLACEMENT_SCHEDULE = {
   ]},
 };
 
-// Tutoring schedule (day-of-week: 0=Sun, 1=Mon, ... 6=Sat)
-const TUTORING_SCHEDULE = {
-  2: [ // Tuesday
-    { student: 'Jordan', time: '5:00–6:00 PM' }
-  ],
-  3: [ // Wednesday
-    { student: 'Liesel', time: '4:00–5:00 PM' }
-  ],
-  4: [ // Thursday
-    { student: 'Jordan', time: '5:00–6:00 PM' },
-    { student: 'Blu',    time: '6:00–7:00 PM' }
-  ],
-  0: [ // Sunday
-    { student: 'Iwin',   time: '5:00–6:00 PM' }
-  ]
-};
-
 let _briefingOffset = 0;
 
 function briefingNav(dir, reset) {
@@ -6931,32 +6884,6 @@ function renderDailyBriefing() {
       </div>`;
     }).join('');
     sections.push(`<div style="${sectionStyle}">${calHtml}</div>`);
-  }
-
-  // ── Tutoring ─────────────────────────────────────────────────────────────
-  const tutoringSlots = TUTORING_SCHEDULE[viewDate.getDay()];
-  if (tutoringSlots && tutoringSlots.length > 0) {
-    const tLog = getTutoringLog();
-    const dayLog = tLog[todayDateStr] || {};
-    let tutHtml = `<div style="${labelStyle}">👨‍🏫 Tutoring</div>`;
-    tutHtml += tutoringSlots.map(s => {
-      const key = `${s.student}|${s.time}`;
-      const done = dayLog[key] || false;
-      return `<div style="${rowStyle};justify-content:space-between">
-        <div style="display:flex;align-items:center;gap:8px">
-          <span style="color:#A6937F;font-size:11px;min-width:80px;flex-shrink:0">${s.time}</span>
-          <span style="font-weight:500${done ? ';text-decoration:line-through;color:#A6937F' : ''}">${escHtml(s.student)}</span>
-          ${done ? '<span style="font-size:11px;color:#6b9e7a">✓</span>' : ''}
-        </div>
-        ${isToday ? `<button onclick="markTutoringDone('${todayDateStr}','${key.replace(/'/g,"\\'")}',${!done})"
-          style="font-size:11px;background:${done?'#FBF1E7':'#f0fdf4'};border:1px solid ${done?'#F0E1D2':'#6b9e7a'};border-radius:6px;padding:2px 8px;cursor:pointer;color:${done?'#A6937F':'#6b9e7a'};white-space:nowrap">${done?'Undo':'Mark done'}</button>` : ''}
-      </div>`;
-    }).join('');
-    const { sessions, earnings } = calcTutoringMonth();
-    if (sessions > 0) {
-      tutHtml += `<div style="margin-top:6px;font-size:11px;color:#A6937F">£${earnings.toFixed(0)} earned this month (${sessions} session${sessions !== 1 ? 's' : ''})</div>`;
-    }
-    sections.push(`<div style="${sectionStyle}">${tutHtml}</div>`);
   }
 
   // ── Weekly Recap (Sundays only) ───────────────────────────────────────────
