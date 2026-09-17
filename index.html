@@ -199,7 +199,6 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
     <button class="tab-btn" data-tab="medicine">🩺 Medicine</button>
     <button class="tab-btn" data-tab="planner">✅ Tasks</button>
     <button class="tab-btn" data-tab="shopping">🛒 Shopping</button>
-    <button class="tab-btn" data-tab="calendar">📅 Calendar</button>
     <button class="tab-btn" data-tab="notes">📝 Notes</button>
     <button class="tab-btn" data-tab="habits">🔥 Habits</button>
     <button class="tab-btn" data-tab="year4">📅 Year 4</button>
@@ -300,7 +299,6 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
 <!-- keep hidden elements so JS doesn't break -->
 <div style="display:none">
-  <div id="gcal-card"></div>
   <div id="call-lvl"></div><div id="acwr-badge"></div><div id="wk-km"></div><div id="last-name"></div>
   <div id="dash-tasks-summary"></div><div id="dash-shopping-summary"></div>
   <div id="health-updated"></div><div id="health-readiness"></div><div id="health-readiness-label"></div>
@@ -1476,17 +1474,6 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
 </div><!-- /tab-shopping -->
 
-<div class="tab-pane" id="tab-calendar">
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0 4px">
-    <div style="font-weight:700;font-size:14px">📅 Today's Calendar</div>
-    <button onclick="loadTodayCalendar()" style="font-size:11px;color:#7A6656;background:none;border:1px solid #F0E1D2;border-radius:6px;padding:3px 9px;cursor:pointer">Refresh</button>
-  </div>
-  <div class="sub" style="font-size:11px;color:#A6937F;margin-bottom:12px">Synced hourly from Google Calendar — shows today only, no sign-in needed.</div>
-  <div class="card" id="gcal-tab-content" style="padding:14px">
-    <div class="sub">Loading…</div>
-  </div>
-</div><!-- /tab-calendar -->
-
 <div class="tab-pane" id="tab-notes">
 
 <!-- QUICK ADD -->
@@ -1706,64 +1693,6 @@ document.getElementById('disconnect-btn').addEventListener('click', () => {
   clearTokens();
   window.location.reload();
 });
-
-// ── Google Calendar ──────────────────────────────────────────────────────────
-// No client-side OAuth: a Claude scheduled task pulls today's events hourly
-// (via an already-connected Google Calendar connection) and posts them into
-// gcal-intake.js → Blobs. This card just reads that synced snapshot — same
-// read-only pattern as the Apple Health card.
-async function loadTodayCalendar() {
-  try {
-    const res = await fetch(`${API}/gcal-data`);
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to load calendar');
-    renderTodayCalendar(data);
-  } catch (e) {
-    const msg = `<div class="sub">Couldn't load today's calendar — ${escHtml(e.message || 'unknown error')}.</div>`;
-    setH('gcal-card', msg);
-    setH('gcal-tab-content', msg);
-    _gcalStatus = 'error';
-    if (typeof renderSystemAlerts === 'function') renderSystemAlerts();
-  }
-}
-
-function renderTodayCalendar(data) {
-  const today = new Date().toLocaleDateString('en-CA');
-  const fmtEventTime = iso => new Date(iso).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
-  let bodyHtml;
-
-  if (!data || !Array.isArray(data.events)) {
-    bodyHtml = `<div class="sub" style="margin:0">No calendar data synced yet — check back within the hour.</div>`;
-    _gcalStatus = 'none';
-  } else if (data.date !== today) {
-    bodyHtml = `<div class="sub" style="margin:0">Calendar sync is stale (last synced for ${escHtml(data.date || 'an earlier day')}) — check back shortly.</div>`;
-    _gcalStatus = 'stale';
-    _gcalStaleDate = data.date || null;
-  } else if (!data.events.length) {
-    bodyHtml = `<div class="sub" style="margin:0">Nothing on your calendar today 🎉</div>`;
-    _gcalToday = [];
-    _gcalStatus = 'ok';
-  } else {
-    bodyHtml = data.events.map(ev => {
-      const time = ev.allDay ? 'All day' : fmtEventTime(ev.start);
-      return `
-        <div class="whoop-contrib-row">
-          <span class="wc-label" style="flex:0 0 70px;color:#aaa">${time}</span>
-          <span style="flex:1;font-weight:600">${escHtml(ev.summary || '(no title)')}</span>
-        </div>`;
-    }).join('');
-    _gcalStatus = 'ok';
-    // Cache for briefing
-    if (data.date === today) {
-      _gcalToday = data.events;
-      renderDailyBriefing(); // refresh briefing with calendar data
-    }
-  }
-  // Update both the hidden home-card source and the visible Calendar tab
-  setH('gcal-card', bodyHtml);
-  setH('gcal-tab-content', bodyHtml);
-  if (typeof renderSystemAlerts === 'function') renderSystemAlerts();
-}
 
 // ── Strava data ──────────────────────────────────────────────────────────────
 const SPORT_MAP = {
@@ -6656,14 +6585,11 @@ function renderRaceCalendar() {
 
 // ── Daily Briefing ───────────────────────────────────────────────────────────
 // Cross-domain summary card: recovery (Whoop/health), today's recommended session
-// (Training), and placement/calendar context for the day.
+// (Training), and placement context for the day.
 // Called from two independent async completions (main()'s Strava load and
 // fetchHealthData()) since it depends on data from both — defensive against
 // either one not having landed yet.
 let _briefingCall = null;
-let _gcalToday = null; // cached from loadTodayCalendar()
-let _gcalStatus = null; // 'ok' | 'stale' | 'none' | 'error' — for the system-alerts banner
-let _gcalStaleDate = null;
 
 // ── Weather (Open-Meteo, Swansea) ────────────────────────────────────────────
 let _weather = null;
@@ -6863,27 +6789,6 @@ function renderDailyBriefing() {
         </div>
       </div>`).join('');
     sections.push(`<div style="${sectionStyle}">${plHtml}</div>`);
-  }
-
-  // ── Calendar ──────────────────────────────────────────────────────────────
-  if (_gcalToday && _gcalToday.length > 0 && isToday) {
-    // Handles both "HH:MM" strings (old format) and ISO timestamps (new format)
-    const fmtEvTime = t => {
-      if (!t) return '';
-      if (/^\d{2}:\d{2}$/.test(t)) return t;
-      const d = new Date(t);
-      return isNaN(d) ? t : d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
-    };
-    let calHtml = `<div style="${labelStyle}">📅 Today's Calendar</div>`;
-    calHtml += _gcalToday.map(ev => {
-      const time = ev.allDay ? 'All day' : fmtEvTime(ev.start);
-      const end  = (!ev.allDay && ev.end) ? ` – ${fmtEvTime(ev.end)}` : '';
-      return `<div style="${rowStyle}">
-        <span style="color:#A6937F;font-size:11px;min-width:80px;flex-shrink:0">${time}${end}</span>
-        <span style="font-weight:500">${escHtml(ev.summary || '(no title)')}</span>
-      </div>`;
-    }).join('');
-    sections.push(`<div style="${sectionStyle}">${calHtml}</div>`);
   }
 
   // ── Weekly Recap (Sundays only) ───────────────────────────────────────────
@@ -7407,7 +7312,6 @@ function switchTab(name) {
   if (name === 'notes') renderNotes();
   if (name === 'habits') { renderHabitHistory(); }
   if (name === 'year4') renderYear4Cal();
-  if (name === 'calendar' && typeof loadTodayCalendar === 'function') loadTodayCalendar();
   // Dashboard uses a fixed-height grid — override display:block
   if (name === 'dashboard') { pane.style.display = 'block'; document.body.style.overflow = 'hidden'; }
   else { document.body.style.overflow = ''; }
@@ -7523,13 +7427,6 @@ function setupSubTabs(paneId, storageKey) {
     group.querySelectorAll(`[data-subtab="${saved}"]`).forEach(b => b.click());
   }
 }
-
-// ── Google Calendar ──────────────────────────────────────────────────────────
-// The old client-side OAuth flow (sign-in button, token exchange, live 35-day
-// agenda fetch) was removed — it relied on a Google OAuth client that's no longer
-// configured on this domain and was the source of a stale 'redirect_uri invalid'
-// error. Calendar data now comes exclusively from the scheduled sync described
-// above (loadTodayCalendar / renderTodayCalendar), which needs no sign-in.
 
 setupSubTabs('tab-whoop', 'active_whoop_subtab');
 setupSubTabs('tab-medicine', 'active_med_subtab');
@@ -8759,7 +8656,6 @@ async function main() {
     loadStrengthPBs(); // fire-and-forget; falls back to static CSV embed if live fetch fails
     loadSessionAnalysis(); // fire-and-forget; live-only, shows a message if unavailable
     loadProgress(); // fire-and-forget; live-only — 1RM trend, weekly tonnage, rep PRs
-    loadTodayCalendar(); // fire-and-forget; reads the scheduled sync snapshot, no OAuth needed
     loadPlannerData(); // fire-and-forget; planned workouts + zones, feeds the Zones form + per-sport TSS
     loadPlannerHevyHistory(); // fire-and-forget; wider Hevy window for strength TSS in the PMC
 
@@ -9646,13 +9542,6 @@ function renderSystemAlerts() {
   const el = document.getElementById('system-alerts');
   if (!el) return;
   const items = [];
-
-  // Calendar: never synced / stale / erroring
-  if (_gcalStatus === 'error') {
-    items.push({ icon: '📅', text: `Calendar sync couldn't be reached.`, action: `switchTab('calendar')`, cta: 'Open Calendar' });
-  } else if (_gcalStatus === 'stale') {
-    items.push({ icon: '📅', text: `Calendar sync is stale (last synced ${escHtml(_gcalStaleDate || 'a while ago')}).`, action: `switchTab('calendar')`, cta: 'Open Calendar' });
-  }
 
   // Upcoming assessment countdown — nearest Year 4 assessment within 21 days
   const todayForAssess = new Date(); todayForAssess.setHours(0,0,0,0);
