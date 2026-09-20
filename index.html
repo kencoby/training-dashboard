@@ -483,6 +483,14 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 </div>
 
 <div class="section">
+<h2>Calorie Balance</h2>
+<div class="card">
+  <div id="balance-today-row" style="display:flex;gap:22px;margin-bottom:10px"></div>
+  <div class="cht-sm"><canvas id="calorie-balance-chart"></canvas></div>
+</div>
+</div>
+
+<div class="section">
 <h2>Training Load <button class="info-i" data-t="whoop-fitness-load">ⓘ</button></h2>
 <div class="card whoop-contrib-card" id="whoop-fitness-trend-readout"></div>
 <div class="card"><div class="cht-sm"><canvas id="whoop-fitness-trend-chart"></canvas></div></div>
@@ -8401,14 +8409,21 @@ function buildCaloriesBurnedChart() {
 // a given export config) — reuses the same _kjToKcal() conversion. If this
 // assumption is wrong for Phil's setup the numbers will read ~4.18x too low,
 // easy to spot once real data shows up — flag it if so.
+//
+// Intake data is only shown from INTAKE_START_DATE onward — Phil hasn't
+// started uploading Health Auto Export data with dietary energy included
+// yet, so any earlier/partial entries already sitting in the synced blob
+// would just be misleading near-empty days rather than real "no data" gaps.
+const INTAKE_START_DATE = '2026-09-21';
+
 function computeIntakeSeries(days) {
-  const series = _healthSeries('dietary_energy', days);
+  const series = _healthSeries('dietary_energy', days).filter(p => p.date >= INTAKE_START_DATE);
   return series.map(p => ({ date: p.date, kcal: _kjToKcal(p.value) || 0 }));
 }
 
 function computeIntakeWeeklySeries(weeksCount) {
   const daysNeeded = weeksCount * 7 + 7;
-  const series = _healthSeries('dietary_energy', daysNeeded);
+  const series = _healthSeries('dietary_energy', daysNeeded).filter(p => p.date >= INTAKE_START_DATE);
   const byWeek = {};
   series.forEach(p => {
     const wk = _weekStartStr(p.date);
@@ -8420,7 +8435,7 @@ function computeIntakeWeeklySeries(weeksCount) {
 function computeCurrentWeekIntake() {
   const todayStr = new Date().toLocaleDateString('en-CA');
   const weekStart = _weekStartStr(todayStr);
-  const series = _healthSeries('dietary_energy', 14);
+  const series = _healthSeries('dietary_energy', 14).filter(p => p.date >= INTAKE_START_DATE);
   let kcal = 0, any = false;
   series.forEach(p => { if (p.date >= weekStart) { kcal += _kjToKcal(p.value) || 0; any = true; } });
   return any ? kcal : null;
@@ -8438,12 +8453,16 @@ function setIntakePeriod(period) {
 function renderIntakeTodayRow() {
   const el = document.getElementById('intake-today-row');
   if (!el) return;
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  if (todayStr < INTAKE_START_DATE) {
+    el.innerHTML = `<span class="sub" style="font-style:italic;color:#bbb">Intake tracking starts ${fmtDate(INTAKE_START_DATE)}</span>`;
+    return;
+  }
   const suffix = _intakePeriod === 'weekly' ? 'This Week' : 'Today';
   let kcal;
   if (_intakePeriod === 'weekly') {
     kcal = computeCurrentWeekIntake();
   } else {
-    const todayStr = new Date().toLocaleDateString('en-CA');
     kcal = _kjToKcal(_healthValueOnDate('dietary_energy', todayStr));
   }
   if (kcal == null) {
@@ -8486,6 +8505,101 @@ function buildIntakeChart() {
       scales: {
         x: { grid: { display: false }, ticks: { font: { size: 10 } } },
         y: { beginAtZero: true, grid: { color: '#F7ECDE' }, ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+// ── Calorie Balance (Intake vs Output) ──────────────────────────────────────
+// Lines Intake (dietary_energy) up against Output (active + basal, same total
+// as the Calories Burned card) day by day, so a surplus or deficit is visible
+// directly rather than having to mentally compare two separate charts. Weight
+// is overlaid from the manual weigh-in log (getProgressLog — same source as
+// the Weight Trend chart above) on a secondary axis, plotted only on days
+// that were actually measured (spanGaps: false, so it shows isolated points
+// rather than a misleading connected line through unmeasured days). Only
+// covers dates from INTAKE_START_DATE onward, same reasoning as the Calorie
+// Intake card above.
+function computeCalorieBalanceSeries(days) {
+  const burned = computeCaloriesSeries(days);
+  const intake = computeIntakeSeries(days);
+  const byDate = {};
+  burned.forEach(p => { if (p.date >= INTAKE_START_DATE) (byDate[p.date] = byDate[p.date] || {}).output = p.total; });
+  intake.forEach(p => { (byDate[p.date] = byDate[p.date] || {}).intake = p.kcal; });
+
+  const weightByDate = {};
+  getProgressLog().forEach(e => {
+    if (typeof e.weight === 'number' && !isNaN(e.weight) && e.date) weightByDate[e.date] = e.weight;
+  });
+
+  return Object.keys(byDate).sort().map(date => ({
+    date,
+    intake: byDate[date].intake != null ? byDate[date].intake : null,
+    output: byDate[date].output != null ? byDate[date].output : null,
+    weight: weightByDate[date] != null ? weightByDate[date] : null
+  }));
+}
+
+function renderBalanceTodayRow() {
+  const el = document.getElementById('balance-today-row');
+  if (!el) return;
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  if (todayStr < INTAKE_START_DATE) {
+    el.innerHTML = `<span class="sub" style="font-style:italic;color:#bbb">Balance tracking starts ${fmtDate(INTAKE_START_DATE)}</span>`;
+    return;
+  }
+  const intake = _kjToKcal(_healthValueOnDate('dietary_energy', todayStr));
+  const activeToday = _kjToKcal(_healthValueOnDate('active_energy', todayStr));
+  const basalToday = _kjToKcal(_healthValueOnDate('basal_energy_burned', todayStr));
+  const output = (activeToday != null || basalToday != null) ? (activeToday || 0) + (basalToday || 0) : null;
+  if (intake == null && output == null) {
+    el.innerHTML = `<span class="sub" style="font-style:italic;color:#bbb">No calorie data synced today yet</span>`;
+    return;
+  }
+  let html = '';
+  if (intake != null) {
+    html += `<div><div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#999">Intake</div><div style="font-size:19px;font-weight:700;color:#D9A441">${Math.round(intake)}<span style="font-size:12px;font-weight:500"> kcal</span></div></div>`;
+  }
+  if (output != null) {
+    html += `<div><div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#999">Output</div><div style="font-size:19px;font-weight:700;color:#4E9E6E">${Math.round(output)}<span style="font-size:12px;font-weight:500"> kcal</span></div></div>`;
+  }
+  if (intake != null && output != null) {
+    const net = intake - output;
+    const sign = net > 0 ? '+' : '';
+    const color = net > 0 ? '#D9481F' : '#2D7A47';
+    html += `<div><div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#999">Net</div><div style="font-size:19px;font-weight:700;color:${color}">${sign}${Math.round(net)}<span style="font-size:12px;font-weight:500"> kcal</span></div></div>`;
+  }
+  el.innerHTML = html;
+}
+
+let whoopBalanceChart;
+function buildCalorieBalanceChart() {
+  const canvas = document.getElementById('calorie-balance-chart');
+  if (!canvas) return;
+  const series = computeCalorieBalanceSeries(21);
+  if (whoopBalanceChart) whoopBalanceChart.destroy();
+  if (!series.length) return;
+  whoopBalanceChart = new Chart(canvas, {
+    data: {
+      labels: series.map(p => fmtDate(p.date)),
+      datasets: [
+        { type: 'bar', label: 'Intake', data: series.map(p => p.intake != null ? Math.round(p.intake) : null), backgroundColor: '#D9A441', borderRadius: 3, order: 2 },
+        { type: 'bar', label: 'Output', data: series.map(p => p.output != null ? Math.round(p.output) : null), backgroundColor: '#4E9E6E', borderRadius: 3, order: 2 },
+        {
+          type: 'line', label: 'Weight (kg)', data: series.map(p => p.weight),
+          yAxisID: 'y1', borderColor: '#4A3B2E', backgroundColor: '#4A3B2E',
+          borderWidth: 2, pointRadius: 4, pointBackgroundColor: '#4A3B2E',
+          spanGaps: false, tension: 0, order: 1
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 10 } } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+        y: { beginAtZero: true, grid: { color: '#F7ECDE' }, ticks: { font: { size: 10 } }, title: { display: true, text: 'kcal', font: { size: 10 } } },
+        y1: { position: 'right', beginAtZero: false, grid: { display: false }, ticks: { font: { size: 10 } }, title: { display: true, text: 'kg', font: { size: 10 } } }
       }
     }
   });
@@ -8766,9 +8880,10 @@ function renderWhoopMonitor() {
   renderWeightGoalRow();
   renderCaloriesTodayRow();
   renderIntakeTodayRow();
+  renderBalanceTodayRow();
 
-  if (initialised['whoop-monitor']) { buildWhoopWeightChart(); buildFitnessTrendChart(); buildCaloriesBurnedChart(); buildIntakeChart(); }
-  else pendingCharts['whoop-monitor'] = () => { buildWhoopWeightChart(); buildFitnessTrendChart(); buildCaloriesBurnedChart(); buildIntakeChart(); };
+  if (initialised['whoop-monitor']) { buildWhoopWeightChart(); buildFitnessTrendChart(); buildCaloriesBurnedChart(); buildIntakeChart(); buildCalorieBalanceChart(); }
+  else pendingCharts['whoop-monitor'] = () => { buildWhoopWeightChart(); buildFitnessTrendChart(); buildCaloriesBurnedChart(); buildIntakeChart(); buildCalorieBalanceChart(); };
 }
 
 // ── Fitness Sub-Tab ───────────────────────────────────────────────────────────
