@@ -452,9 +452,16 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:10px">
     <div id="calories-today-row" style="display:flex;gap:22px"></div>
-    <div style="display:flex;border:1px solid #F0E1D2;border-radius:8px;overflow:hidden;flex-shrink:0">
-      <button id="calories-period-daily" onclick="setCaloriesPeriod('daily')" style="background:var(--accent);color:#fff;border:none;padding:4px 10px;font-size:11px;cursor:pointer">Daily</button>
-      <button id="calories-period-weekly" onclick="setCaloriesPeriod('weekly')" style="background:none;border:none;padding:4px 10px;font-size:11px;cursor:pointer;color:#7A6656">Weekly</button>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+      <div style="display:flex;border:1px solid #F0E1D2;border-radius:8px;overflow:hidden">
+        <button id="calories-period-daily" onclick="setCaloriesPeriod('daily')" style="background:var(--accent);color:#fff;border:none;padding:4px 10px;font-size:11px;cursor:pointer">Daily</button>
+        <button id="calories-period-weekly" onclick="setCaloriesPeriod('weekly')" style="background:none;border:none;padding:4px 10px;font-size:11px;cursor:pointer;color:#7A6656">Weekly</button>
+      </div>
+      <div style="display:flex;border:1px solid #F0E1D2;border-radius:8px;overflow:hidden">
+        <button id="calories-metric-all" onclick="setCaloriesMetric('all')" style="background:var(--accent);color:#fff;border:none;padding:4px 10px;font-size:11px;cursor:pointer">All</button>
+        <button id="calories-metric-active" onclick="setCaloriesMetric('active')" style="background:none;border:none;padding:4px 10px;font-size:11px;cursor:pointer;color:#7A6656">Active</button>
+        <button id="calories-metric-basal" onclick="setCaloriesMetric('basal')" style="background:none;border:none;padding:4px 10px;font-size:11px;cursor:pointer;color:#7A6656">Resting</button>
+      </div>
     </div>
   </div>
   <div class="cht-sm"><canvas id="calories-burned-chart"></canvas></div>
@@ -8219,17 +8226,29 @@ function computeCurrentWeekCalories() {
 }
 
 let _caloriesPeriod = 'daily';
+let _caloriesMetric = 'all'; // 'all' | 'active' | 'basal'
+
+function _setSegmentedActive(ids, activeId) {
+  const on = { background: 'var(--accent)', color: '#fff' };
+  const off = { background: 'none', color: '#7A6656' };
+  ids.forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) Object.assign(btn.style, id === activeId ? on : off);
+  });
+}
+
 function setCaloriesPeriod(period) {
   if (_caloriesPeriod === period) return;
   _caloriesPeriod = period;
-  const dailyBtn = document.getElementById('calories-period-daily');
-  const weeklyBtn = document.getElementById('calories-period-weekly');
-  if (dailyBtn && weeklyBtn) {
-    const on = { background: 'var(--accent)', color: '#fff' };
-    const off = { background: 'none', color: '#7A6656' };
-    Object.assign(dailyBtn.style, period === 'daily' ? on : off);
-    Object.assign(weeklyBtn.style, period === 'weekly' ? on : off);
-  }
+  _setSegmentedActive(['calories-period-daily', 'calories-period-weekly'], 'calories-period-' + period);
+  renderCaloriesTodayRow();
+  buildCaloriesBurnedChart();
+}
+
+function setCaloriesMetric(metric) {
+  if (_caloriesMetric === metric) return;
+  _caloriesMetric = metric;
+  _setSegmentedActive(['calories-metric-all', 'calories-metric-active', 'calories-metric-basal'], 'calories-metric-' + metric);
   renderCaloriesTodayRow();
   buildCaloriesBurnedChart();
 }
@@ -8237,43 +8256,68 @@ function setCaloriesPeriod(period) {
 function renderCaloriesTodayRow() {
   const el = document.getElementById('calories-today-row');
   if (!el) return;
+  const suffix = _caloriesPeriod === 'weekly' ? 'This Week' : 'Today';
+  const wk = _caloriesPeriod === 'weekly' ? computeCurrentWeekCalories() : null;
+  let active = null, basal = null, total = null;
   if (_caloriesPeriod === 'weekly') {
-    const wk = computeCurrentWeekCalories();
-    if (!wk) {
-      el.innerHTML = `<span class="sub" style="font-style:italic;color:#bbb">No calorie data synced this week yet</span>`;
-      return;
+    if (wk) { active = wk.active; total = wk.total; basal = wk.total - wk.active; }
+  } else {
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    const activeToday = _kjToKcal(_healthValueOnDate('active_energy', todayStr));
+    const basalToday = _kjToKcal(_healthValueOnDate('basal_energy_burned', todayStr));
+    if (activeToday != null || basalToday != null) {
+      active = activeToday || 0;
+      basal = basalToday || 0;
+      total = active + basal;
     }
+  }
+  if (total == null) {
+    el.innerHTML = `<span class="sub" style="font-style:italic;color:#bbb">No calorie data synced ${suffix === 'Today' ? 'today' : 'this week'} yet</span>`;
+    return;
+  }
+  if (_caloriesMetric === 'active') {
     el.innerHTML = `
       <div>
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#999">Active This Week</div>
-        <div style="font-size:19px;font-weight:700;color:#2D7A47">${Math.round(wk.active)}<span style="font-size:12px;font-weight:500"> kcal</span></div>
-      </div>
-      <div>
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#999">Total This Week</div>
-        <div style="font-size:19px;font-weight:700;color:#D9481F">${Math.round(wk.total)}<span style="font-size:12px;font-weight:500"> kcal</span></div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#999">Active ${suffix}</div>
+        <div style="font-size:19px;font-weight:700;color:#2D7A47">${Math.round(active)}<span style="font-size:12px;font-weight:500"> kcal</span></div>
       </div>
     `;
-    return;
+  } else if (_caloriesMetric === 'basal') {
+    el.innerHTML = `
+      <div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#999">Resting ${suffix}</div>
+        <div style="font-size:19px;font-weight:700;color:#FF6B47">${Math.round(basal)}<span style="font-size:12px;font-weight:500"> kcal</span></div>
+      </div>
+    `;
+  } else {
+    el.innerHTML = `
+      <div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#999">Active ${suffix}</div>
+        <div style="font-size:19px;font-weight:700;color:#2D7A47">${Math.round(active)}<span style="font-size:12px;font-weight:500"> kcal</span></div>
+      </div>
+      <div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#999">Total ${suffix}</div>
+        <div style="font-size:19px;font-weight:700;color:#D9481F">${Math.round(total)}<span style="font-size:12px;font-weight:500"> kcal</span></div>
+      </div>
+    `;
   }
-  const todayStr = new Date().toLocaleDateString('en-CA');
-  const activeToday = _kjToKcal(_healthValueOnDate('active_energy', todayStr));
-  const basalToday = _kjToKcal(_healthValueOnDate('basal_energy_burned', todayStr));
-  if (activeToday == null && basalToday == null) {
-    el.innerHTML = `<span class="sub" style="font-style:italic;color:#bbb">No calorie data synced today yet</span>`;
-    return;
+}
+
+// Simple ordinary-least-squares line of best fit over an evenly-spaced
+// series (x = 0..n-1). Returns an array the same length as `values` with
+// the fitted y at each x — used to overlay a trend line on the Total bars.
+function _linearTrend(values) {
+  const n = values.length;
+  if (n < 2) return values.slice();
+  let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+  for (let x = 0; x < n; x++) {
+    const y = values[x];
+    sumX += x; sumY += y; sumXY += x * y; sumXX += x * x;
   }
-  const active = activeToday || 0;
-  const total = active + (basalToday || 0);
-  el.innerHTML = `
-    <div>
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#999">Active Today</div>
-      <div style="font-size:19px;font-weight:700;color:#2D7A47">${Math.round(active)}<span style="font-size:12px;font-weight:500"> kcal</span></div>
-    </div>
-    <div>
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#999">Total Today</div>
-      <div style="font-size:19px;font-weight:700;color:#D9481F">${Math.round(total)}<span style="font-size:12px;font-weight:500"> kcal</span></div>
-    </div>
-  `;
+  const denom = n * sumXX - sumX * sumX;
+  const slope = denom ? (n * sumXY - sumX * sumY) / denom : 0;
+  const intercept = (sumY - slope * sumX) / n;
+  return values.map((_, x) => intercept + slope * x);
 }
 
 let whoopCaloriesChart;
@@ -8283,13 +8327,36 @@ function buildCaloriesBurnedChart() {
   const series = _caloriesPeriod === 'weekly' ? computeCaloriesWeeklySeries(10) : computeCaloriesSeries(14);
   if (!series.length) return;
   if (whoopCaloriesChart) whoopCaloriesChart.destroy();
+  const labels = series.map(p => fmtDate(p.date));
+  let barDatasets, trendLabel, trendValues;
+  if (_caloriesMetric === 'active') {
+    trendLabel = 'Active (trend)';
+    trendValues = series.map(p => p.active);
+    barDatasets = [{ label: 'Active', data: series.map(p => Math.round(p.active)), backgroundColor: '#4E9E6E', borderRadius: 3 }];
+  } else if (_caloriesMetric === 'basal') {
+    trendLabel = 'Resting (trend)';
+    trendValues = series.map(p => p.basal);
+    barDatasets = [{ label: 'Resting (basal)', data: series.map(p => Math.round(p.basal)), backgroundColor: '#FF6B47', borderRadius: 3 }];
+  } else {
+    trendLabel = 'Total (trend)';
+    trendValues = series.map(p => p.total);
+    barDatasets = [
+      { label: 'Active', data: series.map(p => Math.round(p.active)), backgroundColor: '#4E9E6E', borderRadius: 3 },
+      { label: 'Resting (basal)', data: series.map(p => Math.round(p.basal)), backgroundColor: '#FF6B47', borderRadius: 3 }
+    ];
+  }
+  const trend = _linearTrend(trendValues);
   whoopCaloriesChart = new Chart(canvas, {
     type: 'bar',
     data: {
-      labels: series.map(p => fmtDate(p.date)),
+      labels,
       datasets: [
-        { label: 'Active', data: series.map(p => Math.round(p.active)), backgroundColor: '#4E9E6E', borderRadius: 3 },
-        { label: 'Resting (basal)', data: series.map(p => Math.round(p.basal)), backgroundColor: '#FF6B47', borderRadius: 3 }
+        ...barDatasets,
+        {
+          type: 'line', label: trendLabel, data: trend.map(v => Math.round(v)),
+          borderColor: '#4A3B2E', borderWidth: 2, borderDash: [5, 3], pointRadius: 0,
+          fill: false, tension: 0, order: 0
+        }
       ]
     },
     options: {
