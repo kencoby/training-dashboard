@@ -469,6 +469,20 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 </div>
 
 <div class="section">
+<h2>Calorie Intake</h2>
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+    <div id="intake-today-row" style="display:flex;gap:22px"></div>
+    <div style="display:flex;border:1px solid #F0E1D2;border-radius:8px;overflow:hidden;flex-shrink:0">
+      <button id="intake-period-daily" onclick="setIntakePeriod('daily')" style="background:var(--accent);color:#fff;border:none;padding:4px 10px;font-size:11px;cursor:pointer">Daily</button>
+      <button id="intake-period-weekly" onclick="setIntakePeriod('weekly')" style="background:none;border:none;padding:4px 10px;font-size:11px;cursor:pointer;color:#7A6656">Weekly</button>
+    </div>
+  </div>
+  <div class="cht-sm"><canvas id="intake-chart"></canvas></div>
+</div>
+</div>
+
+<div class="section">
 <h2>Training Load <button class="info-i" data-t="whoop-fitness-load">ⓘ</button></h2>
 <div class="card whoop-contrib-card" id="whoop-fitness-trend-readout"></div>
 <div class="card"><div class="cht-sm"><canvas id="whoop-fitness-trend-chart"></canvas></div></div>
@@ -3200,6 +3214,7 @@ function renderHabits() {
 
   // Detect sleep tracked but < 8h (show ❌ rather than just unchecked)
   const today = new Date().toLocaleDateString('en-CA');
+  const yesterday = new Date(Date.now() - 864e5).toLocaleDateString('en-CA');
   const sleepData = (typeof computeSleepForDate === 'function') ? computeSleepForDate(today) : null;
   const sleepTrackedButMissed = sleepData != null && sleepData.totalSleep < 8;
 
@@ -3225,7 +3240,14 @@ function renderHabits() {
     const sleepMiss = h.id === 'h-sleep' && sleepTrackedButMissed && !ticked[h.id];
     const missLabel = sleepMiss ? `<span style="font-size:11px;color:var(--danger);margin-left:5px">❌ missed</span>` : '';
     const s = streaks[h.id];
-    const streakLabel = s && s.count >= 2 ? `<span style="font-size:10px;color:var(--accent-text);margin-left:4px">🔥${s.count}</span>` : '';
+    // Only show the flame if the streak is still "live" — last completed
+    // today or yesterday — same recency check the History Heatmap already
+    // applies. Without it, a streak that was broken days ago keeps showing
+    // its old count forever (until the habit is completed again triggers a
+    // recompute), which is exactly the "Weigh in 🔥3" stale-badge bug.
+    const streakLive = s && (s.lastDate === today || s.lastDate === yesterday);
+    const streakCount = streakLive ? s.count : 0;
+    const streakLabel = streakCount >= 2 ? `<span style="font-size:10px;color:var(--accent-text);margin-left:4px">🔥${streakCount}</span>` : '';
     const stepsProgress = (h.id === 'h-steps' && currentSteps != null)
       ? `<span style="font-size:11px;color:var(--text-faint);margin-left:5px">${Math.round(currentSteps).toLocaleString()} / 10,000</span>` : '';
     const isNewGroup = h.group !== lastGroup;
@@ -8370,6 +8392,105 @@ function buildCaloriesBurnedChart() {
   });
 }
 
+// ── Calorie Intake (from Apple Health) ──────────────────────────────────────
+// Dietary Energy Consumed, synced the same way as the Calories Burned metrics
+// above (Health Auto Export → health-intake.js). Multiple meal entries in a
+// day are summed via SUM_METRICS ('dietary_energy'), same pattern as
+// active_energy/basal_energy_burned. Assumed to arrive in kilojoules too
+// (Health Auto Export applies one unit system across all energy metrics for
+// a given export config) — reuses the same _kjToKcal() conversion. If this
+// assumption is wrong for Phil's setup the numbers will read ~4.18x too low,
+// easy to spot once real data shows up — flag it if so.
+function computeIntakeSeries(days) {
+  const series = _healthSeries('dietary_energy', days);
+  return series.map(p => ({ date: p.date, kcal: _kjToKcal(p.value) || 0 }));
+}
+
+function computeIntakeWeeklySeries(weeksCount) {
+  const daysNeeded = weeksCount * 7 + 7;
+  const series = _healthSeries('dietary_energy', daysNeeded);
+  const byWeek = {};
+  series.forEach(p => {
+    const wk = _weekStartStr(p.date);
+    byWeek[wk] = (byWeek[wk] || 0) + (_kjToKcal(p.value) || 0);
+  });
+  return Object.keys(byWeek).sort().slice(-weeksCount).map(wk => ({ date: wk, kcal: byWeek[wk] }));
+}
+
+function computeCurrentWeekIntake() {
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const weekStart = _weekStartStr(todayStr);
+  const series = _healthSeries('dietary_energy', 14);
+  let kcal = 0, any = false;
+  series.forEach(p => { if (p.date >= weekStart) { kcal += _kjToKcal(p.value) || 0; any = true; } });
+  return any ? kcal : null;
+}
+
+let _intakePeriod = 'daily';
+function setIntakePeriod(period) {
+  if (_intakePeriod === period) return;
+  _intakePeriod = period;
+  _setSegmentedActive(['intake-period-daily', 'intake-period-weekly'], 'intake-period-' + period);
+  renderIntakeTodayRow();
+  buildIntakeChart();
+}
+
+function renderIntakeTodayRow() {
+  const el = document.getElementById('intake-today-row');
+  if (!el) return;
+  const suffix = _intakePeriod === 'weekly' ? 'This Week' : 'Today';
+  let kcal;
+  if (_intakePeriod === 'weekly') {
+    kcal = computeCurrentWeekIntake();
+  } else {
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    kcal = _kjToKcal(_healthValueOnDate('dietary_energy', todayStr));
+  }
+  if (kcal == null) {
+    el.innerHTML = `<span class="sub" style="font-style:italic;color:#bbb">No intake data synced ${suffix === 'Today' ? 'today' : 'this week'} yet</span>`;
+    return;
+  }
+  el.innerHTML = `
+    <div>
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#999">Intake ${suffix}</div>
+      <div style="font-size:19px;font-weight:700;color:#D9A441">${Math.round(kcal)}<span style="font-size:12px;font-weight:500"> kcal</span></div>
+    </div>
+  `;
+}
+
+let whoopIntakeChart;
+function buildIntakeChart() {
+  const canvas = document.getElementById('intake-chart');
+  if (!canvas) return;
+  const series = _intakePeriod === 'weekly' ? computeIntakeWeeklySeries(10) : computeIntakeSeries(14);
+  if (!series.length) return;
+  if (whoopIntakeChart) whoopIntakeChart.destroy();
+  const values = series.map(p => Math.round(p.kcal));
+  const trend = _linearTrend(series.map(p => p.kcal));
+  whoopIntakeChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: series.map(p => fmtDate(p.date)),
+      datasets: [
+        { label: 'Intake', data: values, backgroundColor: '#D9A441', borderRadius: 3 },
+        {
+          type: 'line', label: 'Trend', data: trend.map(v => Math.round(v)),
+          borderColor: '#4A3B2E', borderWidth: 2, borderDash: [5, 3], pointRadius: 0,
+          fill: false, tension: 0, order: 0
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 10 } } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+        y: { beginAtZero: true, grid: { color: '#F7ECDE' }, ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+}
+
 // Rolls the last 7 days of Recovery/Sleep/Strain up into one weekly snapshot,
 // alongside training volume from Strava — gives a "how was my week" view instead
 // of forcing the user to mentally average seven days of daily cards themselves.
@@ -8644,9 +8765,10 @@ function renderWhoopMonitor() {
   renderFitnessTrend();
   renderWeightGoalRow();
   renderCaloriesTodayRow();
+  renderIntakeTodayRow();
 
-  if (initialised['whoop-monitor']) { buildWhoopWeightChart(); buildFitnessTrendChart(); buildCaloriesBurnedChart(); }
-  else pendingCharts['whoop-monitor'] = () => { buildWhoopWeightChart(); buildFitnessTrendChart(); buildCaloriesBurnedChart(); };
+  if (initialised['whoop-monitor']) { buildWhoopWeightChart(); buildFitnessTrendChart(); buildCaloriesBurnedChart(); buildIntakeChart(); }
+  else pendingCharts['whoop-monitor'] = () => { buildWhoopWeightChart(); buildFitnessTrendChart(); buildCaloriesBurnedChart(); buildIntakeChart(); };
 }
 
 // ── Fitness Sub-Tab ───────────────────────────────────────────────────────────

@@ -17,7 +17,7 @@ function dateOnly(d) { return (d || '').slice(0, 10); }
 const SUM_METRICS = new Set([
   'active_energy', 'basal_energy_burned', 'step_count', 'flights_climbed',
   'cycling_distance', 'walking_running_distance', 'apple_exercise_time',
-  'apple_stand_time', 'apple_stand_hour', 'time_in_daylight'
+  'apple_stand_time', 'apple_stand_hour', 'time_in_daylight', 'dietary_energy'
 ]);
 
 function pointValue(point) {
