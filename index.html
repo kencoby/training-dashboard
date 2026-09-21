@@ -4286,25 +4286,26 @@ function revCurrentWeekIdx() {
 
 // ── Training Calendar ───────────────────────────────────────────────────────
 const TRAINING_TEMPLATE = [
-  { day: 'Monday',    am: { type: 'Easy Run',    emoji: '🏃', tag: 'run',   intensity: 'easy' }, pm: { type: 'Pull', emoji: '💪', tag: 'upper', intensity: 'hard' } },
-  { day: 'Tuesday',   am: { type: 'Speed Session', emoji: '🏃', tag: 'run', intensity: 'hard' }, pm: { type: 'Legs', emoji: '💪', tag: 'lower', intensity: 'hard' } },
-  { day: 'Wednesday', am: null, pm: null },
-  { day: 'Thursday',  am: null, pm: null },
-  { day: 'Friday',    am: null, pm: null },
-  { day: 'Saturday',  am: null, pm: null },
-  { day: 'Sunday',    am: { type: 'Easy Run', emoji: '🏃', tag: 'run', intensity: 'easy' }, pm: { type: 'Push', emoji: '💪', tag: 'upper', intensity: 'hard' } },
+  { day: 'Monday',    am: { type: 'Easy Run',     emoji: '🏃', tag: 'run',    intensity: 'easy' },     pm: { type: 'Push', emoji: '💪', tag: 'upper', intensity: 'hard' } },
+  { day: 'Tuesday',   am: { type: 'Speed Session', emoji: '🏃', tag: 'run',    intensity: 'hard' },     pm: { type: 'Pull', emoji: '💪', tag: 'upper', intensity: 'hard' } },
+  { day: 'Wednesday', am: null,                                                                          pm: { type: 'Legs (Heavy)', emoji: '💪', tag: 'lower', intensity: 'hard' } },
+  { day: 'Thursday',  am: { type: 'Football',     emoji: '⚽', tag: 'soccer', intensity: 'moderate' }, pm: { type: 'Push', emoji: '💪', tag: 'upper', intensity: 'hard' } },
+  { day: 'Friday',    am: null,                                                                          pm: { type: 'Legs (Lighter)', emoji: '💪', tag: 'lower', intensity: 'moderate' } },
+  { day: 'Saturday',  am: { type: 'Long Run',     emoji: '🏃', tag: 'run',    intensity: 'moderate' }, pm: { type: 'Pull', emoji: '💪', tag: 'upper', intensity: 'hard' } },
+  { day: 'Sunday',    am: null,                                                                          pm: null },
 ];
 
 function sessionDone(session, acts, dateStr) {
   if (!session) return false;
   const dayActs = acts.filter(a => a.start_local.slice(0,10) === dateStr);
   const map = {
-    swim:  a => a.sport_type === 'Swim',
-    run:   a => a.sport_type === 'Run',
-    bike:  a => ['Ride','VirtualRide'].includes(a.sport_type),
-    upper: a => a.sport_type === 'WeightTraining',
-    lower: a => a.sport_type === 'WeightTraining',
-    brick: a => a.sport_type === 'Ride' || a.sport_type === 'Run',
+    swim:   a => a.sport_type === 'Swim',
+    run:    a => a.sport_type === 'Run',
+    bike:   a => ['Ride','VirtualRide'].includes(a.sport_type),
+    upper:  a => a.sport_type === 'WeightTraining',
+    lower:  a => a.sport_type === 'WeightTraining',
+    brick:  a => a.sport_type === 'Ride' || a.sport_type === 'Run',
+    soccer: a => a.sport_type === 'Soccer',
   };
   return dayActs.some(map[session.tag] || (()=>false));
 }
