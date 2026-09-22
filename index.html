@@ -763,12 +763,6 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 </div>
 </div>
 
-<!-- §11 RACE CALENDAR -->
-<div class="section">
-<h2>Race Calendar</h2>
-<div class="card" id="race-list"></div>
-</div>
-
 <!-- §12 SPORT MIX -->
 <div class="section">
 <h2>Sport Mix — Last 90 Days</h2>
@@ -6573,66 +6567,16 @@ function renderBike(acts) {
   }).join(''));
 }
 
-// ── §11 Race Calendar ────────────────────────────────────────────────────────
+// ── Race list (data only — feeds the Buildup Planner's "target race" picker) ──
+// The Race Calendar card that used to display this list directly was removed;
+// RACES itself is kept since renderAnnualPlan() (Buildup Planner) still reads
+// it to populate its target-race dropdown.
 // TODO: make this editable
 const RACES = [
   { name: 'Parkrun', date: '2026-06-21', type: 'Run', distance: '5km' },
   { name: 'Olympic Triathlon', date: '2026-09-26', type: 'Triathlon', distance: 'Olympic' },
   { name: 'Half Ironman', date: '2027-03-01', type: 'Triathlon', distance: '70.3' },
 ];
-
-// Pace check: compares current CTL (fitness) to CTL ~28 days ago to flag whether
-// fitness is trending up or down ahead of a race, plus a taper-window fatigue note
-// once the race is within 10 days. Reuses computeFitnessTrend() — no new data source.
-function paceCheckForRace(daysToGo) {
-  if (daysToGo < 0) return null;
-  const trend = computeFitnessTrend(90);
-  if (!trend.length) return null;
-  const latest = trend[trend.length - 1];
-  const past = trend[Math.max(0, trend.length - 29)];
-  const ctlDelta = latest.ctl - past.ctl;
-
-  let trendLabel, trendCls;
-  if (ctlDelta > 2) { trendLabel = 'Fitness building'; trendCls = 'b-sage'; }
-  else if (ctlDelta < -2) { trendLabel = 'Fitness declining'; trendCls = 'b-red'; }
-  else { trendLabel = 'Fitness steady'; trendCls = 'b-grey'; }
-
-  let taperNote = '';
-  if (daysToGo <= 10) {
-    taperNote = latest.form < -10
-      ? 'High fatigue this close to race day — keep this week light and prioritise rest.'
-      : 'Form looks reasonable for race week — keep volume light, intensity sharp.';
-  } else if (ctlDelta < -2) {
-    taperNote = 'Fitness has dipped over the last month — worth reassessing the plan if this continues.';
-  }
-
-  return { trendLabel, trendCls, ctlDelta: Math.round(ctlDelta * 10) / 10, taperNote };
-}
-
-function renderRaceCalendar() {
-  const now=Date.now();
-  const emoji={Run:'🏃',Triathlon:'🏁'};
-  setH('race-list', RACES.map(r=>{
-    const days=Math.ceil((new Date(r.date)-now)/864e5);
-    const pace = paceCheckForRace(days);
-    const paceHtml = pace ? `
-      <div style="margin-top:6px">
-        <span class="badge ${pace.trendCls}" style="font-size:10px;padding:2px 7px">${pace.trendLabel}</span>
-        ${pace.taperNote ? `<div class="sub" style="margin-top:4px;font-style:italic">${pace.taperNote}</div>` : ''}
-      </div>` : '';
-    return `<div class="row" style="align-items:flex-start;flex-wrap:wrap">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600">${emoji[r.type]||'🏅'} ${r.name}</div>
-        <div class="sub">${days>=0?days+' days to go':'Completed'}</div>
-        ${paceHtml}
-      </div>
-      <div style="text-align:right">
-        <span class="badge b-blue" style="font-size:10px;padding:2px 7px">${r.distance}</span>
-        <div class="sub" style="margin-top:4px">${fmtDate(r.date)}</div>
-      </div>
-    </div>`;
-  }).join(''));
-}
 
 // ── Daily Briefing ───────────────────────────────────────────────────────────
 // Cross-domain summary card: recovery (Whoop/health), today's recommended session
@@ -9160,7 +9104,6 @@ async function main() {
       buildTriBalance(acts);
       renderMonthlyGoal(acts);
       renderS2(acts);
-      renderRaceCalendar();
       buildSportSplit(acts);
       renderOther(acts);
       /* renderTriPlan removed */
@@ -9173,7 +9116,7 @@ async function main() {
         buildHRZones(acts);
         buildTriBalance(acts);
         renderMonthlyGoal(acts);
-        renderS2(acts); renderRaceCalendar(); buildSportSplit(acts); renderOther(acts); /* renderTriPlan removed */
+        renderS2(acts); buildSportSplit(acts); renderOther(acts); /* renderTriPlan removed */
       };
     }
 
