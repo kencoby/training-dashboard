@@ -3255,19 +3255,6 @@ function getHabitStreaks() {
 function saveHabitStreaks(data) {
   localStorage.setItem('habit_streaks', JSON.stringify(data));
 }
-function updateHabitStreak(id, isDone) {
-  const today = new Date().toLocaleDateString('en-CA');
-  const yesterday = new Date(Date.now() - 864e5).toLocaleDateString('en-CA');
-  const streaks = getHabitStreaks();
-  const s = streaks[id] || { count: 0, lastDate: null };
-  if (isDone) {
-    if (s.lastDate === today) { /* already counted today */ }
-    else if (s.lastDate === yesterday) { s.count += 1; s.lastDate = today; }
-    else { s.count = 1; s.lastDate = today; }
-  }
-  streaks[id] = s;
-  saveHabitStreaks(streaks);
-}
 
 // ── Mood / Energy tap ────────────────────────────────────────────────────────
 const MOOD_OPTIONS = [

@@ -7,3 +7,7 @@ node_modules/
 # Retired — this project deploys to Cloudflare Pages only, not Netlify.
 netlify.toml
 netlify/
+
+# Claude Code scratch output — accidentally got swept into a commit once by
+# deploy.bat's broad `git add`; this keeps it from happening again.
+Claude outputs/
