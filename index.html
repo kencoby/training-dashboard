@@ -945,6 +945,7 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
     <button class="sub-tab-btn" data-subtab="med-assessments">Assessment Info</button>
     <button class="sub-tab-btn" data-subtab="med-calculators">Calculators</button>
     <button class="sub-tab-btn" data-subtab="med-st1">ST1 &amp; Audit</button>
+  <button class="sub-tab-btn" data-subtab="med-ukmla">UKMLA</button>
   </nav>
 
   <div class="sub-tab-pane active" id="sub-tab-med-signoffs">
@@ -1250,6 +1251,18 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 <h2>🔁 Audit Closed-Loop</h2>
 <div class="sub" style="margin-bottom:12px">Baseline → intervention → re-audit → write-up. Set a target date per stage to keep it moving before applications open.</div>
 <div class="card" id="audit-tracker"></div>
+</div>
+
+  </div>
+
+  <div class="sub-tab-pane" id="sub-tab-med-ukmla">
+
+<!-- UKMLA REVISION PLAN -->
+<div class="section">
+<h2>📖 UKMLA Revision Plan</h2>
+<div class="sub" style="margin-bottom:12px">Exam: Monday 23 Nov 2026. Every condition in the GMC MLA content map is covered by 14 Nov, leaving the final week for mocks and review. Tap a day to expand it, then tick off each section as you go.</div>
+<div id="ukmla-summary" style="margin-bottom:14px"></div>
+<div id="ukmla-days"></div>
 </div>
 
   </div>
@@ -2186,7 +2199,7 @@ const SYNC_KEYS = [
   'shopping_items',
   'notes_data',
   'mood_log', 'habit_streaks', 'habit_reset_date',
-  'weight_goal', 'cst_grades', 'audit_cycle', 'today_priority'
+  'weight_goal', 'cst_grades', 'audit_cycle', 'today_priority', 'ukmla_progress'
 ];
 
 function getSyncMeta() {
@@ -4039,6 +4052,1547 @@ function computeUpcomingDeadlines(limit) {
 renderCstScorecard();
 renderAuditTracker();
 
+// ── UKMLA Revision Plan (day-by-day, from Phil's GMC MLA content-map schedule,
+// pasted 2026-09-25) — the section is a dropdown per day with a checkbox per
+// condition, distinct from the older, unused UKMLA_SYSTEMS/getRevTopicForDate
+// generic tracker below (kept as-is, not wired to this).
+const UKMLA_REVISION_PLAN = [
+  {
+    "date": "2026-09-25",
+    "label": "Cardiology",
+    "groups": [
+      {
+        "subject": "Cardiology",
+        "items": [
+          "Acute coronary syndromes",
+          "Aneurysms, ischaemic limb and occlusions",
+          "Aortic aneurysm",
+          "Aortic dissection",
+          "Aortic valve disease",
+          "Arterial thrombosis/ embolism",
+          "Bradyarrhythmias (incl. AV block)",
+          "Cardiac arrest"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-09-26",
+    "label": "Cardiology",
+    "groups": [
+      {
+        "subject": "Cardiology",
+        "items": [
+          "Cardiomyopathy",
+          "Carotid dissection",
+          "Congenital heart disease",
+          "Deep vein thrombosis",
+          "Gangrene",
+          "Heart failure",
+          "Hypertension",
+          "Infective endocarditis",
+          "Ischaemic heart disease (incl. stable angina)",
+          "Mitral valve disease",
+          "Myocarditis",
+          "Orthostatic/ postural hypotension",
+          "Pericardial disease (pericarditis, effusion, tamponade)",
+          "Peripheral vascular disease",
+          "Pulmonary embolism",
+          "Pulmonary hypertension",
+          "Right heart valve disease",
+          "Shock",
+          "SVC obstruction"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-09-27",
+    "label": "Cardiology / Respiratory",
+    "groups": [
+      {
+        "subject": "Cardiology",
+        "items": [
+          "Syncope",
+          "Tachyarrhythmias (AF, flutter, SVT, TdP, VT, VF)",
+          "Venous insufficiency (incl. varicose veins)"
+        ]
+      },
+      {
+        "subject": "Respiratory",
+        "items": [
+          "Acute bronchitis",
+          "ARDS",
+          "Asthma",
+          "Asthma-COPD overlap",
+          "Bronchiectasis",
+          "COPD",
+          "Empyema",
+          "Interstitial lung disease",
+          "Lower respiratory tract infection",
+          "Lung abscess",
+          "Lung cancer",
+          "Obstructive sleep apnoea",
+          "Occupational lung disease",
+          "Pleural effusion",
+          "Pneumonia",
+          "Pneumothorax",
+          "Respiratory arrest"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-09-28",
+    "label": "Respiratory / Endocrine & diabetes",
+    "groups": [
+      {
+        "subject": "Respiratory",
+        "items": [
+          "Respiratory failure",
+          "Sarcoidosis"
+        ]
+      },
+      {
+        "subject": "Endocrine & diabetes",
+        "items": [
+          "Acromegaly",
+          "Adrenal insufficiency",
+          "AVP deficiency/ resistance (diabetes insipidus)",
+          "Cushing syndrome",
+          "Diabetes mellitus",
+          "DKA"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-09-29",
+    "label": "Endocrine & diabetes",
+    "groups": [
+      {
+        "subject": "Endocrine & diabetes",
+        "items": [
+          "Diabetic nephropathy",
+          "Diabetic neuropathy",
+          "Diabetic retinopathy",
+          "Graves disease (incl. thyroid eye disease)",
+          "Haemochromatosis",
+          "Hyperlipidaemia",
+          "HHS"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-09-30",
+    "label": "Endocrine & diabetes",
+    "groups": [
+      {
+        "subject": "Endocrine & diabetes",
+        "items": [
+          "Hyper-/ hypoparathyroidism",
+          "Hyperprolactinaemia",
+          "Hyperthyroidism/ thyrotoxicosis",
+          "Hypoglycaemia",
+          "Hypopituitarism",
+          "Hypothyroidism",
+          "Metabolic syndrome",
+          "Phaeochromocytoma"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-01",
+    "label": "Endocrine & diabetes / Renal, urology & electrolytes",
+    "groups": [
+      {
+        "subject": "Endocrine & diabetes",
+        "items": [
+          "Pituitary tumours",
+          "Prediabetes",
+          "Primary aldosteronism",
+          "Refeeding syndrome",
+          "SIADH"
+        ]
+      },
+      {
+        "subject": "Renal, urology & electrolytes",
+        "items": [
+          "Acid-base abnormality",
+          "Acute kidney injury",
+          "Bladder cancer"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-02",
+    "label": "Renal, urology & electrolytes",
+    "groups": [
+      {
+        "subject": "Renal, urology & electrolytes",
+        "items": [
+          "Chronic kidney disease",
+          "End-stage renal disease (RRT, transplant)",
+          "Glomerulonephritis",
+          "Hydronephrosis",
+          "Hyper-/ hypocalcaemia",
+          "Hyper-/ hypokalaemia",
+          "Hypo-/ hypernatraemia",
+          "IgA vasculitis"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-03",
+    "label": "Renal, urology & electrolytes / Gastroenterology",
+    "groups": [
+      {
+        "subject": "Renal, urology & electrolytes",
+        "items": [
+          "Nephrotic syndrome",
+          "Polycystic kidney disease",
+          "Pyelonephritis",
+          "Renal cancer",
+          "Rhabdomyolysis",
+          "Urinary incontinence",
+          "Urinary retention/ obstructive uropathy",
+          "Urinary tract calculi",
+          "Urinary tract infection",
+          "Benign prostatic hyperplasia",
+          "Hydrocoele/ varicocoele/ epididymal cyst",
+          "Penile cancer",
+          "Phimosis/ paraphimosis",
+          "Prostate cancer",
+          "Prostatitis, epididymitis, orchitis",
+          "Testicular cancer",
+          "Testicular torsion"
+        ]
+      },
+      {
+        "subject": "Gastroenterology",
+        "items": [
+          "Anal fissure",
+          "Appendicitis"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-04",
+    "label": "Gastroenterology",
+    "groups": [
+      {
+        "subject": "Gastroenterology",
+        "items": [
+          "Coeliac disease",
+          "Colorectal cancer",
+          "Constipation",
+          "Diverticular disease/ diverticulitis",
+          "Gastric cancer",
+          "GI bleeding (upper and lower)",
+          "GI perforation",
+          "GORD (incl. Barrett oesophagus)",
+          "Haemorrhoids",
+          "Hernias",
+          "Hiatus hernia",
+          "Infectious colitis (incl. C. difficile)",
+          "Infectious diarrhoea/ gastroenteritis",
+          "IBD (Crohn, UC)",
+          "Intestinal ischaemia",
+          "Intestinal obstruction and ileus",
+          "IBS",
+          "Malabsorption",
+          "Mallory-Weiss tear",
+          "Oesophageal cancer"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-05",
+    "label": "Gastroenterology",
+    "groups": [
+      {
+        "subject": "Gastroenterology",
+        "items": [
+          "Peptic ulcer disease and gastritis",
+          "Perianal abscesses and fistulae",
+          "Peritonitis",
+          "Rectal prolapse",
+          "Toxic megacolon",
+          "Variceal disease",
+          "Volvulus"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-06",
+    "label": "Hepatobiliary & pancreas",
+    "groups": [
+      {
+        "subject": "Hepatobiliary & pancreas",
+        "items": [
+          "Acute cholangitis",
+          "Acute pancreatitis",
+          "Alcohol-related liver disease",
+          "Ascites (incl. SBP)",
+          "Cholecystitis",
+          "Chronic liver disease/ cirrhosis",
+          "Chronic pancreatitis",
+          "Gallstones and biliary colic"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-07",
+    "label": "Hepatobiliary & pancreas / Haematology",
+    "groups": [
+      {
+        "subject": "Hepatobiliary & pancreas",
+        "items": [
+          "Hepatitis (viral, autoimmune, alcoholic)",
+          "Hepatocellular carcinoma",
+          "Liver abscess",
+          "Liver failure",
+          "MASLD",
+          "Pancreatic cancer"
+        ]
+      },
+      {
+        "subject": "Haematology",
+        "items": [
+          "Abnormal blood film",
+          "Anaemia"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-08",
+    "label": "Haematology",
+    "groups": [
+      {
+        "subject": "Haematology",
+        "items": [
+          "Coagulation disorders (haemophilia, VWD, thrombophilia, secondary)",
+          "DIC",
+          "Haemoglobinopathies",
+          "Hyposplenism/ splenectomy",
+          "ITP",
+          "Leukaemia",
+          "Lymphoma",
+          "Multiple myeloma"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-09",
+    "label": "Holiday — no new topics",
+    "groups": [
+      {
+        "subject": null,
+        "items": [
+          "Light mixed Passmedicine (~20 questions)",
+          "Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-10",
+    "label": "Holiday — no new topics",
+    "groups": [
+      {
+        "subject": null,
+        "items": [
+          "Light mixed Passmedicine (~20 questions)",
+          "Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-11",
+    "label": "Holiday — no new topics",
+    "groups": [
+      {
+        "subject": null,
+        "items": [
+          "Light mixed Passmedicine (~20 questions)",
+          "Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-12",
+    "label": "Holiday — no new topics",
+    "groups": [
+      {
+        "subject": null,
+        "items": [
+          "Light mixed Passmedicine (~20 questions)",
+          "Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-13",
+    "label": "Holiday — no new topics",
+    "groups": [
+      {
+        "subject": null,
+        "items": [
+          "Light mixed Passmedicine (~20 questions)",
+          "Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-14",
+    "label": "Holiday — no new topics",
+    "groups": [
+      {
+        "subject": null,
+        "items": [
+          "Light mixed Passmedicine (~20 questions)",
+          "Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-15",
+    "label": "Holiday — no new topics",
+    "groups": [
+      {
+        "subject": null,
+        "items": [
+          "Light mixed Passmedicine (~20 questions)",
+          "Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-16",
+    "label": "Holiday — no new topics",
+    "groups": [
+      {
+        "subject": null,
+        "items": [
+          "Light mixed Passmedicine (~20 questions)",
+          "Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-17",
+    "label": "Holiday — no new topics",
+    "groups": [
+      {
+        "subject": null,
+        "items": [
+          "Light mixed Passmedicine (~20 questions)",
+          "Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-18",
+    "label": "Holiday — no new topics",
+    "groups": [
+      {
+        "subject": null,
+        "items": [
+          "Light mixed Passmedicine (~20 questions)",
+          "Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-19",
+    "label": "Holiday (last day)",
+    "groups": [
+      {
+        "subject": null,
+        "items": [
+          "Light mixed Passmedicine (~20 questions)",
+          "Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-20",
+    "label": "Haematology / Neurology",
+    "groups": [
+      {
+        "subject": "Haematology",
+        "items": [
+          "Myeloproliferative disorders",
+          "Neutropenia (incl. neutropenic sepsis)",
+          "Pancytopenia",
+          "Platelet disorders",
+          "Polycythaemia",
+          "Sickle cell disease",
+          "Transfusion reactions"
+        ]
+      },
+      {
+        "subject": "Neurology",
+        "items": [
+          "Brain abscess"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-21",
+    "label": "Neurology",
+    "groups": [
+      {
+        "subject": "Neurology",
+        "items": [
+          "Brain tumours",
+          "Cerebral palsy and HIE",
+          "CVST",
+          "Delirium",
+          "Dementias",
+          "Encephalitis",
+          "Epilepsy"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-22",
+    "label": "Neurology",
+    "groups": [
+      {
+        "subject": "Neurology",
+        "items": [
+          "Essential tremor",
+          "Extradural haemorrhage",
+          "Idiopathic intracranial hypertension",
+          "Meningitis",
+          "Motor neurone disease",
+          "Multiple sclerosis",
+          "Parkinsonism",
+          "Primary headache disorders"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-23",
+    "label": "Neurology",
+    "groups": [
+      {
+        "subject": "Neurology",
+        "items": [
+          "Raised intracranial pressure",
+          "Spinal cord compression",
+          "Spinal cord injury",
+          "Status epilepticus",
+          "Stroke",
+          "Subarachnoid haemorrhage",
+          "Subdural haemorrhage",
+          "TIA"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-24",
+    "label": "Neurology / Psychiatry",
+    "groups": [
+      {
+        "subject": "Neurology",
+        "items": [
+          "Vestibular schwannoma",
+          "Wernicke encephalopathy/ Korsakoff",
+          "Autonomic neuropathy",
+          "Bell palsy",
+          "Guillain-Barré/ inflammatory demyelinating polyneuropathy",
+          "Muscular dystrophies",
+          "Myasthenia gravis",
+          "Peripheral nerve injuries/ palsies",
+          "Peripheral neuropathy",
+          "Radiculopathies",
+          "Trigeminal neuralgia"
+        ]
+      },
+      {
+        "subject": "Psychiatry",
+        "items": [
+          "Acute stress reaction",
+          "Alcohol and opioid withdrawal",
+          "ADHD",
+          "Autism spectrum disorder",
+          "Bipolar affective disorder",
+          "Delusional disorder",
+          "Depression",
+          "Eating disorders"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-25",
+    "label": "Psychiatry / MSK & rheumatology",
+    "groups": [
+      {
+        "subject": "Psychiatry",
+        "items": [
+          "Gambling disorder",
+          "Gender dysphoria/ incongruence",
+          "Generalised anxiety disorder",
+          "OCD",
+          "Panic disorder",
+          "Personality disorder",
+          "Phobias",
+          "PTSD",
+          "Postpartum depression",
+          "Postpartum psychosis",
+          "Psychotic disorder",
+          "Schizoaffective disorder",
+          "Schizophrenia",
+          "Self-harm",
+          "Somatic symptom disorder",
+          "Substance use disorder"
+        ]
+      },
+      {
+        "subject": "MSK & rheumatology",
+        "items": [
+          "Bone tumours",
+          "Bursitis",
+          "Cauda equina syndrome",
+          "Complications of fractures"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-26",
+    "label": "MSK & rheumatology",
+    "groups": [
+      {
+        "subject": "MSK & rheumatology",
+        "items": [
+          "Crystal arthropathy",
+          "Fibromyalgia",
+          "Fractures (incl. pathological)",
+          "Giant cell arteritis",
+          "Intervertebral disc prolapse",
+          "Joint dislocation/ subluxation",
+          "Juvenile idiopathic arthritis",
+          "Lower back pain and sciatica"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-27",
+    "label": "MSK & rheumatology",
+    "groups": [
+      {
+        "subject": "MSK & rheumatology",
+        "items": [
+          "Osteoarthritis",
+          "Osteomalacia",
+          "Osteomyelitis",
+          "Osteoporosis and fragility fractures",
+          "Polymyalgia rheumatica",
+          "Polymyositis/ dermatomyositis",
+          "Raynaud phenomenon"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-28",
+    "label": "MSK & rheumatology",
+    "groups": [
+      {
+        "subject": "MSK & rheumatology",
+        "items": [
+          "Rheumatoid arthritis",
+          "Scleroderma/ MCTD",
+          "Septic arthritis",
+          "Seronegative spondyloarthropathies",
+          "Sjögren syndrome",
+          "Soft tissue injury",
+          "SLE",
+          "Vasculitides"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-29",
+    "label": "Infection & sexual health",
+    "groups": [
+      {
+        "subject": "Infection & sexual health",
+        "items": [
+          "Abscess",
+          "Candidiasis",
+          "Chlamydia",
+          "COVID-19",
+          "Gonorrhoea",
+          "Helicobacter pylori",
+          "Herpes simplex virus",
+          "Hospital-acquired infections"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-30",
+    "label": "Infection & sexual health",
+    "groups": [
+      {
+        "subject": "Infection & sexual health",
+        "items": [
+          "HIV",
+          "HPV infection",
+          "Infectious mononucleosis (EBV, CMV)",
+          "Influenza",
+          "Malaria",
+          "Measles",
+          "Mumps",
+          "Pyrexia of unknown origin"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-10-31",
+    "label": "Infection & sexual health / Obstetrics",
+    "groups": [
+      {
+        "subject": "Infection & sexual health",
+        "items": [
+          "Rubella",
+          "Sepsis",
+          "Surgical site infection",
+          "Syphilis",
+          "Tetanus",
+          "Toxic shock syndrome",
+          "Toxoplasmosis",
+          "Trichomonas vaginalis",
+          "Tuberculosis",
+          "Typhoid",
+          "Varicella zoster virus",
+          "Zoonotic infections (incl. Lyme)"
+        ]
+      },
+      {
+        "subject": "Obstetrics",
+        "items": [
+          "Antepartum haemorrhage",
+          "Blood group incompatibility",
+          "Chorioamnionitis",
+          "Complications of labour",
+          "Diabetes in pregnancy",
+          "Ectopic pregnancy",
+          "Hyperemesis gravidarum"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-11-01",
+    "label": "Obstetrics / Gynaecology & breast",
+    "groups": [
+      {
+        "subject": "Obstetrics",
+        "items": [
+          "Hypertension in pregnancy (incl. pre-eclampsia)",
+          "Jaundice in pregnancy",
+          "Miscarriage and intrauterine death",
+          "Multiple pregnancy",
+          "Obesity in pregnancy",
+          "Placenta praevia",
+          "Placental abruption",
+          "Polyhydramnios/ oligohydramnios",
+          "Postpartum haemorrhage",
+          "Vasa praevia",
+          "VTE in pregnancy and puerperium"
+        ]
+      },
+      {
+        "subject": "Gynaecology & breast",
+        "items": [
+          "Bacterial vaginosis",
+          "Cervical cancer",
+          "Cervical ectropion",
+          "Cervical screening (HPV)",
+          "Endometrial cancer",
+          "Endometriosis",
+          "Fibroids",
+          "Genitourinary syndrome of menopause",
+          "Lichen sclerosus"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-11-02",
+    "label": "Gynaecology & breast",
+    "groups": [
+      {
+        "subject": "Gynaecology & breast",
+        "items": [
+          "Menopause/ perimenopause",
+          "Ovarian cancer",
+          "Ovarian cysts",
+          "Ovarian torsion",
+          "Pelvic inflammatory disease",
+          "PMOS (polyendocrine metabolic ovarian syndrome)",
+          "Termination of pregnancy",
+          "Vaginal prolapse"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-11-03",
+    "label": "Gynaecology & breast / Paediatrics & genetics",
+    "groups": [
+      {
+        "subject": "Gynaecology & breast",
+        "items": [
+          "Vulval cancer",
+          "Breast abscess/ mastitis",
+          "Breast cancer",
+          "Breast cysts",
+          "Fibroadenoma"
+        ]
+      },
+      {
+        "subject": "Paediatrics & genetics",
+        "items": [
+          "Biliary atresia",
+          "Bronchiolitis"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-11-04",
+    "label": "Paediatrics & genetics",
+    "groups": [
+      {
+        "subject": "Paediatrics & genetics",
+        "items": [
+          "Bronchopulmonary dysplasia",
+          "Childhood cancer (incl. retinoblastoma)",
+          "Childhood hip/ leg disorders (Perthes, SUFE, DDH)",
+          "Cow's milk protein allergy",
+          "Croup",
+          "Cryptorchidism",
+          "Faltering growth",
+          "Febrile convulsions"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-11-05",
+    "label": "Paediatrics & genetics",
+    "groups": [
+      {
+        "subject": "Paediatrics & genetics",
+        "items": [
+          "Kawasaki disease",
+          "Mesenteric adenitis",
+          "Necrotising enterocolitis",
+          "Neonatal jaundice",
+          "Neonatal surgical emergencies (pyloric stenosis, intussusception)",
+          "Prematurity",
+          "Scarlet fever",
+          "Viral exanthema (measles, rubella, varicella)"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-11-06",
+    "label": "Paediatrics & genetics",
+    "groups": [
+      {
+        "subject": "Paediatrics & genetics",
+        "items": [
+          "Whooping cough",
+          "Cystic fibrosis",
+          "Down syndrome",
+          "Ehlers-Danlos syndrome",
+          "Huntington disease",
+          "Klinefelter syndrome",
+          "Marfan syndrome",
+          "Turner syndrome"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-11-07",
+    "label": "Dermatology",
+    "groups": [
+      {
+        "subject": "Dermatology",
+        "items": [
+          "Acne vulgaris",
+          "Atopic dermatitis/ eczema",
+          "Benign skin lesions",
+          "Burns",
+          "Cellulitis",
+          "Contact dermatitis",
+          "Cutaneous fungal infection",
+          "Cutaneous warts",
+          "Erythema nodosum",
+          "Folliculitis and hidradenitis suppurativa",
+          "Haemangioma",
+          "Impetigo",
+          "Lichen planus",
+          "Lipoma",
+          "Malignant/ pre-malignant skin lesions (Bowen, melanoma, BCC, SCC)",
+          "Necrotising fasciitis",
+          "Pressure sores",
+          "Psoriasis",
+          "Rosacea"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-11-08",
+    "label": "Dermatology / Ophthalmology",
+    "groups": [
+      {
+        "subject": "Dermatology",
+        "items": [
+          "Scabies",
+          "Skin manifestations of systemic disease",
+          "Skin ulcers (arterial, venous, neuropathic)",
+          "SJS/ TEN",
+          "Urticaria"
+        ]
+      },
+      {
+        "subject": "Ophthalmology",
+        "items": [
+          "Acute glaucoma",
+          "Benign eyelid disorders",
+          "Cataracts",
+          "Central retinal artery occlusion",
+          "Central retinal vein occlusion",
+          "Chronic glaucoma",
+          "Conjunctivitis",
+          "Corneal ulcer/ abrasion",
+          "Hypertensive retinopathy",
+          "Infective keratitis",
+          "Scleritis/ episcleritis/ uveitis",
+          "Macular degeneration",
+          "Optic neuritis",
+          "Papilloedema",
+          "Periorbital and orbital cellulitis"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-11-09",
+    "label": "Ophthalmology / ENT",
+    "groups": [
+      {
+        "subject": "Ophthalmology",
+        "items": [
+          "Retinal detachment",
+          "Subconjunctival haemorrhage",
+          "Visual field defects"
+        ]
+      },
+      {
+        "subject": "ENT",
+        "items": [
+          "Airway compromise/ management",
+          "BPPV",
+          "Cholesteatoma",
+          "Epiglottitis"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-11-10",
+    "label": "ENT",
+    "groups": [
+      {
+        "subject": "ENT",
+        "items": [
+          "Epistaxis",
+          "Head and neck cancer",
+          "Labyrinthitis/ vestibular neuritis",
+          "Mastoiditis",
+          "Ménière disease",
+          "Nasal polyps",
+          "Otitis externa",
+          "Otitis media"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-11-11",
+    "label": "ENT / Pharmacology, tox & acute",
+    "groups": [
+      {
+        "subject": "ENT",
+        "items": [
+          "Perforated eardrum",
+          "Pharyngitis/ tonsillitis",
+          "Quinsy",
+          "Rhinosinusitis",
+          "Thyroid cancer",
+          "Thyroid nodules",
+          "Upper respiratory tract infection"
+        ]
+      },
+      {
+        "subject": "Pharmacology, tox & acute",
+        "items": [
+          "Adverse drug effects"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-11-12",
+    "label": "Pharmacology, tox & acute",
+    "groups": [
+      {
+        "subject": "Pharmacology, tox & acute",
+        "items": [
+          "Drug overdose",
+          "Neuroleptic malignant syndrome",
+          "Serotonin syndrome",
+          "Allergic disorder (incl. food allergy)",
+          "Anaphylaxis",
+          "Carbon monoxide poisoning",
+          "Hyper-/ hypothermia",
+          "Hypovolaemia"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-11-13",
+    "label": "Pharmacology, tox & acute",
+    "groups": [
+      {
+        "subject": "Pharmacology, tox & acute",
+        "items": [
+          "Incidental finding",
+          "Infertility/ subfertility",
+          "Malnutrition",
+          "Medically unexplained symptoms",
+          "Metastatic cancer",
+          "Multi-organ dysfunction syndrome",
+          "ME/ CFS (awareness and approach)",
+          "Obesity"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-11-14",
+    "label": "Pharmacology, tox & acute / Ethics, law, stats & QI",
+    "groups": [
+      {
+        "subject": "Pharmacology, tox & acute",
+        "items": [
+          "Sarcopenia/ frailty",
+          "Transplantation (rejection, immunosuppression)",
+          "Vitamin B12/ folate deficiency",
+          "Vitamin D deficiency",
+          "Disease prevention/ screening",
+          "Iatrogenic condition",
+          "Non-accidental injury",
+          "Notifiable diseases"
+        ]
+      },
+      {
+        "subject": "Ethics, law, stats & QI",
+        "items": [
+          "Medical ethics and law (GMP, consent, capacity, confidentiality)",
+          "Clinical pharmacology and prescribing",
+          "Social and population health (stats, screening, health economics)",
+          "Human factors and quality improvement",
+          "Laboratory haematology (transfusion pathway)",
+          "Microbiology and infection control",
+          "Clinical biochemistry",
+          "Clinical imaging (choosing investigations)",
+          "Genetics and genomics",
+          "Allergy and immunology",
+          "Psychological principles"
+        ]
+      },
+      {
+        "subject": null,
+        "items": [
+          "Mixed Passmedicine set + Anki reviews"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-11-15",
+    "label": "Mock 1",
+    "groups": [
+      {
+        "subject": null,
+        "items": [
+          "Timed Passmedicine mock",
+          "Review every wrong answer"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-11-16",
+    "label": "Weak areas",
+    "groups": [
+      {
+        "subject": null,
+        "items": [
+          "Redo questions and textbook on your weakest areas from Mock 1"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-11-17",
+    "label": "Acute & prescribing",
+    "groups": [
+      {
+        "subject": null,
+        "items": [
+          "ABCDE, sepsis, anaphylaxis, DKA, hyperkalaemia, status epilepticus, overdose",
+          "Anticoagulants, insulin, opioids, lithium, gentamicin, IV fluids"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-11-18",
+    "label": "Ethics, law & stats",
+    "groups": [
+      {
+        "subject": null,
+        "items": [
+          "Consent, capacity, confidentiality, GMP, DVLA, death certification",
+          "Sensitivity/specificity, NNT, screening"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-11-19",
+    "label": "Weak areas",
+    "groups": [
+      {
+        "subject": null,
+        "items": [
+          "Questions and textbook on remaining weak areas"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-11-20",
+    "label": "Rapid review",
+    "groups": [
+      {
+        "subject": null,
+        "items": [
+          "Flagged Passmedicine questions, referral criteria, red flags"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-11-21",
+    "label": "Mock 2 (light)",
+    "groups": [
+      {
+        "subject": null,
+        "items": [
+          "GMC MLA sample questions in the morning, review answers, stop by early afternoon"
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-11-22",
+    "label": "Rest",
+    "groups": [
+      {
+        "subject": null,
+        "items": [
+          "No new material. Check venue, ID and travel. Early night."
+        ]
+      }
+    ]
+  },
+  {
+    "date": "2026-11-23",
+    "label": "Exam day",
+    "groups": [
+      {
+        "subject": null,
+        "items": [
+          "UKMLA AKT"
+        ]
+      }
+    ]
+  }
+];
+
+function ukmlaFlatItems(day) {
+  return day.groups.flatMap(g => g.items);
+}
+function getUkmlaProgress() {
+  try { return JSON.parse(localStorage.getItem('ukmla_progress')) || {}; } catch { return {}; }
+}
+function saveUkmlaProgress(progress) {
+  localStorage.setItem('ukmla_progress', JSON.stringify(progress));
+  syncPush('ukmla_progress', progress);
+}
+function toggleUkmlaItem(date, idx) {
+  const progress = getUkmlaProgress();
+  const arr = (progress[date] || []).slice();
+  arr[idx] = !arr[idx];
+  progress[date] = arr;
+  saveUkmlaProgress(progress);
+  renderUkmlaDay(date);
+  renderUkmlaSummary();
+  if (typeof renderExamCountdown === 'function') renderExamCountdown();
+}
+function ukmlaDayDoneCount(day, progress) {
+  const arr = progress[day.date] || [];
+  const total = ukmlaFlatItems(day).length;
+  const done = arr.filter(Boolean).length;
+  return { done, total };
+}
+function renderUkmlaDay(dateStr) {
+  const day = UKMLA_REVISION_PLAN.find(d => d.date === dateStr);
+  if (!day) return;
+  const bodyEl = document.getElementById('ukmla-body-' + dateStr);
+  if (!bodyEl) return;
+  const progress = getUkmlaProgress();
+  const arr = progress[dateStr] || [];
+  let idx = 0;
+  bodyEl.innerHTML = day.groups.map(g => {
+    const itemsHtml = g.items.map(item => {
+      const i = idx++;
+      const checked = !!arr[i];
+      return `<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;cursor:pointer">
+        <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleUkmlaItem('${dateStr}',${i})" style="width:16px;height:16px;flex-shrink:0">
+        <span style="${checked ? 'text-decoration:line-through;color:#A6937F' : ''}">${escHtml(item)}</span>
+      </label>`;
+    }).join('');
+    return (g.subject ? `<div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:#A6937F;margin:10px 0 2px">${escHtml(g.subject)}</div>` : '') + itemsHtml;
+  }).join('');
+  set('ukmla-meta-' + dateStr, (() => { const { done, total } = ukmlaDayDoneCount(day, progress); return `${done} / ${total}`; })());
+}
+function renderUkmlaPlan() {
+  const el = document.getElementById('ukmla-days');
+  if (!el) return;
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  el.innerHTML = UKMLA_REVISION_PLAN.map(day => {
+    const isToday = day.date === todayStr;
+    return `<div class="accordion ${isToday ? '' : 'closed'}" id="acc-ukmla-${day.date}">
+      <div class="accordion-header" onclick="toggleAccordion('ukmla-${day.date}')">
+        <span class="accordion-title">${fmtDate(day.date)}${isToday ? ' · Today' : ''} — ${escHtml(day.label)}</span>
+        <span class="accordion-meta" id="ukmla-meta-${day.date}"></span>
+        <span class="accordion-chevron">▾</span>
+      </div>
+      <div class="accordion-body" id="ukmla-body-${day.date}"></div>
+    </div>`;
+  }).join('');
+  UKMLA_REVISION_PLAN.forEach(day => renderUkmlaDay(day.date));
+}
+function renderUkmlaSummary() {
+  const el = document.getElementById('ukmla-summary');
+  if (!el) return;
+  const progress = getUkmlaProgress();
+  let done = 0, total = 0;
+  UKMLA_REVISION_PLAN.forEach(day => {
+    const c = ukmlaDayDoneCount(day, progress);
+    done += c.done; total += c.total;
+  });
+  const pct = total ? Math.round(done / total * 100) : 0;
+  const exam = new Date('2026-11-23T00:00:00'); const now = new Date(); now.setHours(0,0,0,0);
+  const daysLeft = Math.max(0, Math.ceil((exam - now) / 86400000));
+  el.innerHTML = `<div class="card" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+    <div><div style="font-size:22px;font-weight:800;color:#2D7A47">${pct}%</div><div class="sub">${done} / ${total} sections done</div></div>
+    <div style="margin-left:auto;text-align:right"><div style="font-size:22px;font-weight:800">${daysLeft}</div><div class="sub">days to exam</div></div>
+  </div>`;
+}
+renderUkmlaPlan();
+renderUkmlaSummary();
+
+
 // ── UKMLA Revision Tracker ───────────────────────────────────────────────────
 const UKMLA_SYSTEMS = [
   { id: 'cardio', title: 'Cardiovascular', conditions: [
@@ -4149,7 +5703,7 @@ const UKMLA_SYSTEMS = [
 
 // ── UKMLA Revision Schedule ───────────────────────────────────────────────────
 const REV_START = new Date('2026-07-26T00:00:00'); // restart from today
-const REV_EXAM  = new Date('2026-08-31T00:00:00');
+const REV_EXAM  = new Date('2026-11-23T00:00:00'); // real UKMLA AKT date — was a stale placeholder
 
 // Dates excluded from revision (Barcelona trip)
 const REV_EXCL = new Set([
@@ -9136,6 +10690,7 @@ function applySyncUpdates(updated) {
   if (updated.includes('cst_grades')) safe(renderCstScorecard);
   if (updated.includes('audit_cycle')) safe(renderAuditTracker);
   if (updated.includes('today_priority')) safe(renderTodayPriority);
+  if (updated.includes('ukmla_progress')) safe(() => { renderUkmlaPlan(); renderUkmlaSummary(); if (typeof renderExamCountdown === 'function') renderExamCountdown(); });
   // activity_notes intentionally not force-rendered here — it's spread across
   // many per-sport activity lists; it'll pick up the synced value next time
   // that list is rendered (those lists already read from localStorage fresh).
