@@ -14,14 +14,14 @@ const ADMIN_TOKEN = 'd940896eae999a28628f93697b04643c44adad22dee03090';
 
 export async function onRequest(context) {
   const { request, env } = context;
-  if (request.method !== 'POST') return json(405, { error: 'Method not allowed' });
-  if (request.headers.get('x-admin-token') !== ADMIN_TOKEN) return json(401, { error: 'Unauthorized' });
+  if (request.method !== 'GET') return json(405, { error: 'Method not allowed' });
 
-  let body;
-  try { body = JSON.parse(await request.text() || '{}'); }
-  catch { return json(400, { error: 'Invalid JSON body' }); }
+  const url = new URL(request.url);
+  const token = url.searchParams.get('token');
+  const metric = url.searchParams.get('metric');
+  const date = url.searchParams.get('date');
 
-  const { metric, date } = body;
+  if (token !== ADMIN_TOKEN) return json(401, { error: 'Unauthorized' });
   if (!metric || !date) return json(400, { error: 'metric and date required' });
 
   let existing;
