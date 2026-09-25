@@ -1262,6 +1262,7 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 <h2>📖 UKMLA Revision Plan</h2>
 <div class="sub" style="margin-bottom:12px">Exam: Monday 23 Nov 2026. Every condition in the GMC MLA content map is covered by 14 Nov, leaving the final week for mocks and review. Tap a day to expand it, then tick off each section as you go.</div>
 <div id="ukmla-summary" style="margin-bottom:14px"></div>
+<div id="ukmla-catchup" style="margin-bottom:14px"></div>
 <div id="ukmla-days"></div>
 </div>
 
@@ -5526,6 +5527,7 @@ function toggleUkmlaItem(date, idx) {
   saveUkmlaProgress(progress);
   renderUkmlaDay(date);
   renderUkmlaSummary();
+  renderUkmlaCatchup();
   if (typeof renderExamCountdown === 'function') renderExamCountdown();
 }
 function ukmlaDayDoneCount(day, progress) {
@@ -5559,7 +5561,11 @@ function renderUkmlaPlan() {
   const el = document.getElementById('ukmla-days');
   if (!el) return;
   const todayStr = new Date().toLocaleDateString('en-CA');
-  el.innerHTML = UKMLA_REVISION_PLAN.map(day => {
+  // Days that have already passed drop off this list entirely — any of their
+  // unticked items surface instead in the "Still to revise" catch-up dropdown
+  // built by renderUkmlaCatchup(), rather than cluttering the day-by-day view.
+  const upcoming = UKMLA_REVISION_PLAN.filter(day => day.date >= todayStr);
+  el.innerHTML = upcoming.map(day => {
     const isToday = day.date === todayStr;
     return `<div class="accordion ${isToday ? '' : 'closed'}" id="acc-ukmla-${day.date}">
       <div class="accordion-header" onclick="toggleAccordion('ukmla-${day.date}')">
@@ -5570,7 +5576,56 @@ function renderUkmlaPlan() {
       <div class="accordion-body" id="ukmla-body-${day.date}"></div>
     </div>`;
   }).join('');
-  UKMLA_REVISION_PLAN.forEach(day => renderUkmlaDay(day.date));
+  upcoming.forEach(day => renderUkmlaDay(day.date));
+}
+function ukmlaPastIncompleteByDay(progress, todayStr) {
+  return UKMLA_REVISION_PLAN
+    .filter(day => day.date < todayStr)
+    .map(day => {
+      const arr = progress[day.date] || [];
+      let idx = 0;
+      const items = [];
+      day.groups.forEach(g => {
+        g.items.forEach(item => {
+          const i = idx++;
+          if (!arr[i]) items.push({ idx: i, subject: g.subject, text: item });
+        });
+      });
+      return { day, items };
+    })
+    .filter(d => d.items.length > 0);
+}
+function renderUkmlaCatchup() {
+  const el = document.getElementById('ukmla-catchup');
+  if (!el) return;
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const progress = getUkmlaProgress();
+  const pending = ukmlaPastIncompleteByDay(progress, todayStr);
+  const totalPending = pending.reduce((sum, d) => sum + d.items.length, 0);
+  if (!totalPending) { el.innerHTML = ''; return; }
+  const body = pending.map(({ day, items }) => {
+    let lastSubject;
+    const rows = items.map(({ idx, subject, text }) => {
+      let header = '';
+      if (subject !== lastSubject) {
+        lastSubject = subject;
+        header = subject ? `<div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:#A6937F;margin:10px 0 2px">${escHtml(subject)}</div>` : '';
+      }
+      return header + `<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;cursor:pointer">
+        <input type="checkbox" onchange="toggleUkmlaItem('${day.date}',${idx})" style="width:16px;height:16px;flex-shrink:0">
+        <span>${escHtml(text)}</span>
+      </label>`;
+    }).join('');
+    return `<div style="margin-bottom:6px"><div style="font-size:12px;font-weight:700;color:#7A6656;margin:10px 0 2px">${fmtDate(day.date)} — ${escHtml(day.label)}</div>${rows}</div>`;
+  }).join('');
+  el.innerHTML = `<div class="accordion" id="acc-ukmla-catchup">
+    <div class="accordion-header" onclick="toggleAccordion('ukmla-catchup')">
+      <span class="accordion-title">⏳ Still to revise</span>
+      <span class="accordion-meta">${totalPending}</span>
+      <span class="accordion-chevron">▾</span>
+    </div>
+    <div class="accordion-body" id="ukmla-body-catchup">${body}</div>
+  </div>`;
 }
 function renderUkmlaSummary() {
   const el = document.getElementById('ukmla-summary');
@@ -5591,6 +5646,7 @@ function renderUkmlaSummary() {
 }
 renderUkmlaPlan();
 renderUkmlaSummary();
+renderUkmlaCatchup();
 
 
 // ── UKMLA Revision Tracker ───────────────────────────────────────────────────
@@ -10690,7 +10746,7 @@ function applySyncUpdates(updated) {
   if (updated.includes('cst_grades')) safe(renderCstScorecard);
   if (updated.includes('audit_cycle')) safe(renderAuditTracker);
   if (updated.includes('today_priority')) safe(renderTodayPriority);
-  if (updated.includes('ukmla_progress')) safe(() => { renderUkmlaPlan(); renderUkmlaSummary(); if (typeof renderExamCountdown === 'function') renderExamCountdown(); });
+  if (updated.includes('ukmla_progress')) safe(() => { renderUkmlaPlan(); renderUkmlaSummary(); renderUkmlaCatchup(); if (typeof renderExamCountdown === 'function') renderExamCountdown(); });
   // activity_notes intentionally not force-rendered here — it's spread across
   // many per-sport activity lists; it'll pick up the synced value next time
   // that list is rendered (those lists already read from localStorage fresh).
