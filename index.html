@@ -752,7 +752,7 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 </div>
 <div class="g2" style="margin-bottom:12px">
   <div class="card">
-    <div class="lbl">Muscle Coverage — Last 28 Days</div>
+    <div class="lbl">Muscle Coverage — Last 28 Days vs Previous 28</div>
     <div style="position:relative;height:320px"><div class="skeleton" id="muscle-radar-skel" style="position:absolute;inset:0"></div><canvas id="muscle-radar"></canvas></div>
     <div class="sub" id="muscle-radar-status" style="margin-top:8px;font-style:italic">Loading muscle data…</div>
   </div>
@@ -802,14 +802,6 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 <h2>Weekly Volume by Muscle Group <button class="info-i" data-t="tonnage">ⓘ</button></h2>
 <div class="card">
   <div class="cht"><div class="skeleton" id="tonnage-chart-skel" style="position:absolute;inset:0"></div><canvas id="tonnage-chart"></canvas></div>
-</div>
-</div>
-
-<!-- §6f REP PRs / LAST TRAINED -->
-<div class="section">
-<h2>Rep PRs &amp; Last Trained</h2>
-<div class="card">
-  <div id="rep-pr-list" class="sub">Loading…</div>
 </div>
 </div>
 
@@ -6670,7 +6662,9 @@ function getMuscleHits(detailedActs) {
 
 async function fetchStrengthDetails(tokens, acts) {
   const now = Date.now();
-  const recent = acts.filter(a=>a.sport_type==='WeightTraining'&&(now-new Date(a.start_local))<28*864e5);
+  // 56 days = current 28-day window + the previous 28-day window, so the
+  // muscle coverage radar can overlay the two for comparison.
+  const recent = acts.filter(a=>a.sport_type==='WeightTraining'&&(now-new Date(a.start_local))<56*864e5);
   const out = [];
   for (let i=0; i<recent.length; i+=5) {
     const chunk = recent.slice(i, i+5);
@@ -6691,21 +6685,37 @@ function strengthIntensity(mins) {
   return mins<30?{cls:'b-grey',label:'easy'}:mins<=60?{cls:'b-amber',label:'moderate'}:{cls:'b-sage',label:'hard'};
 }
 
-function buildMuscleRadar(hits) {
+function buildMuscleRadar(hits, prevHits) {
   rmSkel('muscle-radar');
   const labels=['Chest','Back','Shoulders','Biceps','Triceps','Quads','Hamstrings','Glutes','Calves','Core'];
-  new Chart(document.getElementById('muscle-radar'),{
-    type:'radar',
-    data:{labels,datasets:[{
+  const datasets = [
+    // Previous 28 days drawn first (so it sits behind), muted/dashed — a
+    // faint comparison layer rather than competing for attention with the
+    // current period.
+    {
+      label:'Previous 28 days',
+      data:labels.map(l=>(prevHits && prevHits[l.toLowerCase()])||0),
+      backgroundColor:'rgba(166,147,127,0.08)',
+      borderColor:'#C7B29B',
+      borderDash:[4,3],
+      pointBackgroundColor:'#C7B29B',
+      pointRadius:2
+    },
+    {
+      label:'Last 28 days',
       data:labels.map(l=>hits[l.toLowerCase()]||0),
       backgroundColor:'rgba(99,102,241,0.15)',
       borderColor:'#6366f1',
       pointBackgroundColor:'#6366f1'
-    }]},
+    }
+  ];
+  new Chart(document.getElementById('muscle-radar'),{
+    type:'radar',
+    data:{labels,datasets},
     options:{
       responsive:true,
       maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
+      plugins:{legend:{display:true,position:'bottom',labels:{font:{size:10},boxWidth:10,padding:10}}},
       scales:{r:{
         beginAtZero:true,
         suggestedMax:5,
@@ -6802,11 +6812,18 @@ async function renderS6(acts, tokens) {
   buildStrengthFreq(acts);
 
   try {
-    const detailedActs = await fetchStrengthDetails(tokens, acts);
-    const hits = getMuscleHits(detailedActs);
-    buildMuscleRadar(hits);
+    const detailedActs = await fetchStrengthDetails(tokens, acts); // now covers 56 days
+    const now = Date.now();
+    const currentActs = detailedActs.filter(a => (now - new Date(a.start_local)) < 28*864e5);
+    const prevActs = detailedActs.filter(a => {
+      const age = now - new Date(a.start_local);
+      return age >= 28*864e5 && age < 56*864e5;
+    });
+    const hits = getMuscleHits(currentActs);
+    const prevHits = getMuscleHits(prevActs);
+    buildMuscleRadar(hits, prevHits);
     set('muscle-radar-status', 'Parsed from activity descriptions');
-    renderStrengthList(detailedActs);
+    renderStrengthList(currentActs); // Recent Sessions stays scoped to the current 28 days
   } catch(e) {
     set('muscle-radar-status', 'Muscle data unavailable: '+e.message);
   }
@@ -7137,7 +7154,8 @@ function renderSleepPerformanceLink() {
   el.innerHTML = rows + `<div class="sub" style="margin-top:8px;font-style:italic">${takeaway}</div>`;
 }
 
-// ── Progress: 1RM trend, weekly tonnage by muscle group, rep PRs / last trained ─
+// ── Progress: 1RM trend, weekly tonnage by muscle group ──────────────────────
+// (Rep PRs / Last Trained card removed 2026-09-26 — see feature-cut-build-status.md)
 let _progressData = null;
 
 async function loadProgress() {
@@ -7158,12 +7176,10 @@ function renderProgressCards() {
     rmSkel('e1rm-chart');
     rmSkel('tonnage-chart');
     set('e1rm-chart-status', 'Live data unavailable right now — check back after your next Hevy sync.');
-    setH('rep-pr-list', `<div class="sub" style="margin:0">Live data unavailable right now.</div>`);
     return;
   }
   renderE1rmChart(_progressData);
   renderTonnageChart(_progressData);
-  renderRepPRs(_progressData);
 }
 
 // ── Planner: data loading ────────────────────────────────────────────────────
@@ -7740,25 +7756,6 @@ function renderTonnageChart(data) {
       }
     }
   });
-}
-
-function renderRepPRs(data) {
-  const exercises = data.exercises || [];
-  if (!exercises.length) {
-    setH('rep-pr-list', `<div class="sub" style="margin:0">No live data available right now.</div>`);
-    return;
-  }
-  const rows = exercises.slice(0, 12).map(e => {
-    const badgeCls = e.stale ? 'b-amber' : 'b-grey';
-    const prStr = e.currentWeight !== null ? `${e.currentWeight}kg × ${e.repPR ?? '—'} rep PR` : '—';
-    return `
-      <div class="whoop-contrib-row">
-        <span class="wc-label" style="flex:0 0 160px;font-weight:600">${escHtml(e.title)}</span>
-        <span style="flex:1;font-size:12px;color:#888">${prStr}</span>
-        <span class="badge ${badgeCls}" style="margin-left:8px;font-size:10px;padding:2px 7px;white-space:nowrap">${e.daysSince}d ago</span>
-      </div>`;
-  }).join('');
-  setH('rep-pr-list', rows);
 }
 
 const timeToSec = t => {
