@@ -213,7 +213,6 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
   <!-- LEFT: Daily briefing (takes most of the width) -->
   <div class="home-briefing-col" style="display:flex;flex-direction:column;min-height:0">
-    <div id="today-priority" style="flex-shrink:0"></div>
     <div id="system-alerts" style="flex-shrink:0"></div>
     <div id="warns" style="flex-shrink:0"></div>
     <div id="alerts-banner" style="display:none"></div>
@@ -1764,25 +1763,50 @@ async function fetchActivities(tokens) {
   return all.map(normalizeActivity).sort((a,b)=>new Date(b.start_local)-new Date(a.start_local));
 }
 
-// Fetches Phil's real 5-zone HR boundaries as set up in his Strava account
-// (GET /athlete/zones, needs the profile:read_all scope granted 2026-09-26 —
-// tokens from before that reconnect won't have it yet, and Strava returns a
-// 401 until Phil disconnects/reconnects once via the button in the app).
-// Fire-and-forget like loadPlannerData(); silently leaves _stravaHRZones null
-// on any failure so callers fall back to the %-of-threshold estimate.
-async function loadStravaHRZones(tokens) {
+// Fetches Phil's real HR + power zones as set up in his Strava account (GET
+// /athlete/zones — one call covers both; needs the profile:read_all scope
+// granted 2026-09-26 — tokens from before that reconnect won't have it yet,
+// and Strava returns a 401 until Phil disconnects/reconnects once via the
+// button in the app). Fire-and-forget like loadPlannerData(); on any failure
+// this just silently leaves the _strava* vars null and every caller already
+// falls back to its pre-existing estimate, so nothing breaks either way.
+//
+// Note on running pace zones: Strava's app has these too, but they're not
+// part of the officially documented public API's Zones model (only
+// heart_rate and power are) — there's no reliable endpoint this proxy can
+// call to fetch them, so running TSS still only gets a real threshold pace
+// if one is ever entered by hand in the (currently hidden) Planner Zones
+// form. Not attempted here rather than shipping code that looks like it
+// works but silently never receives data.
+async function loadStravaZones(tokens) {
   try {
     const res = await fetch(`${API}/strava-auth?action=proxy&path=${encodeURIComponent('/athlete/zones')}&access_token=${encodeURIComponent(tokens.access_token)}`);
     const data = await res.json();
-    const zones = data && data.heart_rate && Array.isArray(data.heart_rate.zones) ? data.heart_rate.zones : null;
-    _stravaHRZones = (res.ok && zones && zones.length === 5) ? zones : null;
+    const hrZones = data && data.heart_rate && Array.isArray(data.heart_rate.zones) ? data.heart_rate.zones : null;
+    _stravaHRZones = (res.ok && hrZones && hrZones.length === 5) ? hrZones : null;
+
+    // Power zones: Strava's 7-zone Coggan-style model (Recovery/Moderate/
+    // Tempo/Threshold/VO2Max/Anaerobic/Neuromuscular). FTP isn't returned
+    // directly by this endpoint, but the Threshold zone (index 3, the 4th
+    // zone) is conventionally defined as 91–105% of FTP — averaging the two
+    // boundary-implied estimates backs out FTP from the zone edges.
+    const powerZones = data && data.power && Array.isArray(data.power.zones) ? data.power.zones : null;
+    if (res.ok && powerZones && powerZones.length === 7 && powerZones[3] && powerZones[3].min && powerZones[3].max) {
+      const z4 = powerZones[3];
+      _stravaFtpWatts = Math.round(((z4.min / 0.91) + (z4.max / 1.05)) / 2);
+    } else {
+      _stravaFtpWatts = null;
+    }
   } catch (e) {
     _stravaHRZones = null;
+    _stravaFtpWatts = null;
   }
   // Real zones may arrive after zone-consuming UI already rendered with the
-  // %-of-threshold estimate — refresh both surfaces now that they're real.
+  // fallback estimate — refresh every surface that depends on them now that
+  // they're real.
   if (typeof renderRunHRZones === 'function') renderRunHRZones();
   if (typeof renderHRZoneBreakdown === 'function') renderHRZoneBreakdown();
+  if (typeof renderWhoopMonitor === 'function') renderWhoopMonitor(); // fitness-trend/TSS charts depend on getEffectiveTSSZones()
 }
 
 // ── Claude proxy ──────────────────────────────────────────────────────────────
@@ -2239,11 +2263,11 @@ const SYNC_KEYS = [
   'gcal_events',
   'calendar_overrides',
   'activity_notes', 'daily_habits', 'habit_log', 'progress_log', 'monthly_km_goal', 'pb_log',
-  'rev_schedule_log', 'tasks_priority',
+  'tasks_priority',
   'shopping_items',
   'notes_data',
   'mood_log', 'habit_streaks', 'habit_reset_date',
-  'weight_goal', 'cst_grades', 'audit_cycle', 'today_priority', 'ukmla_progress'
+  'weight_goal', 'cst_grades', 'audit_cycle', 'ukmla_progress'
 ];
 
 function getSyncMeta() {
@@ -2815,49 +2839,9 @@ function deleteSubtask(taskId, subtaskId) {
   if (panel) panel.style.display = 'block';
 }
 
-// ── Today's One Priority ─────────────────────────────────────────────────────
-// A single pinned line, separate from the full task list — the one thing that
-// matters most today. Auto-clears at midnight (keyed by date) so it doesn't
-// linger stale; resets to blank each new day rather than carrying over.
-function getTodayPriority() {
-  try { return JSON.parse(localStorage.getItem('today_priority')) || {}; } catch { return {}; }
-}
-function saveTodayPriority(obj) {
-  localStorage.setItem('today_priority', JSON.stringify(obj));
-  syncPush('today_priority', obj);
-}
-function setTodayPriorityText(text) {
-  const todayStr = new Date().toLocaleDateString('en-CA');
-  saveTodayPriority({ date: todayStr, text: text.trim() });
-  renderTodayPriority();
-}
-function clearTodayPriority() {
-  const todayStr = new Date().toLocaleDateString('en-CA');
-  saveTodayPriority({ date: todayStr, text: '' });
-  renderTodayPriority();
-}
-function promptTodayPriority() {
-  const cur = getTodayPriority();
-  const todayStr = new Date().toLocaleDateString('en-CA');
-  const input = window.prompt("Today's one priority:", cur.date === todayStr ? cur.text : '');
-  if (input === null) return;
-  setTodayPriorityText(input);
-}
-function renderTodayPriority() {
-  const el = document.getElementById('today-priority');
-  if (!el) return;
-  const todayStr = new Date().toLocaleDateString('en-CA');
-  const cur = getTodayPriority();
-  const text = cur.date === todayStr ? (cur.text || '') : '';
-  el.innerHTML = text
-    ? `<div style="background:var(--lavender);color:var(--lavender-text);border-radius:10px;padding:10px 14px;margin-bottom:6px;display:flex;align-items:center;gap:10px;cursor:pointer" onclick="promptTodayPriority()">
-        <span style="font-size:15px">🎯</span>
-        <span style="flex:1;font-size:13px;font-weight:700">${escHtml(text)}</span>
-        <button onclick="event.stopPropagation();clearTodayPriority()" style="background:none;border:none;color:inherit;opacity:.7;cursor:pointer;font-size:13px">✕</button>
-      </div>`
-    : `<div style="border:1px dashed #E8D8C6;border-radius:10px;padding:8px 14px;margin-bottom:6px;font-size:12px;color:#A6937F;cursor:pointer" onclick="promptTodayPriority()">🎯 Set today's one priority…</div>`;
-}
-renderTodayPriority();
+// Today's-one-priority free-text pin used to live here — removed 2026-09-26,
+// consolidated into the "Top Priority" task tier (see TASK_TIERS/getTasks
+// below), which is now the single "one important thing" surface on Home.
 
 function addTaskFromDash() {
   const input    = document.getElementById('dash-task-input');
@@ -4143,8 +4127,9 @@ renderAuditTracker();
 
 // ── UKMLA Revision Plan (day-by-day, from Phil's GMC MLA content-map schedule,
 // pasted 2026-09-25) — the section is a dropdown per day with a checkbox per
-// condition, distinct from the older, unused UKMLA_SYSTEMS/getRevTopicForDate
-// generic tracker below (kept as-is, not wired to this).
+// condition. (An older, generic, never-wired-up revision tracker used to sit
+// below this — UKMLA_SYSTEMS/getRevTopicForDate/rev_schedule_log/etc. — it was
+// dead code from before this plan existed and was removed 2026-09-26.)
 const UKMLA_REVISION_PLAN = [
   {
     "date": "2026-09-25",
@@ -5737,179 +5722,14 @@ renderUkmlaSummary();
 renderUkmlaCatchup();
 
 
-// ── UKMLA Revision Tracker ───────────────────────────────────────────────────
-const UKMLA_SYSTEMS = [
-  { id: 'cardio', title: 'Cardiovascular', conditions: [
-    "Acute coronary syndrome (STEMI/NSTEMI)", "Stable angina", "Heart failure", "Atrial fibrillation",
-    "Supraventricular tachycardia", "Bradyarrhythmias & heart block", "Infective endocarditis",
-    "Aortic aneurysm & dissection", "Peripheral arterial disease", "Hypertension",
-  ]},
-  { id: 'resp', title: 'Respiratory', conditions: [
-    "Asthma", "COPD", "Pneumonia", "Pulmonary embolism", "Pneumothorax", "Pleural effusion",
-    "Lung cancer", "Pulmonary fibrosis", "Bronchiectasis", "Obstructive sleep apnoea",
-  ]},
-  { id: 'gi', title: 'Gastrointestinal & Hepatology', conditions: [
-    "GORD & peptic ulcer disease", "Upper GI bleed", "Inflammatory bowel disease", "Irritable bowel syndrome",
-    "Coeliac disease", "Acute pancreatitis", "Cholecystitis & gallstones", "Cirrhosis & portal hypertension",
-    "Bowel obstruction", "Colorectal cancer",
-  ]},
-  { id: 'renal', title: 'Renal & Urology', conditions: [
-    "Acute kidney injury", "Chronic kidney disease", "Urinary tract infection", "Renal colic & stones",
-    "Benign prostatic hyperplasia", "Prostate cancer", "Glomerulonephritis & nephrotic syndrome",
-    "Testicular torsion", "Urinary incontinence", "Bladder cancer",
-  ]},
-  { id: 'endo', title: 'Endocrine & Metabolic', conditions: [
-    "Type 1 diabetes", "Type 2 diabetes", "DKA & HHS", "Hypothyroidism", "Hyperthyroidism",
-    "Addison's disease", "Cushing's syndrome", "Hyperparathyroidism & calcium disorders",
-    "Osteoporosis", "Electrolyte disturbances",
-  ]},
-  { id: 'neuro', title: 'Neurology', conditions: [
-    "Stroke & TIA", "Epilepsy & seizures", "Headache (migraine, tension, cluster)", "Subarachnoid haemorrhage",
-    "Subdural & extradural haematoma", "Multiple sclerosis", "Parkinson's disease", "Motor neurone disease",
-    "Guillain-Barre syndrome & peripheral neuropathy", "Meningitis & encephalitis",
-  ]},
-  { id: 'mh', title: 'Mental Health', conditions: [
-    "Depression", "Anxiety & generalised anxiety disorder", "Bipolar affective disorder",
-    "Psychosis & schizophrenia", "Self-harm & suicide risk", "Eating disorders", "OCD",
-    "PTSD & acute stress reaction", "Substance misuse & alcohol withdrawal", "Delirium",
-  ]},
-  { id: 'msk', title: 'Musculoskeletal & Rheumatology', conditions: [
-    "Osteoarthritis", "Rheumatoid arthritis", "Gout & pseudogout", "Septic arthritis", "Osteomyelitis",
-    "Polymyalgia rheumatica & giant cell arteritis", "Ankylosing spondylitis & spondyloarthropathies",
-    "Systemic lupus erythematosus", "Mechanical back pain & sciatica", "Common fractures & soft tissue injury",
-  ]},
-  { id: 'derm', title: 'Dermatology', conditions: [
-    "Eczema", "Psoriasis", "Acne vulgaris", "Cellulitis", "Skin cancer (BCC, SCC, melanoma)",
-    "Urticaria & angioedema", "Viral skin infections (HSV, VZV, warts)", "Fungal skin infections",
-    "Venous leg ulcers & pressure sores", "Drug eruptions",
-  ]},
-  { id: 'eye', title: 'Ophthalmology', conditions: [
-    "Acute angle closure glaucoma", "Open angle glaucoma", "Cataract", "Conjunctivitis",
-    "Uveitis & scleritis", "Retinal detachment", "Central retinal artery/vein occlusion",
-    "Diabetic retinopathy & macular degeneration", "Corneal abrasion & ulcer", "Orbital & periorbital cellulitis",
-  ]},
-  { id: 'ent', title: 'ENT', conditions: [
-    "Otitis media & otitis externa", "Tonsillitis & peritonsillar abscess", "Rhinosinusitis & allergic rhinitis",
-    "Epistaxis", "Vertigo & BPPV", "Meniere's disease", "Hearing loss & tinnitus",
-    "Sore throat & laryngitis", "Head & neck cancer", "Neck lumps & lymphadenopathy",
-  ]},
-  { id: 'infect', title: 'Infectious Disease', conditions: [
-    "Sepsis", "COVID-19 & influenza", "Infectious mononucleosis", "Tuberculosis", "HIV",
-    "Malaria & travel infections", "Gastroenteritis", "Chickenpox & shingles", "Viral hepatitis",
-    "Necrotising fasciitis & severe soft tissue infection",
-  ]},
-  { id: 'haem', title: 'Haematology', conditions: [
-    "Iron deficiency anaemia", "B12 & folate deficiency anaemia", "Haemolytic anaemia", "Sickle cell disease",
-    "Leukaemia", "Lymphoma", "Multiple myeloma", "Bleeding disorders (haemophilia, vWD)",
-    "DVT & VTE prophylaxis", "Neutropenic sepsis & myeloproliferative disorders",
-  ]},
-  { id: 'onc', title: 'Oncology & Palliative Care', conditions: [
-    "Breast cancer", "Oesophageal cancer", "Gastric cancer", "Pancreatic cancer", "Primary brain tumours",
-    "Oncological emergencies (cord compression, SVCO, tumour lysis)", "Hypercalcaemia of malignancy",
-    "Palliative symptom control (pain, nausea, breathlessness)", "End of life care & anticipatory medications",
-    "Breaking bad news & bereavement",
-  ]},
-  { id: 'sexhealth', title: 'Sexual Health', conditions: [
-    "Chlamydia & gonorrhoea", "Genital herpes", "Genital warts (HPV)", "Syphilis",
-    "Pelvic inflammatory disease", "Vaginal discharge (BV, candidiasis, trichomoniasis)",
-    "HIV testing, PEP & PrEP", "Contraception counselling", "Erectile dysfunction",
-    "Cervical screening & HPV vaccination",
-  ]},
-  { id: 'obs', title: 'Obstetrics', conditions: [
-    "Normal labour & delivery", "Antepartum haemorrhage (praevia/abruption)", "Postpartum haemorrhage",
-    "Pre-eclampsia & eclampsia", "Gestational diabetes", "Hyperemesis gravidarum",
-    "Miscarriage & ectopic pregnancy", "Preterm labour", "Obstetric cholestasis", "VTE in pregnancy",
-  ]},
-  { id: 'gynae', title: 'Gynaecology', conditions: [
-    "Endometriosis", "Uterine fibroids", "Menorrhagia & abnormal uterine bleeding",
-    "Ovarian cysts & ovarian cancer", "Cervical cancer & abnormal smear", "Endometrial cancer",
-    "Pelvic organ prolapse", "Polycystic ovary syndrome", "Menopause & HRT", "Subfertility",
-  ]},
-  { id: 'paeds', title: 'Paediatrics', conditions: [
-    "Bronchiolitis", "Croup", "Febrile child & febrile convulsions", "Childhood asthma",
-    "Gastroenteritis & dehydration in children", "Neonatal jaundice", "Meningitis & sepsis in children",
-    "Non-accidental injury & safeguarding", "Developmental delay & ADHD/ASD", "Congenital heart disease",
-  ]},
-  { id: 'pharm', title: 'Clinical Pharmacology & Therapeutics', conditions: [
-    "Analgesia & the WHO pain ladder", "Anticoagulation (warfarin, DOACs, heparin)",
-    "Antibiotic prescribing principles", "Insulin & diabetes prescribing", "Steroid prescribing & sick day rules",
-    "Opioid overdose & management", "Paracetamol overdose", "Adverse drug reactions & interactions",
-    "Prescribing in renal/hepatic impairment", "Polypharmacy & deprescribing in the elderly",
-  ]},
-  { id: 'trauma', title: 'Trauma & Emergency Medicine', conditions: [
-    "Major trauma assessment (ATLS/primary survey)", "Head injury & concussion", "Burns management",
-    "Anaphylaxis", "Cardiac arrest & ALS", "Shock (hypovolaemic, septic, cardiogenic)",
-    "Poisoning & overdose (general approach)", "Hypothermia & hyperthermia", "Acute abdomen",
-    "Wound management & tetanus prophylaxis",
-  ]},
-];
-
-
-// ── UKMLA Revision Schedule ───────────────────────────────────────────────────
-const REV_START = new Date('2026-07-26T00:00:00'); // restart from today
-const REV_EXAM  = new Date('2026-11-23T00:00:00'); // real UKMLA AKT date — was a stale placeholder
-
-// Dates excluded from revision (Barcelona trip)
-const REV_EXCL = new Set([
-  '2026-07-29','2026-07-30','2026-07-31',
-  '2026-08-01','2026-08-02','2026-08-03',
-]);
-function isRevExcluded(d) {
-  const k = `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
-  return REV_EXCL.has(k);
-}
-
-// UKMLA daily topics — every non-excluded day cycles through these; weekends = All Topics
-const UKMLA_DAILY_TOPICS = [
-  'Cardiovascular',
-  'Respiratory',
-  'Neurology',
-  'Gastroenterology',
-  'Hepatology & Biliary',
-  'Endocrinology & Diabetes',
-  'Renal & Urology',
-  'Musculoskeletal & Orthopaedics',
-  'Rheumatology',
-  'Dermatology',
-  'Haematology',
-  'Oncology',
-  'Infectious Diseases',
-  'Psychiatry & Mental Health',
-  'Ophthalmology & ENT',
-  'Obstetrics',
-  'Gynaecology',
-  'Paediatrics',
-  'Surgery & Emergency Medicine',
-  'Pharmacology & Ethics',
-];
-const REV_ANKI_TARGET = 100;
-const REV_PM_TARGET   = 25;
-
-// Returns topic for a date. Excluded (Barcelona) days return null.
-// Weekends = 'All Topics'. Weekdays cycle through UKMLA_DAILY_TOPICS,
-// skipping excluded dates so the count doesn't advance during the trip.
-function getRevTopicForDate(d) {
-  if (isRevExcluded(d)) return null; // Off — Barcelona
-  const day = d.getDay();
-  if (day === 0 || day === 6) return 'All Topics';
-  const start = new Date(REV_START);
-  const target = new Date(d); target.setHours(0,0,0,0);
-  let wdCount = 0;
-  const cur = new Date(start);
-  while (cur < target) {
-    if (!isRevExcluded(cur) && cur.getDay() !== 0 && cur.getDay() !== 6) wdCount++;
-    cur.setDate(cur.getDate() + 1);
-  }
-  return UKMLA_DAILY_TOPICS[wdCount % UKMLA_DAILY_TOPICS.length];
-}
-
-function getRevLog() { try { return JSON.parse(localStorage.getItem('rev_schedule_log'))||{}; } catch { return {}; } }
-
-function revCurrentWeekIdx() {
-  const now = new Date(); now.setHours(0,0,0,0);
-  const diff = Math.floor((now - REV_START) / 86400000);
-  return Math.min(Math.max(0, Math.floor(diff / 7)), 5); // 6 weeks: Jul 26 – Aug 31
-}
+// ── UKMLA exam date ──────────────────────────────────────────────────────────
+// The generic 20-system UKMLA_SYSTEMS tracker + getRevTopicForDate/daily-topic
+// rotation + rev_schedule_log adherence tracking that used to live here were
+// dead code (built before Phil's real day-by-day UKMLA_REVISION_PLAN existed,
+// never wired to anything, always read a sync key nothing wrote to) — removed
+// 2026-09-26. REV_EXAM is the one piece still genuinely used, by the exam
+// countdown chip below.
+const REV_EXAM = new Date('2026-11-23T00:00:00'); // real UKMLA AKT date
 
 // ── Training Calendar ───────────────────────────────────────────────────────
 const TRAINING_TEMPLATE = [
@@ -10237,7 +10057,8 @@ function renderWeeklyRollup() {
 // Planner tab) — until those are filled in, computeDailyTrainingLoad() below
 // falls back to the existing Whoop-Strain-based load so charts aren't empty.
 let _plannerZones = null;       // populated by loadPlannerData()
-let _stravaHRZones = null;      // populated by loadStravaHRZones() — Phil's real 5-zone HR boundaries from Strava (needs profile:read_all scope); null until it loads or if unavailable, in which case HR-zone displays fall back to the %-of-threshold estimate below
+let _stravaHRZones = null;      // populated by loadStravaZones() — Phil's real 5-zone HR boundaries from Strava (needs profile:read_all scope); null until it loads or if unavailable, in which case HR-zone displays fall back to the %-of-threshold estimate below
+let _stravaFtpWatts = null;     // populated by loadStravaZones() — FTP estimated from Strava's power zone boundaries (see below); a real manually-entered value in _plannerZones always wins over this estimate, see getEffectiveTSSZones()
 let _plannerHevySessions = null; // populated by loadPlannerHevyHistory() — wider window than the 8-session Session Analysis fetch
 
 function tssFromIF(hours, IF) {
@@ -10280,6 +10101,21 @@ function computeActivityTSS(act, zones) {
   return null;
 }
 
+// The zones actually used for TSS math: a real value Phil (theoretically)
+// entered by hand in _plannerZones always wins, since that's a known number
+// rather than an estimate — Strava's own zone data flags itself as estimated
+// (ftp_is_estimated / sample_race_pace.is_estimated in what the app fetches),
+// so it's the fallback here, not the preferred source like it is for the HR
+// zone displays above. runThresholdSecPerKm and swimThresholdSecPer100m have
+// no Strava-derived equivalent (see loadStravaZones's comment on run pace
+// zones), so those only ever come from _plannerZones.
+function getEffectiveTSSZones() {
+  return {
+    ...( _plannerZones || {} ),
+    ftpWatts: (_plannerZones && _plannerZones.ftpWatts) || _stravaFtpWatts || null,
+  };
+}
+
 // Strength has no pace/power/HR threshold to compare against, so this uses the
 // session-RPE method (duration × RPE) instead, scaled so an hour at RPE 8
 // lands close to 100 — roughly threshold-equivalent — to stay on the same
@@ -10302,8 +10138,9 @@ function computeDailyTrainingLoad(dateStr) {
   const sessions = (_plannerHevySessions || []).filter(s => s.date === dateStr);
 
   let tssTotal = 0, tssCount = 0;
+  const effectiveZones = getEffectiveTSSZones();
   dayActs.forEach(a => {
-    const tss = computeActivityTSS(a, _plannerZones);
+    const tss = computeActivityTSS(a, effectiveZones);
     if (tss != null) { tssTotal += tss; tssCount++; }
   });
   sessions.forEach(s => {
@@ -10721,7 +10558,7 @@ async function main() {
     const tokens = await ensureStravaAuth();
     if (!tokens) return;
 
-    loadStravaHRZones(tokens); // fire-and-forget; syncs Phil's real Strava HR zones, falls back to the threshold-% estimate if unavailable
+    loadStravaZones(tokens); // fire-and-forget; syncs Phil's real Strava HR + power zones, falls back to the existing estimates if unavailable
 
     const acts = await fetchActivities(tokens);
     _acts = acts;
@@ -10839,13 +10676,11 @@ function applySyncUpdates(updated) {
   if (updated.includes('weight_goal')) safe(() => { renderWeightGoalRow(); buildWhoopWeightChart(); });
   if (updated.includes('monthly_km_goal')) safe(() => renderMonthlyGoal(_acts));
   if (updated.includes('pb_log')) safe(buildPBChart);
-  if (updated.includes('rev_schedule_log')) safe(() => { renderDailyBriefing(); if (typeof renderExamCountdown === 'function') renderExamCountdown(); });
   if (updated.includes('tasks_priority')) safe(() => { renderTasks(); if (typeof renderHabits === 'function') renderHabits(); });
   if (updated.includes('shopping_items')) safe(renderShopping);
   if (updated.includes('notes_data')) safe(renderNotes);
   if (updated.includes('cst_grades')) safe(renderCstScorecard);
   if (updated.includes('audit_cycle')) safe(renderAuditTracker);
-  if (updated.includes('today_priority')) safe(renderTodayPriority);
   if (updated.includes('ukmla_progress')) safe(() => { renderUkmlaPlan(); renderUkmlaSummary(); renderUkmlaCatchup(); if (typeof renderExamCountdown === 'function') renderExamCountdown(); });
   // activity_notes intentionally not force-rendered here — it's spread across
   // many per-sport activity lists; it'll pick up the synced value next time
@@ -11370,7 +11205,7 @@ function getHRZoneBounds(lthr) {
 }
 
 // Zones actually shown to Phil: prefers his real Strava-configured HR zones
-// (see loadStravaHRZones) over the %-of-threshold estimate above, so both
+// (see loadStravaZones) over the %-of-threshold estimate above, so both
 // zone-consuming surfaces (breakdown + reference table) automatically switch
 // to real data the moment it's synced, no manual toggle needed.
 const HR_ZONE_LABELS = ['Z1 Recovery', 'Z2 Aerobic', 'Z3 Tempo', 'Z4 Threshold', 'Z5 VO₂'];
@@ -11932,20 +11767,6 @@ function renderExamCountdown() {
   const exam = new Date(REV_EXAM); exam.setHours(0,0,0,0);
   const daysLeft = Math.ceil((exam - now) / 86400000);
 
-  // Revision adherence since REV_START
-  const start = new Date(REV_START); start.setHours(0,0,0,0);
-  const totalDays = Math.max(1, Math.floor((now - start) / 86400000));
-  const log = getRevLog();
-  let doneDays = 0;
-  for (let i = 0; i < totalDays; i++) {
-    const d = new Date(start.getTime() + i * 86400000);
-    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    const entry = log[key];
-    if (entry && (entry.anki > 0 || entry.pm > 0)) doneDays++;
-  }
-  const adherePct = Math.round((doneDays / totalDays) * 100);
-  const adColor = adherePct >= 80 ? '#16a34a' : adherePct >= 60 ? '#d97706' : '#dc2626';
-
   let countdownHtml;
   if (daysLeft <= 0) {
     countdownHtml = `<span style="background:#FBF1E7;color:#7A6656;border-radius:99px;padding:5px 14px;font-size:13px;font-weight:600">🎓 Exam complete!</span>`;
@@ -11956,7 +11777,6 @@ function renderExamCountdown() {
 
   el.innerHTML = `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
     ${countdownHtml}
-    <span style="background:${adColor}18;color:${adColor};border:1px solid ${adColor}44;border-radius:99px;padding:5px 14px;font-size:13px;font-weight:700">✅ ${adherePct}% revision adherence (${doneDays}/${totalDays} days)</span>
   </div>`;
 }
 
