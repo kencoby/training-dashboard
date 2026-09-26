@@ -1393,6 +1393,10 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
     style="width:100%;background:none;border:1.5px solid #F0E1D2;border-radius:10px;padding:10px;font-size:13px;color:#A6937F;cursor:pointer;font-family:inherit">
     🔔 Enable due-date alerts
   </button>
+  <button id="morning-notif-btn" onclick="toggleMorningNotif()"
+    style="width:100%;background:none;border:1.5px solid #F0E1D2;border-radius:10px;padding:10px;font-size:13px;color:#A6937F;cursor:pointer;font-family:inherit">
+    ☀️ Enable morning briefing (7am)
+  </button>
 </div>
 
 </div><!-- /tab-planner -->
@@ -2258,7 +2262,6 @@ function buildDistChart(acts) {
 
 // ── Cross-device sync (Netlify Blobs) ───────────────────────────────────────
 const SYNC_KEYS = [
-  'todo_items',
   'signoff_mandatory', 'signoff_sa67', 'signoff_clinical', 'signoff_ja1', 'signoff_ja2', 'signoff_ja3',
   'gcal_events',
   'calendar_overrides',
@@ -2330,46 +2333,8 @@ async function syncAll() {
   return updated.filter(Boolean);
 }
 
-// ── To-Do & Daily Habits ─────────────────────────────────────────────────────
+// ── Shared helpers ────────────────────────────────────────────────────────────
 const escHtml = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-
-function getTodos() {
-  try { return JSON.parse(localStorage.getItem('todo_items')) || []; } catch { return []; }
-}
-function saveTodos(items) {
-  localStorage.setItem('todo_items', JSON.stringify(items));
-  syncPush('todo_items', items);
-}
-function renderTodos() {
-  const items = [...getTodos()].sort((a,b)=>a.done-b.done);
-  setH('todo-list', items.length ? items.map((t,i)=>`
-    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;${i<items.length-1?'border-bottom:1px solid #FAF3EC;':''}${t.done?'opacity:0.4':''}">
-      <input type="checkbox" ${t.done?'checked':''} onchange="toggleTodo('${t.id}')" style="cursor:pointer;flex-shrink:0"/>
-      <span style="flex:1;font-size:13px;${t.done?'text-decoration:line-through':''}">${escHtml(t.text)}</span>
-      <button onclick="deleteTodo('${t.id}')" style="background:none;border:none;color:#ccc;cursor:pointer;font-size:13px;padding:0;flex-shrink:0">✕</button>
-    </div>`).join('') : '<div style="color:#bbb;padding:10px 0;font-size:13px">No tasks yet.</div>');
-}
-function addTodo() {
-  const input = document.getElementById('todo-input');
-  const text = input.value.trim();
-  if (!text) return;
-  const items = getTodos();
-  items.push({ id: 't'+Date.now(), text, done: false });
-  saveTodos(items);
-  input.value = '';
-  renderTodos();
-}
-function toggleTodo(id) {
-  const items = getTodos();
-  const item = items.find(t=>t.id===id);
-  if (item) item.done = !item.done;
-  saveTodos(items);
-  renderTodos();
-}
-function deleteTodo(id) {
-  saveTodos(getTodos().filter(t=>t.id!==id));
-  renderTodos();
-}
 
 // ── Priority Tasks ────────────────────────────────────────────────────────────
 const TASK_TIERS = ['top', 'critical', 'ondeck', 'someday', 'dashboard'];
@@ -3463,7 +3428,17 @@ function renderWakeTimes() {
     const t = new Date(sleepData.sleepStart);
     if (!isNaN(t)) { bedHH = t.getHours(); bedMM = t.getMinutes(); }
   }
-  if (bedHH === null) { el.innerHTML = ''; return; }
+  if (bedHH === null) {
+    el.innerHTML = `<div style="padding:8px 0;border-top:1px solid #FAF3EC">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:#A6937F;font-weight:700;margin-bottom:6px">⏰ Wake times</div>
+      <a href="javascript:void(0)" onclick="document.getElementById('bedtime-override-form').style.display='flex'" style="font-size:10px;color:#A6937F">Set bedtime manually</a>
+      <div id="bedtime-override-form" style="display:none;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap">
+        <input id="bedtime-override-input" type="time" value="22:30" style="border:1px solid #F0E1D2;border-radius:6px;padding:4px 6px;font-size:12px">
+        <button onclick="saveBedtime(document.getElementById('bedtime-override-input').value)" style="background:#6366f1;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer">Save</button>
+      </div>
+    </div>`;
+    return;
+  }
   const times = computeWakeTimes(bedHH, bedMM);
   const bedStr = `${String(bedHH).padStart(2,'0')}:${String(bedMM).padStart(2,'0')}`;
   el.innerHTML = `<div style="padding:8px 0;border-top:1px solid #FAF3EC">
@@ -3476,7 +3451,13 @@ function renderWakeTimes() {
         return `<span style="background:${best?'#f0fdf4':'#FFFBF6'};border:1px solid ${best?'#6b9e7a':'#F0E1D2'};border-radius:8px;padding:4px 8px;font-size:12px;font-weight:700;color:${best?'#6b9e7a':'#4A3B2E'}">${hh}:${mm}<span style="font-weight:400;font-size:10px;color:#A6937F;margin-left:3px">${t.h}h</span></span>`;
       }).join('')}
     </div>
-    ${override ? `<button onclick="clearBedtime()" style="font-size:10px;color:#A6937F;background:none;border:none;cursor:pointer;padding:0">Change bedtime</button>` : ''}
+    ${override
+      ? `<button onclick="clearBedtime()" style="font-size:10px;color:#A6937F;background:none;border:none;cursor:pointer;padding:0">Change bedtime</button>`
+      : `<a href="javascript:void(0)" onclick="document.getElementById('bedtime-override-form').style.display='flex'" style="font-size:10px;color:#A6937F">Set bedtime manually</a>`}
+    <div id="bedtime-override-form" style="display:none;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap">
+      <input id="bedtime-override-input" type="time" value="${bedStr}" style="border:1px solid #F0E1D2;border-radius:6px;padding:4px 6px;font-size:12px">
+      <button onclick="saveBedtime(document.getElementById('bedtime-override-input').value)" style="background:#6366f1;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer">Save</button>
+    </div>
   </div>`;
 }
 function saveBedtime(val) {
@@ -7715,7 +7696,7 @@ function set5kPbOverride(minStr, secStr, dateStr) {
   const m = parseInt(minStr, 10), s = parseInt(secStr || '0', 10);
   if (isNaN(m) || m < 0) return;
   const sec = m * 60 + (isNaN(s) ? 0 : s);
-  localStorage.setItem('run_5k_pb_override', JSON.stringify({ time: sec, date: dateStr || todayStr() }));
+  localStorage.setItem('run_5k_pb_override', JSON.stringify({ time: sec, date: dateStr || new Date().toLocaleDateString('en-CA') }));
   renderRunningPBs(_acts);
 }
 function clear5kPbOverride() {
@@ -7754,7 +7735,19 @@ function renderRunningPBs(acts) {
       <span style="flex:0 0 130px">Distance</span>
       <span style="flex:1;text-align:right">All-time PB</span>
       <span style="flex:1;text-align:right;margin-left:18px">Last 3mo PB</span>
-    </div>${rows}`);
+    </div>${rows}
+    <div style="margin-top:8px;padding-top:8px;border-top:1px solid #FAF3EC;font-size:11px;color:#A6937F">
+      ${ov
+        ? `Manual 5km PB: <strong>${fmtRaceTime(ov.time)}</strong> (${fmtDate(ov.date)}) <button onclick="clear5kPbOverride()" style="background:none;border:none;color:#A6937F;text-decoration:underline;cursor:pointer;font-size:11px;padding:0;margin-left:6px">Clear</button>`
+        : `<a href="javascript:void(0)" onclick="document.getElementById('pb-override-form').style.display='flex'" style="color:#A6937F">Set 5km PB manually</a>`}
+      <div id="pb-override-form" style="display:none;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap">
+        <input id="pb-override-min" type="number" min="0" placeholder="min" style="width:50px;border:1px solid #F0E1D2;border-radius:6px;padding:4px 6px;font-size:12px">
+        <span>:</span>
+        <input id="pb-override-sec" type="number" min="0" max="59" placeholder="sec" style="width:50px;border:1px solid #F0E1D2;border-radius:6px;padding:4px 6px;font-size:12px">
+        <input id="pb-override-date" type="date" value="${new Date().toLocaleDateString('en-CA')}" style="border:1px solid #F0E1D2;border-radius:6px;padding:4px 6px;font-size:12px">
+        <button onclick="set5kPbOverride(document.getElementById('pb-override-min').value, document.getElementById('pb-override-sec').value, document.getElementById('pb-override-date').value)" style="background:#6366f1;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer">Save</button>
+      </div>
+    </div>`);
 
   const fiveK = data.dists.find(d => d.label === '5km');
   if (!fiveK || !fiveK.allTime) {
@@ -10635,7 +10628,6 @@ async function main() {
       pendingCharts['train-swimming'] = () => { renderSwim(acts); buildSwimPace(acts); };
     }
 
-    renderTodos();
     recomputeAllStreaks(); // Strava activities (cardio/strength) just arrived — stale streaks were computed before _acts existed
     renderHabits();
     renderHomeGoals();
@@ -10655,7 +10647,6 @@ main();
 // ── Pull sync data on load (and on tab refocus) and re-render if remote is newer ──
 function applySyncUpdates(updated) {
   const safe = fn => { try { fn(); } catch (e) { console.warn('sync re-render failed', e); } };
-  if (updated.includes('todo_items')) safe(renderTodos);
   if (updated.some(k => k.startsWith('signoff_'))) safe(renderAccordions);
   if (updated.includes('gcal_events')) safe(() => {
     try { gcalEvents = JSON.parse(localStorage.getItem('gcal_events')) || []; } catch {}
@@ -11800,13 +11791,27 @@ function scheduleMorningNotif() {
     if (perm !== 'granted') { alert('Notification permission denied.'); return; }
     localStorage.setItem('morning_notif', '1');
     _doMorningNotifLoop();
+    renderMorningNotifBtn();
     alert('Morning briefing notifications enabled — you\'ll get a 7:00 AM reminder daily.');
   });
 }
 
 function disableMorningNotif() {
   localStorage.removeItem('morning_notif');
+  renderMorningNotifBtn();
   alert('Morning notifications disabled.');
+}
+
+function toggleMorningNotif() {
+  if (localStorage.getItem('morning_notif') === '1') disableMorningNotif();
+  else scheduleMorningNotif();
+}
+
+function renderMorningNotifBtn() {
+  const btn = document.getElementById('morning-notif-btn');
+  if (!btn) return;
+  const on = localStorage.getItem('morning_notif') === '1';
+  btn.textContent = on ? '🔕 Disable morning briefing (7am)' : '☀️ Enable morning briefing (7am)';
 }
 
 function _doMorningNotifLoop() {
@@ -11829,6 +11834,7 @@ function _doMorningNotifLoop() {
 }
 
 if (localStorage.getItem('morning_notif') === '1') _doMorningNotifLoop();
+renderMorningNotifBtn();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TASK #30 — Activity Notes Search
