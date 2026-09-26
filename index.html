@@ -264,12 +264,13 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
     <!-- Tasks card -->
     <div class="card" style="padding:14px;flex-shrink:0">
-      <div class="lbl" style="margin-bottom:8px">🔴 Critical Tasks</div>
+      <div class="lbl" style="margin-bottom:8px">🎯 Top Priority</div>
       <div id="dash-tasks-list"></div>
       <div style="display:flex;gap:5px;margin-top:8px">
         <select id="dash-task-priority" style="border:1px solid #F0E1D2;border-radius:8px;padding:5px 3px;font-size:12px;font-family:inherit;background:#fff;color:#4A3B2E;flex-shrink:0">
+          <option value="top" selected>🎯</option>
           <option value="critical">🔴</option>
-          <option value="ondeck" selected>🟡</option>
+          <option value="ondeck">🟡</option>
           <option value="someday">⚫</option>
           <option value="dashboard">🟣</option>
         </select>
@@ -944,7 +945,7 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
     <button class="sub-tab-btn active" data-subtab="med-signoffs">Signoffs</button>
     <button class="sub-tab-btn" data-subtab="med-assessments">Assessment Info</button>
     <button class="sub-tab-btn" data-subtab="med-calculators">Calculators</button>
-    <button class="sub-tab-btn" data-subtab="med-st1">ST1 &amp; Audit</button>
+    <button class="sub-tab-btn" data-subtab="med-st1">CST &amp; Audit</button>
   <button class="sub-tab-btn" data-subtab="med-ukmla">UKMLA</button>
   </nav>
 
@@ -1277,6 +1278,27 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 <div id="planner-annual" style="display:none"></div>
 <div id="planner-zones-form" style="display:none"></div>
 <div id="planner-week-label" style="display:none"></div>
+
+<!-- TOP PRIORITY (capped at one active task — the only thing shown on the Home dashboard card) -->
+<div class="section">
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+  <div style="width:10px;height:10px;border-radius:50%;background:#B0700A;flex-shrink:0"></div>
+  <div style="flex:1">
+    <div style="font-size:15px;font-weight:700">🎯 Top Priority</div>
+    <div style="font-size:11px;color:#A6937F">The one thing that matters most today — only one at a time</div>
+  </div>
+  <span id="tasks-count-top" style="background:#FFEFC2;color:#B0700A;border-radius:99px;padding:2px 9px;font-size:11px;font-weight:700;min-width:20px;text-align:center"></span>
+</div>
+<div class="card" style="padding:4px 14px 10px">
+  <div id="tasks-list-top"></div>
+  <div style="display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid #FAF3EC">
+    <input id="tasks-input-top" type="text" placeholder="What's the one thing today?"
+      onkeydown="if(event.key==='Enter')addTask('top')"
+      style="flex:1;border:1.5px solid #F0C766;border-radius:8px;padding:7px 10px;font-size:13px;outline:none;font-family:inherit">
+    <button onclick="addTask('top')" style="background:#B0700A;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:16px;font-weight:700;cursor:pointer;line-height:1">+</button>
+  </div>
+</div>
+</div>
 
 <!-- CRITICAL -->
 <div class="section">
@@ -2305,24 +2327,46 @@ function deleteTodo(id) {
 }
 
 // ── Priority Tasks ────────────────────────────────────────────────────────────
-const TASK_TIERS = ['critical', 'ondeck', 'someday', 'dashboard'];
+const TASK_TIERS = ['top', 'critical', 'ondeck', 'someday', 'dashboard'];
 // Grayscale-by-urgency instead of a four-hue system — red reserved for the
 // one tier that's genuinely time-critical, everything else reads by weight.
-const TASK_TIER_COLORS = { critical: 'var(--danger)', ondeck: 'var(--text)', someday: 'var(--text-muted)', dashboard: 'var(--text-faint)' };
-const TASK_TIER_ACCENTS = { critical: '#fca5a5', ondeck: '#fcd34d', someday: '#E8D8C6', dashboard: '#c7d2fe' };
+// 'top' is capped at a single active task (see _addTaskItem/moveTask) — it's
+// the one thing shown on the Home dashboard card instead of the old
+// top-3-critical-tasks list.
+const TASK_TIER_COLORS = { top: 'var(--lavender-text)', critical: 'var(--danger)', ondeck: 'var(--text)', someday: 'var(--text-muted)', dashboard: 'var(--text-faint)' };
+const TASK_TIER_ACCENTS = { top: '#F0C766', critical: '#fca5a5', ondeck: '#fcd34d', someday: '#E8D8C6', dashboard: '#c7d2fe' };
 
 function getTasks() { try { return JSON.parse(localStorage.getItem('tasks_priority'))||[]; } catch { return []; } }
 function saveTasks(items) { localStorage.setItem('tasks_priority', JSON.stringify(items)); syncPush('tasks_priority', items); }
+
+// Shared by addTask() and addTaskFromDash() so the "only one active top
+// task" rule can't be bypassed by adding from the Home quick-add widget.
+// For every other tier this is just a normal push.
+function _addTaskItem(items, text, priority) {
+  if (priority === 'top') {
+    const existing = items.find(t => t.priority === 'top' && !t.done);
+    if (existing) { existing.text = text; existing.createdAt = new Date().toISOString(); return; }
+  }
+  items.push({ id: 'tk'+Date.now(), text, priority, done: false, createdAt: new Date().toISOString() });
+}
 
 function addTask(priority) {
   const input = document.getElementById(`tasks-input-${priority}`);
   const text = (input?.value||'').trim();
   if (!text) return;
   const items = getTasks();
-  items.push({ id: 'tk'+Date.now(), text, priority, done: false, createdAt: new Date().toISOString() });
+  _addTaskItem(items, text, priority);
   saveTasks(items);
   if (input) input.value = '';
   renderTasks();
+}
+
+// Most-recently-created 'top' task, regardless of done state — used to drive
+// the Home dashboard card and the "Top priority" habit-list row.
+function getCurrentTopTask() {
+  const tops = getTasks().filter(t => t.priority === 'top');
+  if (!tops.length) return null;
+  return tops.slice().sort((a, b) => (a.createdAt||'').localeCompare(b.createdAt||'')).pop();
 }
 
 function toggleTask(id) {
@@ -2347,7 +2391,14 @@ function moveTask(id, dir) {
   const t = items.find(t => t.id === id);
   if (!t) return;
   const idx = TASK_TIERS.indexOf(t.priority);
-  t.priority = TASK_TIERS[Math.max(0, Math.min(TASK_TIERS.length - 1, idx + dir))];
+  const newPriority = TASK_TIERS[Math.max(0, Math.min(TASK_TIERS.length - 1, idx + dir))];
+  if (newPriority === 'top') {
+    // Escalating a task into 'top' via the ↑ button is still subject to the
+    // one-active-task cap — bump whatever's already there back to Critical.
+    const existing = items.find(x => x.id !== id && x.priority === 'top' && !x.done);
+    if (existing) existing.priority = 'critical';
+  }
+  t.priority = newPriority;
   saveTasks(items);
   renderTasks();
 }
@@ -2792,9 +2843,9 @@ function addTaskFromDash() {
   const prioEl   = document.getElementById('dash-task-priority');
   const text     = (input?.value || '').trim();
   if (!text) return;
-  const priority = prioEl?.value || 'ondeck';
+  const priority = prioEl?.value || 'top';
   const items    = getTasks();
-  items.push({ id: 'tk' + Date.now(), text, priority, done: false, createdAt: new Date().toISOString() });
+  _addTaskItem(items, text, priority);
   saveTasks(items);
   if (input) input.value = '';
   renderDashTasks();
@@ -2824,32 +2875,23 @@ function renderDashTasks() {
   // Update the full task list in the Tasks tab
   const el = document.getElementById('dash-tasks-list');
   if (!el) return;
-  // Show top 3 critical tasks only, ordered by due date (same as Tasks tab)
-  const allOpen = getTasks().filter(t => !t.done);
-  const open = allOpen.filter(t => t.priority === 'critical');
-  const sorted = [...open].sort((a, b) => {
-    if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
-    if (a.dueDate) return -1;
-    if (b.dueDate) return 1;
-    return 0;
-  });
-  const shown = sorted.slice(0, 3);
-  const overflow = sorted.length - shown.length;
-  if (!shown.length) {
-    el.innerHTML = `<div style="color:#bbb;padding:8px 0;font-size:13px">All clear ✓</div>`;
+  // 'top' is capped at one active task — this card just shows that one task
+  // (replaces the old top-3-critical-tasks list).
+  const t = getCurrentTopTask();
+  if (!t || t.done) {
+    el.innerHTML = `<div style="color:#bbb;padding:8px 0;font-size:13px">Set your top priority below ↓</div>`;
     return;
   }
-  el.innerHTML = shown.map((t, i) => `
-    <div style="display:flex;align-items:center;gap:8px;padding:7px 0;${i < shown.length - 1 ? 'border-bottom:1px solid #FAF3EC' : ''}">
-      <span style="width:8px;height:8px;border-radius:50%;background:${TASK_TIER_COLORS[t.priority]};flex-shrink:0"></span>
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 0">
+      <span style="width:8px;height:8px;border-radius:50%;background:${TASK_TIER_COLORS.top};flex-shrink:0"></span>
       <div style="flex:1;min-width:0">
         <div style="font-size:13px">${escHtml(t.text)}</div>
         ${(t.subtasks||[]).length ? `<div style="font-size:11px;color:#A6937F;margin-top:1px">${(t.subtasks||[]).filter(s=>s.done).length}/${(t.subtasks||[]).length} subtasks</div>` : ''}
       </div>
-      <input type="checkbox" onclick="toggleTask('${t.id}');setTimeout(()=>{renderDashTasks();renderTasks();},50)"
-        style="width:15px;height:15px;cursor:pointer;flex-shrink:0;accent-color:${TASK_TIER_COLORS[t.priority]}">
-    </div>`).join('') +
-    (overflow > 0 ? `<div style="font-size:11px;color:#bbb;margin-top:6px;cursor:pointer" onclick="switchTab('planner')">+${overflow} more → Tasks</div>` : '');
+      <input type="checkbox" onclick="toggleTask('${t.id}');setTimeout(()=>{renderDashTasks();renderTasks();renderHabits();},50)"
+        style="width:15px;height:15px;cursor:pointer;flex-shrink:0;accent-color:${TASK_TIER_COLORS.top}">
+    </div>`;
 }
 
 function renderTasks() {
@@ -2901,7 +2943,7 @@ function renderTasks() {
           ${subBadge}
           ${taskDueDateChip(t)}
           ${pi > 0 ? `<button onclick="moveTask('${t.id}',-1)" title="Escalate" style="background:none;border:none;cursor:pointer;color:#A6937F;font-size:14px;padding:2px 3px;line-height:1">↑</button>` : ''}
-          ${pi < 2 ? `<button onclick="moveTask('${t.id}',1)" title="Defer" style="background:none;border:none;cursor:pointer;color:#A6937F;font-size:14px;padding:2px 3px;line-height:1">↓</button>` : ''}
+          ${pi < 3 ? `<button onclick="moveTask('${t.id}',1)" title="Defer" style="background:none;border:none;cursor:pointer;color:#A6937F;font-size:14px;padding:2px 3px;line-height:1">↓</button>` : ''}
           <span style="position:relative;display:inline-flex;align-items:center">
             <button onclick="openTaskDatePicker('${t.id}')" title="Set due date" style="background:none;border:none;cursor:pointer;color:#A6937F;font-size:12px;padding:2px 3px;line-height:1">📅</button>
             <input type="date" id="task-date-${t.id}" value="${t.dueDate||''}" onchange="setTaskDueDate('${t.id}',this.value)" style="position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;border:none;padding:0">
@@ -3030,21 +3072,21 @@ function reorderTask(srcId, dstId, priority) {
 // Grouped for display (see HABIT_GROUP_ORDER in renderHabits) — group is purely
 // cosmetic, doesn't affect storage/streak keys, so re-grouping is always safe.
 const DAILY_HABITS = [
+  { id: 'h-top-priority', label: 'Top priority', auto: 'top-task',    group: 'Tracked automatically' },
   { id: 'h-cardio',    label: 'Cardio',   auto: 'strava-cardio',   group: 'Tracked automatically' },
   { id: 'h-strength',  label: 'Strength', auto: 'strava-strength', group: 'Tracked automatically' },
   { id: 'h-steps',     label: '10,000 steps', auto: 'steps',       group: 'Tracked automatically' },
   { id: 'h-sleep',     label: '8h sleep',     auto: 'sleep',       group: 'Tracked automatically' },
   { id: 'h-weight',    label: 'Weigh in',     auto: 'weight',      group: 'Tracked automatically' },
+  { id: 'h-calories',  label: 'Calories logged', auto: 'health-calories', group: 'Tracked automatically' },
   { id: 'h-anki-100',       label: '100 Anki cards',   group: 'Study' },
   { id: 'h-passmed-50',     label: '50 PassMed Qs',    group: 'Study' },
   { id: 'h-osce-2',         label: '2 OSCE prep',      group: 'Study' },
-  { id: 'h-driving-theory', label: 'Driving/Theory',   group: 'Study' },
   { id: 'h-journal',   label: 'Journal',   group: 'Wellness' },
   { id: 'h-read',      label: 'Read',      group: 'Wellness' },
   { id: 'h-water-3l',  label: '3L water',  group: 'Wellness' },
   { id: 'h-skincare-am', label: 'Skin care AM', group: 'Personal care' },
   { id: 'h-creatine',    label: 'Creatine',     group: 'Personal care' },
-  { id: 'h-minoxidil',   label: 'Minoxidil',    group: 'Personal care' },
   { id: 'h-iron',        label: 'Iron tablet',  group: 'Personal care' },
   { id: 'h-skincare-pm', label: 'Skin care PM', group: 'Personal care' },
   { id: 'h-water-plants', label: 'Checked plants', group: 'Home' },
@@ -3159,12 +3201,25 @@ function getAutoHabitStateOnDate(dateStr) {
   const CARDIO_TYPES = new Set(['Run', 'Ride', 'Swim', 'Walk', 'Hike']);
   const hasCardio   = actsOnDate.some(a => CARDIO_TYPES.has(a.sport_type));
   const hasStrength = actsOnDate.some(a => a.sport_type === 'WeightTraining');
+  // Apple Health dietary_energy intake for the day — same metric the Calorie
+  // Intake / Calorie Balance cards read, just surfaced as a habit tick too.
+  const caloriesLogged = tryHealth('dietary_energy') != null;
+  // 'top' priority task has no per-date history — only meaningful for today,
+  // based on whichever 'top' task was most recently created.
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  let topDone = false;
+  if (dateStr === todayStr && typeof getCurrentTopTask === 'function') {
+    const latestTop = getTasks().filter(t => t.priority === 'top').sort((a, b) => (a.createdAt||'').localeCompare(b.createdAt||'')).pop();
+    topDone = !!(latestTop && latestTop.done);
+  }
   return {
     'h-steps':    steps  != null && steps  >= 10000,
     'h-sleep':    sleep  != null && sleep.totalSleep >= 8,
     'h-weight':   weight != null || loggedWeight,
     'h-cardio':   hasCardio,
     'h-strength': hasStrength,
+    'h-calories': caloriesLogged,
+    'h-top-priority': topDone,
   };
 }
 function getAutoHabitState() {
@@ -3185,6 +3240,14 @@ function renderHabits() {
   const currentSteps = (typeof _healthValueOnDate === 'function')
     ? (_healthValueOnDate('step_count', today) ?? _healthValueOnDate('steps', today) ?? _healthValueOnDate('step_count_total', today))
     : null;
+
+  // Today's calorie intake (kJ from Apple Health, converted to kcal), for the
+  // faint note next to "Calories logged" — same metric as the Calorie Intake card.
+  const currentCaloriesKj = (typeof _healthValueOnDate === 'function') ? _healthValueOnDate('dietary_energy', today) : null;
+  const currentCaloriesKcal = (currentCaloriesKj != null && typeof _kjToKcal === 'function') ? Math.round(_kjToKcal(currentCaloriesKj)) : null;
+
+  // Current top-priority task text, for the faint note next to "Top priority"
+  const currentTopTask = (typeof getCurrentTopTask === 'function') ? getCurrentTopTask() : null;
 
   // Grouped by HABIT_GROUP_ORDER (see DAILY_HABITS) so the list reads as
   // sections — auto-tracked first, then Study/Wellness/Personal care/Home —
@@ -3213,6 +3276,10 @@ function renderHabits() {
     const streakLabel = streakCount >= 2 ? `<span style="font-size:10px;color:var(--accent-text);margin-left:4px">🔥${streakCount}</span>` : '';
     const stepsProgress = (h.id === 'h-steps' && currentSteps != null)
       ? `<span style="font-size:11px;color:var(--text-faint);margin-left:5px">${Math.round(currentSteps).toLocaleString()} / 10,000</span>` : '';
+    const caloriesProgress = (h.id === 'h-calories' && currentCaloriesKcal != null)
+      ? `<span style="font-size:11px;color:var(--text-faint);margin-left:5px">${currentCaloriesKcal.toLocaleString()} kcal</span>` : '';
+    const topTaskNote = (h.id === 'h-top-priority' && currentTopTask)
+      ? `<span style="font-size:11px;color:var(--text-faint);margin-left:5px">— ${escHtml(currentTopTask.text)}</span>` : '';
     const isNewGroup = h.group !== lastGroup;
     const headerHtml = isNewGroup
       ? `<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-faint);font-weight:700;${lastGroup===null?'':'margin-top:12px;'}margin-bottom:2px">${h.group}</div>`
@@ -3221,7 +3288,7 @@ function renderHabits() {
     const sameGroupNext = i < ordered.length - 1 && ordered[i+1].group === h.group;
     return `${headerHtml}<div style="display:flex;align-items:center;gap:10px;padding:8px 0;${sameGroupNext?'border-bottom:1px solid var(--border-soft);':''}${isDone?'opacity:0.45':''}">
       <input type="checkbox" ${isDone?'checked':''} onchange="toggleHabit('${h.id}')" style="cursor:pointer;flex-shrink:0;accent-color:var(--accent)"/>
-      <span style="flex:1;font-size:13px;${isDone?'text-decoration:line-through;color:var(--text-faint)':''}">${h.label}${stepsProgress}${syncedLabel}${missLabel}${streakLabel}</span>
+      <span style="flex:1;font-size:13px;${isDone?'text-decoration:line-through;color:var(--text-faint)':''}">${h.label}${stepsProgress}${caloriesProgress}${topTaskNote}${syncedLabel}${missLabel}${streakLabel}</span>
     </div>`;
   }).join(''));
   renderTrainingTodo();
@@ -10740,7 +10807,7 @@ function applySyncUpdates(updated) {
   if (updated.includes('monthly_km_goal')) safe(() => renderMonthlyGoal(_acts));
   if (updated.includes('pb_log')) safe(buildPBChart);
   if (updated.includes('rev_schedule_log')) safe(() => { renderDailyBriefing(); if (typeof renderExamCountdown === 'function') renderExamCountdown(); });
-  if (updated.includes('tasks_priority')) safe(renderTasks);
+  if (updated.includes('tasks_priority')) safe(() => { renderTasks(); if (typeof renderHabits === 'function') renderHabits(); });
   if (updated.includes('shopping_items')) safe(renderShopping);
   if (updated.includes('notes_data')) safe(renderNotes);
   if (updated.includes('cst_grades')) safe(renderCstScorecard);
