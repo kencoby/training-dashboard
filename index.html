@@ -823,6 +823,14 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 <div class="g4" id="pb-cards"></div>
 </div>
 
+<!-- §7a HEART RATE ZONES (reference table, from threshold HR) -->
+<div class="section">
+<div class="card">
+  <div class="lbl">Your Heart Rate Zones</div>
+  <div id="run-hr-zones"></div>
+</div>
+</div>
+
 <!-- §7b RUN PBs / SUB-19 5KM CLUB -->
 <div class="section">
 <h2>Run PBs <span style="font-size:11px;font-weight:600;color:#aaa;text-transform:none;letter-spacing:0">· auto from Strava</span></h2>
@@ -7202,6 +7210,9 @@ async function loadPlannerData() {
   if (typeof renderPlannerCalendar === 'function') renderPlannerCalendar();
   if (typeof renderPlannerZonesForm === 'function') renderPlannerZonesForm();
   if (typeof renderAnnualPlan === 'function') renderAnnualPlan();
+  // Zones may have just arrived after the Running page already rendered with
+  // the default threshold HR — refresh its zone table now that they're real.
+  if (typeof renderRunHRZones === 'function') renderRunHRZones();
 }
 
 async function loadPlannerHevyHistory() {
@@ -10745,8 +10756,9 @@ async function main() {
       renderRunList(acts);
       buildPBChart();
       renderRunningPBs(acts);
+      renderRunHRZones();
     } else {
-      pendingCharts['train-running'] = () => { renderPBs(); buildPaceChart(acts); renderRunList(acts); buildPBChart(); renderRunningPBs(acts); };
+      pendingCharts['train-running'] = () => { renderPBs(); buildPaceChart(acts); renderRunList(acts); buildPBChart(); renderRunningPBs(acts); renderRunHRZones(); };
     }
 
     if (initialised['train-cycling']) {
@@ -11319,17 +11331,25 @@ function renderLoadForecast() {
 // ═══════════════════════════════════════════════════════════════════════════
 // TASK 12 — HR Zone Breakdown (added to renderFitnessSubTab)
 // ═══════════════════════════════════════════════════════════════════════════
+// Standard 5-zone %-of-threshold-HR model, shared by the Whoop Fitness tab's
+// "HR Zone Distribution" breakdown below and the Running page's zone
+// reference table (renderRunHRZones) — one definition so the two stay
+// in sync if the percentages or labels ever change.
+function getHRZoneBounds(lthr) {
+  return [
+    { label: 'Z1 Recovery',  min: 0,            max: lthr * 0.75, color: '#6b9e7a' },
+    { label: 'Z2 Aerobic',   min: lthr * 0.75,  max: lthr * 0.83, color: '#84cc16' },
+    { label: 'Z3 Tempo',     min: lthr * 0.83,  max: lthr * 0.91, color: '#f59e0b' },
+    { label: 'Z4 Threshold', min: lthr * 0.91,  max: lthr * 0.97, color: '#f97316' },
+    { label: 'Z5 VO₂',      min: lthr * 0.97,  max: Infinity,    color: '#ef4444' },
+  ];
+}
+
 function renderHRZoneBreakdown() {
   const el = document.getElementById('whoop-cardio-focus');
   if (!el) return;
   const lthr = (_plannerZones && _plannerZones.thresholdHR) || 170;
-  const zones = [
-    { label: 'Z1 Recovery',  max: lthr * 0.75, color: '#6b9e7a' },
-    { label: 'Z2 Aerobic',   max: lthr * 0.83, color: '#84cc16' },
-    { label: 'Z3 Tempo',     max: lthr * 0.91, color: '#f59e0b' },
-    { label: 'Z4 Threshold', max: lthr * 0.97, color: '#f97316' },
-    { label: 'Z5 VO₂',      max: Infinity,     color: '#ef4444' },
-  ];
+  const zones = getHRZoneBounds(lthr);
   const now = Date.now(), day = 864e5;
   const last30 = (_acts || []).filter(a => (now - new Date(a.start_local)) < 30 * day);
   const zoneMins = [0, 0, 0, 0, 0];
@@ -11363,6 +11383,31 @@ function renderHRZoneBreakdown() {
     }).join('')}
   </div>`;
   el.innerHTML = existing + zoneHtml;
+}
+
+// Running page — simple reference table of Phil's current bpm ranges per
+// zone (Recovery/Aerobic/Tempo/Threshold/VO₂), using the same %-of-threshold
+// model as the breakdown above. This is a static reference, not a
+// time-in-zone chart — that already exists as buildHRZones() on the Training
+// Overview sub-tab and stays untouched.
+function renderRunHRZones() {
+  const lthr = (_plannerZones && _plannerZones.thresholdHR) || null;
+  const displayLthr = lthr || 170;
+  const zones = getHRZoneBounds(displayLthr);
+  const rows = zones.map(z => {
+    const lo = Math.round(z.min);
+    const hi = Number.isFinite(z.max) ? Math.round(z.max) : null;
+    const rangeStr = hi != null ? `${lo}–${hi} bpm` : `${lo}+ bpm`;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #FAF3EC">
+      <span style="width:10px;height:10px;border-radius:50%;background:${z.color};flex-shrink:0"></span>
+      <span style="flex:1;font-size:13px;font-weight:600">${z.label}</span>
+      <span style="font-size:13px;color:#888">${rangeStr}</span>
+    </div>`;
+  }).join('');
+  const note = lthr
+    ? `<div class="sub" style="margin-top:8px">Based on your threshold HR of ${displayLthr} bpm.</div>`
+    : `<div class="sub" style="margin-top:8px;font-style:italic">No threshold HR on file yet — showing zones for a default of ${displayLthr} bpm until one is set.</div>`;
+  setH('run-hr-zones', rows + note);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
