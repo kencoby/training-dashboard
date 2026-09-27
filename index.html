@@ -557,7 +557,6 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
   <button class="sub-tab-btn" data-subtab="train-cycling">Cycling</button>
   <button class="sub-tab-btn" data-subtab="train-swimming">Swimming</button>
   <button class="sub-tab-btn" data-subtab="train-other">Other</button>
-  <button class="sub-tab-btn" data-subtab="train-shoes">👟 Shoes</button>
 </nav>
 
 <div class="sub-tab-pane active" id="sub-tab-train-overview">
@@ -915,22 +914,6 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 </div>
 
 </div><!-- /sub-tab-train-other -->
-
-<!-- SHOE TRACKER -->
-<div class="sub-tab-pane" id="sub-tab-train-shoes">
-<div class="section">
-<h2>👟 Shoe Mileage</h2>
-<div class="card" style="padding:14px;margin-bottom:12px">
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-    <input id="shoe-name-input" type="text" placeholder="Shoe name (e.g. Nike Vaporfly)" style="border:1px solid #F0E1D2;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none">
-    <input id="shoe-limit-input" type="number" placeholder="Max km (e.g. 800)" style="border:1px solid #F0E1D2;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none">
-  </div>
-  <input id="shoe-start-input" type="date" style="width:100%;border:1px solid #F0E1D2;border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;outline:none;margin-bottom:8px">
-  <button onclick="addShoe()" style="background:#2B2118;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer">Add shoe</button>
-</div>
-<div id="shoe-list"></div>
-</div>
-</div><!-- /sub-tab-train-shoes -->
 
 </div><!-- /tab-training -->
 
@@ -11501,63 +11484,6 @@ if ('serviceWorker' in navigator) {
 if ('caches' in window) {
   caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
 }
-
-// ═══════════════════════════════════════════════════════════════════════════
-// TASK #21 — Shoe Mileage Tracker
-// ═══════════════════════════════════════════════════════════════════════════
-function getShoes() { try { return JSON.parse(localStorage.getItem('shoe_list')) || []; } catch { return []; } }
-function saveShoes(s) { localStorage.setItem('shoe_list', JSON.stringify(s)); }
-
-function addShoe() {
-  const name = (document.getElementById('shoe-name-input').value || '').trim();
-  if (!name) { alert('Shoe name required'); return; }
-  const limit = parseFloat(document.getElementById('shoe-limit-input').value) || 800;
-  const startDate = document.getElementById('shoe-start-input').value || new Date().toLocaleDateString('en-CA');
-  const shoes = getShoes();
-  shoes.push({ id: Date.now(), name, limit, startDate });
-  saveShoes(shoes);
-  document.getElementById('shoe-name-input').value = '';
-  document.getElementById('shoe-limit-input').value = '';
-  document.getElementById('shoe-start-input').value = '';
-  renderShoeList();
-}
-
-function shoeDeleteConfirm(id) {
-  if (!confirm('Delete this shoe?')) return;
-  saveShoes(getShoes().filter(s => s.id !== id));
-  renderShoeList();
-}
-
-function renderShoeList() {
-  const el = document.getElementById('shoe-list');
-  if (!el) return;
-  const shoes = getShoes();
-  if (!shoes.length) {
-    el.innerHTML = '<div style="font-size:13px;color:#A6937F;text-align:center;padding:16px">No shoes added yet</div>';
-    return;
-  }
-  const acts = (typeof _acts !== 'undefined' ? _acts : []).filter(a => a.type === 'Run' || a.type === 'TrailRun' || a.type === 'Hike');
-  el.innerHTML = shoes.map(shoe => {
-    const km = acts.filter(a => a.start_local >= shoe.startDate)
-                   .reduce((s, a) => s + (a.distance || 0) / 1000, 0);
-    const pct = Math.min(100, (km / shoe.limit) * 100);
-    const barColor = pct >= 90 ? '#ef4444' : pct >= 70 ? '#f59e0b' : '#6b9e7a';
-    return `<div style="margin-bottom:14px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <span style="font-size:14px;font-weight:600">${escHtml(shoe.name)}</span>
-        <span style="font-size:12px;color:#7A6656">${km.toFixed(0)} / ${shoe.limit} km
-          <button onclick="shoeDeleteConfirm(${shoe.id})" style="background:none;border:none;color:#e05c5c;font-size:11px;cursor:pointer;margin-left:8px">✕</button>
-        </span>
-      </div>
-      <div style="background:#FBF1E7;border-radius:99px;height:8px">
-        <div style="width:${pct}%;background:${barColor};height:8px;border-radius:99px;transition:width .4s"></div>
-      </div>
-      <div style="font-size:11px;color:#A6937F;margin-top:3px">Since ${shoe.startDate} · ${shoe.limit - km > 0 ? (shoe.limit - km).toFixed(0) + ' km left' : '🔴 REPLACE SOON'}</div>
-    </div>`;
-  }).join('');
-}
-
-pendingCharts['train-shoes'] = renderShoeList;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TASK #23 — Session RPE Logging
