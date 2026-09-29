@@ -1277,7 +1277,6 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
 <!-- Invisible placeholders so existing planner JS doesn't error -->
 <div id="planner-calendar" style="display:none"></div>
-<div id="planner-annual" style="display:none"></div>
 <div id="planner-zones-form" style="display:none"></div>
 <div id="planner-week-label" style="display:none"></div>
 
@@ -7018,7 +7017,6 @@ async function loadPlannerData() {
   renderWhoopMonitor();
   if (typeof renderPlannerCalendar === 'function') renderPlannerCalendar();
   if (typeof renderPlannerZonesForm === 'function') renderPlannerZonesForm();
-  if (typeof renderAnnualPlan === 'function') renderAnnualPlan();
   // Zones may have just arrived after the Running page already rendered with
   // the default threshold HR — refresh its zone table now that they're real.
   if (typeof renderRunHRZones === 'function') renderRunHRZones();
@@ -7145,7 +7143,6 @@ async function onSavePlannerZones() {
     renderPlannerZonesForm();
     renderWhoopMonitor();
     if (typeof renderPlannerCalendar === 'function') renderPlannerCalendar();
-    if (typeof renderAnnualPlan === 'function') renderAnnualPlan();
     const msg = document.getElementById('pz-save-msg');
     if (msg) {
       msg.style.display = 'inline';
@@ -7359,130 +7356,6 @@ async function deletePlannerWorkoutForm(id) {
   } catch (e) {
     alert('Failed to delete workout: ' + e.message);
   }
-}
-
-// ── Planner: Annual Training Plan (periodization) ───────────────────────────
-// Classic Base → Build → Peak → Taper split, sized proportionally to however
-// many weeks remain until the selected race. Loads shown are illustrative
-// relative-effort targets (% of peak week), not real TSS — the point is to
-// show the shape of the buildup, not a precise prescription.
-let _annualPlanRaceIdx = null;
-const PHASE_COLOR = { Base: '#A6937F', Build: '#3b82f6', Peak: '#d97706', Taper: '#16db65' }; // Taper matches WHOOP_GREEN
-const PHASE_DESC = {
-  Base: 'Build aerobic volume at easy effort — the foundation everything else is laid on.',
-  Build: 'Volume stays high, race-specific intensity gets introduced.',
-  Peak: 'Highest-quality sessions of the cycle; volume starts to ease back.',
-  Taper: 'Sharp volume drop, intensity stays sharp — arrive at race day fresh.'
-};
-
-function computeAnnualPlan(raceDateStr) {
-  const today = mondayOf(new Date());
-  const raceMonday = mondayOf(new Date(raceDateStr));
-  let totalWeeks = Math.round((raceMonday - today) / (7 * 864e5)) + 1;
-  if (totalWeeks < 1) totalWeeks = 1;
-
-  const taperWeeks = Math.min(3, Math.max(1, Math.round(totalWeeks * 0.1)));
-  const peakWeeks = Math.min(4, Math.max(1, Math.round(totalWeeks * 0.15)));
-  let buildWeeks = Math.max(0, Math.round(totalWeeks * 0.35));
-  let baseWeeks = totalWeeks - taperWeeks - peakWeeks - buildWeeks;
-  if (baseWeeks < 0) {
-    buildWeeks = Math.max(0, totalWeeks - taperWeeks - peakWeeks);
-    baseWeeks = Math.max(0, totalWeeks - taperWeeks - peakWeeks - buildWeeks);
-  }
-
-  const phases = [];
-  for (let i = 0; i < baseWeeks; i++) phases.push('Base');
-  for (let i = 0; i < buildWeeks; i++) phases.push('Build');
-  for (let i = 0; i < peakWeeks; i++) phases.push('Peak');
-  for (let i = 0; i < taperWeeks; i++) phases.push('Taper');
-  while (phases.length < totalWeeks) phases.unshift('Base');
-  while (phases.length > totalWeeks) phases.shift();
-
-  const weeks = phases.map((phase, i) => {
-    const weekStart = new Date(today); weekStart.setDate(weekStart.getDate() + i * 7);
-    let targetPct;
-    if (phase === 'Base') {
-      targetPct = 50 + 20 * ((i + 1) / Math.max(1, baseWeeks));
-    } else if (phase === 'Build') {
-      const bi = i - baseWeeks;
-      targetPct = 70 + 20 * ((bi + 1) / Math.max(1, buildWeeks));
-    } else if (phase === 'Peak') {
-      targetPct = 95;
-    } else {
-      const ti = i - baseWeeks - buildWeeks - peakWeeks;
-      const weeksLeft = taperWeeks - ti;
-      targetPct = 30 + 40 * (weeksLeft / taperWeeks);
-    }
-    return { weekStart, phase, targetPct: Math.round(targetPct) };
-  });
-
-  return { weeks, totalWeeks, baseWeeks, buildWeeks, peakWeeks, taperWeeks, raceDate: new Date(raceDateStr) };
-}
-
-function onAnnualPlanRaceChange(idx) {
-  _annualPlanRaceIdx = parseInt(idx, 10);
-  renderAnnualPlan();
-}
-
-function renderAnnualPlan() {
-  const upcoming = RACES.filter(r => new Date(r.date) >= mondayOf(new Date())).sort((a, b) => new Date(a.date) - new Date(b.date));
-  if (!upcoming.length) {
-    setH('planner-annual', `<div class="sub" style="font-style:italic;color:#bbb">No upcoming races in your race list yet — add one to plan a buildup.</div>`);
-    return;
-  }
-  if (_annualPlanRaceIdx == null || !upcoming[_annualPlanRaceIdx]) _annualPlanRaceIdx = 0;
-  const race = upcoming[_annualPlanRaceIdx];
-  const plan = computeAnnualPlan(race.date);
-  const daysToGo = Math.max(0, Math.ceil((new Date(race.date) - new Date()) / 864e5));
-
-  setH('planner-annual', `
-    <div style="margin-bottom:14px">
-      <label style="font-size:11px;color:#666;display:block;margin-bottom:3px">Target race</label>
-      <select onchange="onAnnualPlanRaceChange(this.value)" style="width:100%;padding:6px 10px;border:1px solid #F0E1D2;border-radius:8px;font-size:13px">
-        ${upcoming.map((r, i) => `<option value="${i}" ${i === _annualPlanRaceIdx ? 'selected' : ''}>${r.name} — ${r.distance} — ${fmtDate(r.date)}</option>`).join('')}
-      </select>
-    </div>
-    <div class="g4" style="margin-bottom:14px">
-      <div class="card" style="text-align:center;padding:12px"><div class="sub">Days to go</div><div style="font-size:20px;font-weight:700">${daysToGo}</div></div>
-      <div class="card" style="text-align:center;padding:12px"><div class="sub">Base</div><div style="font-size:20px;font-weight:700">${plan.baseWeeks}w</div></div>
-      <div class="card" style="text-align:center;padding:12px"><div class="sub">Build</div><div style="font-size:20px;font-weight:700">${plan.buildWeeks}w</div></div>
-      <div class="card" style="text-align:center;padding:12px"><div class="sub">Peak / Taper</div><div style="font-size:20px;font-weight:700">${plan.peakWeeks}+${plan.taperWeeks}w</div></div>
-    </div>
-    <div class="cht-sm" style="height:200px"><canvas id="annual-plan-chart"></canvas></div>
-    <div class="sub" style="margin-top:12px;line-height:1.7">
-      ${['Base', 'Build', 'Peak', 'Taper'].map(p => `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${PHASE_COLOR[p]};margin-right:5px"></span><b>${p}</b> — ${PHASE_DESC[p]}<br>`).join('')}
-    </div>
-  `);
-
-  if (initialised['plan-annual']) buildAnnualPlanChart(plan);
-  else pendingCharts['plan-annual'] = () => buildAnnualPlanChart(plan);
-}
-
-let annualPlanChart;
-function buildAnnualPlanChart(plan) {
-  const canvas = document.getElementById('annual-plan-chart');
-  if (!canvas) return;
-  if (annualPlanChart) annualPlanChart.destroy();
-  annualPlanChart = new Chart(canvas, {
-    type: 'bar',
-    data: {
-      labels: plan.weeks.map(w => fmtDate(w.weekStart)),
-      datasets: [{
-        label: 'Target relative load',
-        data: plan.weeks.map(w => w.targetPct),
-        backgroundColor: plan.weeks.map(w => PHASE_COLOR[w.phase]),
-        borderRadius: 4
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: ctx => `${plan.weeks[ctx.dataIndex].phase} — ${ctx.parsed.y}%` } }
-      },
-      scales: { y: { beginAtZero: true, max: 110, ticks: { font: { size: 10 } } }, x: { ticks: { font: { size: 9 } } } }
-    }
-  });
 }
 
 const E1RM_LIFT_META = {
@@ -8007,17 +7880,6 @@ function renderBike(acts) {
     </div>`;
   }).join(''));
 }
-
-// ── Race list (data only — feeds the Buildup Planner's "target race" picker) ──
-// The Race Calendar card that used to display this list directly was removed;
-// RACES itself is kept since renderAnnualPlan() (Buildup Planner) still reads
-// it to populate its target-race dropdown.
-// TODO: make this editable
-const RACES = [
-  { name: 'Parkrun', date: '2026-06-21', type: 'Run', distance: '5km' },
-  { name: 'Olympic Triathlon', date: '2026-09-26', type: 'Triathlon', distance: 'Olympic' },
-  { name: 'Half Ironman', date: '2027-03-01', type: 'Triathlon', distance: '70.3' },
-];
 
 // ── Daily Briefing ───────────────────────────────────────────────────────────
 // Cross-domain summary card: recovery (Whoop/health), today's recommended session
@@ -10672,7 +10534,6 @@ async function main() {
     if (initialised['whoop-fitness']) renderFitnessSubTab();
     else pendingCharts['whoop-fitness'] = renderFitnessSubTab;
     if (typeof renderPlannerCalendar === 'function') renderPlannerCalendar(); // actual-vs-planned depends on _acts
-    if (typeof renderAnnualPlan === 'function') renderAnnualPlan();
 
     const {acwr, call} = renderS1(acts);
     localStorage.setItem('todays_call', call.lvl);
