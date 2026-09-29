@@ -9721,18 +9721,57 @@ function renderCaloriesTodayRow() {
 // Simple ordinary-least-squares line of best fit over an evenly-spaced
 // series (x = 0..n-1). Returns an array the same length as `values` with
 // the fitted y at each x — used to overlay a trend line on the Total bars.
-function _linearTrend(values) {
+//
+// excludeLast: when true, the fit itself is computed over values[0..n-2]
+// only, then extrapolated to cover the final point too (the returned array
+// is still the same length as `values`). The last point in these calorie
+// series is always today (daily mode) or the current in-progress week
+// (weekly mode) — genuinely incomplete data (not all of today's exercise/
+// intake has been logged yet), so including it in the fit unfairly drags
+// the whole trend line down. Needs at least 3 points to drop one and still
+// have 2 left to fit; falls back to including everything otherwise.
+function _linearTrend(values, opts) {
   const n = values.length;
   if (n < 2) return values.slice();
+  const fitN = (opts && opts.excludeLast && n > 2) ? n - 1 : n;
   let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-  for (let x = 0; x < n; x++) {
+  for (let x = 0; x < fitN; x++) {
     const y = values[x];
     sumX += x; sumY += y; sumXY += x * y; sumXX += x * x;
   }
-  const denom = n * sumXX - sumX * sumX;
-  const slope = denom ? (n * sumXY - sumX * sumY) / denom : 0;
-  const intercept = (sumY - slope * sumX) / n;
+  const denom = fitN * sumXX - sumX * sumX;
+  const slope = denom ? (fitN * sumXY - sumX * sumY) / denom : 0;
+  const intercept = (sumY - slope * sumX) / fitN;
   return values.map((_, x) => intercept + slope * x);
+}
+
+// Per-activity-type calorie breakdown for the "Active" bar's hover tooltip.
+// Apple Health's Active Energy total doesn't itself break down by activity,
+// so this approximates it from Phil's synced Strava activities — grouping
+// the same MET-based total_calories estimate normalizeActivity() already
+// computes for every activity by sport type. It's an estimate (won't sum
+// exactly to the Apple Health total, different source/methodology) so the
+// tooltip labels it as such rather than implying it's an exact split.
+function activityCaloriesByDate(dateStr) {
+  const byType = {};
+  (_acts || []).forEach(a => {
+    if (a.start_local.slice(0, 10) !== dateStr) return;
+    const cal = a.summary.total_calories || 0;
+    if (!cal) return;
+    byType[a.sport_type] = (byType[a.sport_type] || 0) + cal;
+  });
+  return Object.keys(byType).sort((x, y) => byType[y] - byType[x]).map(sport => ({ sport, calories: Math.round(byType[sport]) }));
+}
+
+function activityCaloriesByWeek(weekStartStr) {
+  const byType = {};
+  (_acts || []).forEach(a => {
+    if (_weekStartStr(a.start_local.slice(0, 10)) !== weekStartStr) return;
+    const cal = a.summary.total_calories || 0;
+    if (!cal) return;
+    byType[a.sport_type] = (byType[a.sport_type] || 0) + cal;
+  });
+  return Object.keys(byType).sort((x, y) => byType[y] - byType[x]).map(sport => ({ sport, calories: Math.round(byType[sport]) }));
 }
 
 let whoopCaloriesChart;
@@ -9760,7 +9799,7 @@ function buildCaloriesBurnedChart() {
       { label: 'Resting (basal)', data: series.map(p => Math.round(p.basal)), backgroundColor: '#FF6B47', borderRadius: 3 }
     ];
   }
-  const trend = _linearTrend(trendValues);
+  const trend = _linearTrend(trendValues, { excludeLast: true });
   whoopCaloriesChart = new Chart(canvas, {
     type: 'bar',
     data: {
@@ -9776,7 +9815,22 @@ function buildCaloriesBurnedChart() {
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 10 } } } },
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 10 } } },
+        tooltip: {
+          callbacks: {
+            afterBody: (items) => {
+              const activeItem = items.find(i => i.dataset.label === 'Active');
+              if (!activeItem) return [];
+              const p = series[activeItem.dataIndex];
+              if (!p) return [];
+              const breakdown = _caloriesPeriod === 'weekly' ? activityCaloriesByWeek(p.date) : activityCaloriesByDate(p.date);
+              if (!breakdown.length) return [];
+              return ['', 'Breakdown (Strava est.):', ...breakdown.map(b => `${EMOJI[b.sport] || '🏅'} ${b.sport}: ${b.calories} kcal`)];
+            }
+          }
+        }
+      },
       scales: {
         x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } } },
         y: { stacked: true, beginAtZero: true, grid: { color: '#F7ECDE' }, ticks: { font: { size: 10 } } }
@@ -9870,7 +9924,7 @@ function buildIntakeChart() {
   if (!series.length) return;
   if (whoopIntakeChart) whoopIntakeChart.destroy();
   const values = series.map(p => Math.round(p.kcal));
-  const trend = _linearTrend(series.map(p => p.kcal));
+  const trend = _linearTrend(series.map(p => p.kcal), { excludeLast: true });
   whoopIntakeChart = new Chart(canvas, {
     type: 'bar',
     data: {
@@ -9900,9 +9954,11 @@ function buildIntakeChart() {
 // as the Calories Burned card) day by day, so a surplus or deficit is visible
 // directly rather than having to mentally compare two separate charts. Weight
 // is overlaid from the manual weigh-in log (getProgressLog — same source as
-// the Weight Trend chart above) on a secondary axis, plotted only on days
-// that were actually measured (spanGaps: false, so it shows isolated points
-// rather than a misleading connected line through unmeasured days). Only
+// the Weight Trend chart above) on a secondary axis. spanGaps: true so the
+// line draws straight through days with no weigh-in instead of breaking
+// into disconnected segments (Phil's preference, 2026-09-29 — an earlier
+// version deliberately used spanGaps:false to avoid implying a measurement
+// on unmeasured days, but a continuous trend line reads better here). Only
 // covers dates from INTAKE_START_DATE onward, same reasoning as the Calorie
 // Intake card above.
 function computeCalorieBalanceSeries(days) {
@@ -9974,7 +10030,7 @@ function buildCalorieBalanceChart() {
           type: 'line', label: 'Weight (kg)', data: series.map(p => p.weight),
           yAxisID: 'y1', borderColor: '#4A3B2E', backgroundColor: '#4A3B2E',
           borderWidth: 2, pointRadius: 4, pointBackgroundColor: '#4A3B2E',
-          spanGaps: false, tension: 0, order: 1
+          spanGaps: true, tension: 0, order: 1
         }
       ]
     },
