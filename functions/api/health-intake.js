@@ -45,8 +45,9 @@ export async function onRequest(context) {
   catch { return json(400, { error: 'Invalid JSON body' }); }
 
   const metrics = (payload?.data?.metrics) || [];
-  if (!Array.isArray(metrics) || !metrics.length) {
-    return json(400, { error: 'No metrics found in payload (expected data.metrics[])' });
+  const workouts = (payload?.data?.workouts) || [];
+  if ((!Array.isArray(metrics) || !metrics.length) && (!Array.isArray(workouts) || !workouts.length)) {
+    return json(400, { error: 'No metrics or workouts found in payload (expected data.metrics[] or data.workouts[])' });
   }
 
   let existing;
@@ -92,6 +93,26 @@ export async function onRequest(context) {
     existing[name] = { units: metric.units || prior.units || null, byDate };
   }
 
+  // Individual workouts (Health Auto Export "Workouts" data type, distinct from
+  // the summed daily quantity metrics above) — stored raw, keyed by the
+  // workout's own id so re-sending the same workout (e.g. next sync cycle)
+  // just overwrites it in place rather than duplicating. Used by the frontend
+  // to fill in activity-type breakdowns for sessions that never reached Strava.
+  if (Array.isArray(workouts) && workouts.length) {
+    const priorW = existing._workouts || {};
+    const byId = { ...(priorW.byId || {}) };
+    for (const w of workouts) {
+      if (!w || !w.id) continue;
+      byId[w.id] = w;
+    }
+    const workoutCutoffMs = Date.now() - KEEP_DAYS * 86400000;
+    for (const id of Object.keys(byId)) {
+      const t = byId[id].start ? Date.parse(byId[id].start) : NaN;
+      if (!Number.isNaN(t) && t < workoutCutoffMs) delete byId[id];
+    }
+    existing._workouts = { byId };
+  }
+
   existing._updatedAt = Date.now();
 
   try {
@@ -100,5 +121,5 @@ export async function onRequest(context) {
     return json(500, { error: err.message });
   }
 
-  return json(200, { ok: true, metricsReceived: metrics.map(m => m.name) });
+  return json(200, { ok: true, metricsReceived: metrics.map(m => m.name), workoutsReceived: workouts.length });
 }
