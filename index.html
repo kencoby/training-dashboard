@@ -9681,12 +9681,106 @@ function _summarizeActivityCalories(acts) {
   return { items, allReal };
 }
 
+// Rough Apple Health workout name → the same canonical sport keys Strava
+// uses (see EMOJI above), so a non-Strava session shares an emoji/bucket
+// with any same-type Strava activity already in the breakdown instead of
+// getting its own oddly-named line.
+const HEALTH_WORKOUT_TYPE_MAP = [
+  [/run/i, 'Run'],
+  [/cycl|bik/i, 'Ride'],
+  [/swim/i, 'Swim'],
+  [/strength|weight|functional/i, 'WeightTraining'],
+  [/soccer|football/i, 'Soccer'],
+  [/yoga/i, 'Yoga'],
+  [/walk/i, 'Walk'],
+  [/hik/i, 'Hike'],
+];
+function _healthWorkoutTypeKey(name) {
+  const n = name || '';
+  for (const [re, key] of HEALTH_WORKOUT_TYPE_MAP) { if (re.test(n)) return key; }
+  return n || 'Workout';
+}
+
+// Minutes-since-midnight parsed out of a Strava `start_local`
+// ("2026-09-29T15:42:52") or Apple Health workout `start`
+// ("2026-09-29 15:42:52 +0100") string. Both are wall-clock local time
+// already (on Phil's own device/watch), so comparing clock time directly —
+// rather than converting either to a UTC instant — sidesteps any
+// DST/offset mismatch between the two sources.
+function _clockMinutes(dateLikeStr) {
+  const m = (dateLikeStr || '').match(/(\d{2}):(\d{2}):(\d{2})/);
+  if (!m) return null;
+  return (+m[1]) * 60 + (+m[2]) + (+m[3]) / 60;
+}
+
+// True if `workout` (an Apple Health workout entry) looks like the same
+// real-world session as one of `acts` (Strava activities already on the
+// same calendar date) — matched by wall-clock start time within 5 minutes.
+// A session that reaches both Apple Health and Strava (logged via the
+// Strava app itself, or a watch that syncs to both) should only be counted
+// once in the breakdown; Strava's number wins since that's already the
+// real-per-activity-calories path (see the 2026-09-29 fix above it).
+function _healthWorkoutMatchesStrava(workout, acts) {
+  const wMin = _clockMinutes(workout.start);
+  if (wMin == null) return false;
+  return acts.some(a => {
+    const aMin = _clockMinutes(a.start_local);
+    return aMin != null && Math.abs(aMin - wMin) <= 5;
+  });
+}
+
+// Apple Health workouts (Health Auto Export's "Workouts" data type, distinct
+// from the summed daily quantity metrics _healthSeries reads) recorded on
+// one calendar date.
+function _healthWorkoutsForDate(dateStr) {
+  const byId = (_healthData && _healthData._workouts && _healthData._workouts.byId) || {};
+  return Object.values(byId).filter(w => (w.start || '').slice(0, 10) === dateStr);
+}
+
+// Apple Health workouts on `dateStr` that have no matching Strava activity —
+// i.e. genuinely off-Strava sessions (indoor work, a session logged in an
+// app that never syncs to Strava, etc.) that the Strava-only breakdown would
+// otherwise silently miss even though their calories are already folded
+// into the Active total via active_energy.
+function _healthWorkoutsUnmatchedForDate(dateStr, stravaActsForDate) {
+  return _healthWorkoutsForDate(dateStr).filter(w => !_healthWorkoutMatchesStrava(w, stravaActsForDate));
+}
+
+function _addHealthWorkoutsToByType(byType, unmatchedWorkouts) {
+  unmatchedWorkouts.forEach(w => {
+    const cal = _kjToKcal(w.activeEnergyBurned && w.activeEnergyBurned.qty);
+    if (!cal) return;
+    const key = _healthWorkoutTypeKey(w.name);
+    byType[key] = (byType[key] || 0) + cal;
+  });
+}
+
+function _itemsFromByType(byType) {
+  return Object.keys(byType).sort((x, y) => byType[y] - byType[x]).map(sport => ({ sport, calories: Math.round(byType[sport]) }));
+}
+
 function activityCaloriesByDate(dateStr) {
-  return _summarizeActivityCalories((_acts || []).filter(a => a.start_local.slice(0, 10) === dateStr));
+  const acts = (_acts || []).filter(a => a.start_local.slice(0, 10) === dateStr);
+  const stravaResult = _summarizeActivityCalories(acts);
+  const byType = {};
+  stravaResult.items.forEach(it => { byType[it.sport] = it.calories; });
+  _addHealthWorkoutsToByType(byType, _healthWorkoutsUnmatchedForDate(dateStr, acts));
+  return { items: _itemsFromByType(byType), allReal: stravaResult.allReal };
 }
 
 function activityCaloriesByWeek(weekStartStr) {
-  return _summarizeActivityCalories((_acts || []).filter(a => _weekStartStr(a.start_local.slice(0, 10)) === weekStartStr));
+  const acts = (_acts || []).filter(a => _weekStartStr(a.start_local.slice(0, 10)) === weekStartStr);
+  const stravaResult = _summarizeActivityCalories(acts);
+  const byType = {};
+  stravaResult.items.forEach(it => { byType[it.sport] = it.calories; });
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekStartStr + 'T00:00:00');
+    d.setDate(d.getDate() + i);
+    const dateStr = d.toLocaleDateString('en-CA');
+    const dayActs = acts.filter(a => a.start_local.slice(0, 10) === dateStr);
+    _addHealthWorkoutsToByType(byType, _healthWorkoutsUnmatchedForDate(dateStr, dayActs));
+  }
+  return { items: _itemsFromByType(byType), allReal: stravaResult.allReal };
 }
 
 let whoopCaloriesChart;
