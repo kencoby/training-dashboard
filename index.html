@@ -9746,32 +9746,85 @@ function _linearTrend(values, opts) {
 }
 
 // Per-activity-type calorie breakdown for the "Active" bar's hover tooltip.
-// Apple Health's Active Energy total doesn't itself break down by activity,
-// so this approximates it from Phil's synced Strava activities — grouping
-// the same MET-based total_calories estimate normalizeActivity() already
-// computes for every activity by sport type. It's an estimate (won't sum
-// exactly to the Apple Health total, different source/methodology) so the
-// tooltip labels it as such rather than implying it's an exact split.
-function activityCaloriesByDate(dateStr) {
+//
+// This originally used the crude MET×weight×duration estimate that
+// normalizeActivity() computes for every activity (total_calories) — but
+// that formula only knows an activity's duration and a fixed effort level
+// per sport, so a genuinely slow/easy session still gets charged the full
+// MET rate. Phil caught this 2026-09-29: a "worlds slowest 20km bike ride"
+// showed 1144 kcal in the breakdown when Strava's own real (device/HR-based)
+// number for that exact ride was 323 kcal. Fixed by fetching each activity's
+// real `calories` field from Strava's detailed-activity endpoint
+// (GET /activities/{id}, via the existing generic proxy) instead.
+//
+// Strava's activity-list endpoint (what _acts is built from) doesn't include
+// per-activity calories — only the detailed single-activity endpoint does —
+// so real numbers are fetched lazily, a few at a time, for whatever's behind
+// the chart's currently visible window, and cached by activity id for the
+// rest of the session. Until an activity's real number has been fetched,
+// the breakdown falls back to the old MET estimate for that one activity
+// only, and the tooltip says so.
+let _realCaloriesCache = {}; // activityId -> real kcal (number) | null (unavailable)
+let _realCaloriesInFlight = new Set();
+
+async function fetchRealActivityCalories(activityId) {
+  if (Object.prototype.hasOwnProperty.call(_realCaloriesCache, activityId)) return _realCaloriesCache[activityId];
+  const tokens = getTokens();
+  if (!tokens) return null;
+  try {
+    const res = await fetch(`${API}/strava-auth?action=proxy&path=${encodeURIComponent('/activities/' + activityId)}&access_token=${encodeURIComponent(tokens.access_token)}`);
+    if (!res.ok) { _realCaloriesCache[activityId] = null; return null; }
+    const data = await res.json();
+    const cal = typeof data.calories === 'number' ? Math.round(data.calories) : null;
+    _realCaloriesCache[activityId] = cal;
+    return cal;
+  } catch (e) {
+    _realCaloriesCache[activityId] = null;
+    return null;
+  }
+}
+
+// Fetches (and caches) real calories for whichever of `acts` aren't already
+// cached or already in flight, a few at a time so a busy chart doesn't fire
+// dozens of requests at once. Calls onFetched() once real work happened —
+// deliberately skipped when there was nothing new to fetch, so a caller that
+// re-renders from onFetched (see buildCaloriesBurnedChart below) can't loop.
+async function ensureRealCalories(acts, onFetched) {
+  const todo = acts.filter(a => !Object.prototype.hasOwnProperty.call(_realCaloriesCache, a.id) && !_realCaloriesInFlight.has(a.id));
+  if (!todo.length) return;
+  todo.forEach(a => _realCaloriesInFlight.add(a.id));
+  const CONCURRENCY = 4;
+  let i = 0;
+  async function worker() {
+    while (i < todo.length) {
+      const a = todo[i++];
+      await fetchRealActivityCalories(a.id);
+      _realCaloriesInFlight.delete(a.id);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, todo.length) }, worker));
+  if (onFetched) onFetched();
+}
+
+function _summarizeActivityCalories(acts) {
   const byType = {};
-  (_acts || []).forEach(a => {
-    if (a.start_local.slice(0, 10) !== dateStr) return;
-    const cal = a.summary.total_calories || 0;
+  acts.forEach(a => {
+    const real = _realCaloriesCache[a.id];
+    const cal = typeof real === 'number' ? real : (a.summary.total_calories || 0);
     if (!cal) return;
     byType[a.sport_type] = (byType[a.sport_type] || 0) + cal;
   });
-  return Object.keys(byType).sort((x, y) => byType[y] - byType[x]).map(sport => ({ sport, calories: Math.round(byType[sport]) }));
+  const items = Object.keys(byType).sort((x, y) => byType[y] - byType[x]).map(sport => ({ sport, calories: Math.round(byType[sport]) }));
+  const allReal = acts.every(a => typeof _realCaloriesCache[a.id] === 'number');
+  return { items, allReal };
+}
+
+function activityCaloriesByDate(dateStr) {
+  return _summarizeActivityCalories((_acts || []).filter(a => a.start_local.slice(0, 10) === dateStr));
 }
 
 function activityCaloriesByWeek(weekStartStr) {
-  const byType = {};
-  (_acts || []).forEach(a => {
-    if (_weekStartStr(a.start_local.slice(0, 10)) !== weekStartStr) return;
-    const cal = a.summary.total_calories || 0;
-    if (!cal) return;
-    byType[a.sport_type] = (byType[a.sport_type] || 0) + cal;
-  });
-  return Object.keys(byType).sort((x, y) => byType[y] - byType[x]).map(sport => ({ sport, calories: Math.round(byType[sport]) }));
+  return _summarizeActivityCalories((_acts || []).filter(a => _weekStartStr(a.start_local.slice(0, 10)) === weekStartStr));
 }
 
 let whoopCaloriesChart;
@@ -9824,9 +9877,10 @@ function buildCaloriesBurnedChart() {
               if (!activeItem) return [];
               const p = series[activeItem.dataIndex];
               if (!p) return [];
-              const breakdown = _caloriesPeriod === 'weekly' ? activityCaloriesByWeek(p.date) : activityCaloriesByDate(p.date);
+              const { items: breakdown, allReal } = _caloriesPeriod === 'weekly' ? activityCaloriesByWeek(p.date) : activityCaloriesByDate(p.date);
               if (!breakdown.length) return [];
-              return ['', 'Breakdown (Strava est.):', ...breakdown.map(b => `${EMOJI[b.sport] || '🏅'} ${b.sport}: ${b.calories} kcal`)];
+              const heading = allReal ? 'Breakdown:' : 'Breakdown (estimating some — refreshing…):';
+              return ['', heading, ...breakdown.map(b => `${EMOJI[b.sport] || '🏅'} ${b.sport}: ${b.calories} kcal`)];
             }
           }
         }
@@ -9837,6 +9891,16 @@ function buildCaloriesBurnedChart() {
       }
     }
   });
+
+  // Background-fetch real per-activity calories for whatever's behind this
+  // window, then rebuild once so the tooltip breakdown picks up the real
+  // numbers instead of the MET estimate. ensureRealCalories() no-ops (and
+  // skips this callback) once everything's already cached, so this can't
+  // loop — the second buildCaloriesBurnedChart() call finds nothing new to
+  // fetch and stops there.
+  const windowStart = series[0].date;
+  const windowActs = (_acts || []).filter(a => a.start_local.slice(0, 10) >= windowStart);
+  ensureRealCalories(windowActs, () => buildCaloriesBurnedChart());
 }
 
 // ── Calorie Intake (from Apple Health) ──────────────────────────────────────
