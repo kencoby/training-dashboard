@@ -5695,26 +5695,27 @@ const REV_EXAM = new Date('2026-11-23T00:00:00'); // real UKMLA AKT date
 
 // ── Training Calendar ───────────────────────────────────────────────────────
 const TRAINING_TEMPLATE = [
-  { day: 'Monday',    am: { type: 'Easy Run',     emoji: '🏃', tag: 'run',    intensity: 'easy' },     pm: { type: 'Push', emoji: '💪', tag: 'upper', intensity: 'hard' } },
-  { day: 'Tuesday',   am: { type: 'Speed Session', emoji: '🏃', tag: 'run',    intensity: 'hard' },     pm: { type: 'Pull', emoji: '💪', tag: 'upper', intensity: 'hard' } },
-  { day: 'Wednesday', am: null,                                                                          pm: { type: 'Legs (Heavy)', emoji: '💪', tag: 'lower', intensity: 'hard' } },
-  { day: 'Thursday',  am: { type: 'Football',     emoji: '⚽', tag: 'soccer', intensity: 'moderate' }, pm: { type: 'Push', emoji: '💪', tag: 'upper', intensity: 'hard' } },
-  { day: 'Friday',    am: null,                                                                          pm: { type: 'Legs (Lighter)', emoji: '💪', tag: 'lower', intensity: 'moderate' } },
-  { day: 'Saturday',  am: { type: 'Long Run',     emoji: '🏃', tag: 'run',    intensity: 'moderate' }, pm: { type: 'Pull', emoji: '💪', tag: 'upper', intensity: 'hard' } },
-  { day: 'Sunday',    am: null,                                                                          pm: null },
+  { day: 'Monday',    am: { type: 'Easy Run',   emoji: '🏃', tag: 'run',      intensity: 'easy' },     pm: { type: 'Push',          emoji: '💪', tag: 'upper',    intensity: 'hard' },     eve: null },
+  { day: 'Tuesday',   am: { type: 'Intervals',  emoji: '🏃', tag: 'run',      intensity: 'hard' },     pm: { type: 'Pull',          emoji: '💪', tag: 'upper',    intensity: 'hard' },     eve: null },
+  { day: 'Wednesday', am: { type: 'Bike/Swim',  emoji: '🚴', tag: 'bikeswim', intensity: 'moderate' }, pm: { type: 'Legs (Lighter)',emoji: '💪', tag: 'lower',    intensity: 'moderate' }, eve: null },
+  { day: 'Thursday',  am: { type: 'Tempo Run',  emoji: '🏃', tag: 'run',      intensity: 'hard' },     pm: { type: 'Push',          emoji: '💪', tag: 'upper',    intensity: 'hard' },     eve: { type: 'Football', emoji: '⚽', tag: 'soccer', intensity: 'moderate' } },
+  { day: 'Friday',    am: { type: 'Easy Run',   emoji: '🏃', tag: 'run',      intensity: 'easy' },     pm: { type: 'Pull',          emoji: '💪', tag: 'upper',    intensity: 'hard' },     eve: null },
+  { day: 'Saturday',  am: { type: 'Long Run',   emoji: '🏃', tag: 'run',      intensity: 'moderate' }, pm: null,                                                                          eve: null },
+  { day: 'Sunday',    am: { type: 'Bike/Swim',  emoji: '🚴', tag: 'bikeswim', intensity: 'moderate' }, pm: { type: 'Legs (Heavy)',  emoji: '💪', tag: 'lower',    intensity: 'hard' },     eve: null },
 ];
 
 function sessionDone(session, acts, dateStr) {
   if (!session) return false;
   const dayActs = acts.filter(a => a.start_local.slice(0,10) === dateStr);
   const map = {
-    swim:   a => a.sport_type === 'Swim',
-    run:    a => a.sport_type === 'Run',
-    bike:   a => ['Ride','VirtualRide'].includes(a.sport_type),
-    upper:  a => a.sport_type === 'WeightTraining',
-    lower:  a => a.sport_type === 'WeightTraining',
-    brick:  a => a.sport_type === 'Ride' || a.sport_type === 'Run',
-    soccer: a => a.sport_type === 'Soccer',
+    swim:     a => a.sport_type === 'Swim',
+    run:      a => a.sport_type === 'Run',
+    bike:     a => ['Ride','VirtualRide'].includes(a.sport_type),
+    bikeswim: a => ['Ride','VirtualRide','Swim'].includes(a.sport_type),
+    upper:    a => a.sport_type === 'WeightTraining',
+    lower:    a => a.sport_type === 'WeightTraining',
+    brick:    a => a.sport_type === 'Ride' || a.sport_type === 'Run',
+    soccer:   a => a.sport_type === 'Soccer',
   };
   return dayActs.some(map[session.tag] || (()=>false));
 }
@@ -5826,7 +5827,7 @@ function getTodaysSessions(forDate) {
   const manual = getManual(todayStr);
   const overrides = getOverrides(todayStr);
   const result = [];
-  for (const slot of ['am', 'pm']) {
+  for (const slot of ['am', 'pm', 'eve']) {
     if (manual[slot] === 'skipped') continue;
     if (overrides[slot] === 'REST') continue;
     const session = overrides[slot] ? parseOverrideLabel(overrides[slot]) : tmpl[slot];
@@ -5904,8 +5905,9 @@ function renderTrainingCalendar(acts) {
     // 'REST' is an explicit sentinel meaning "this slot has been turned into a
     // rest day" — distinct from a preset Rest day (tmpl.am/pm null) since it
     // lets any normally-scheduled slot be converted to Rest too.
-    const am = overrides.am === 'REST' ? null : (overrides.am ? parseOverrideLabel(overrides.am) : tmpl.am);
-    const pm = overrides.pm === 'REST' ? null : (overrides.pm ? parseOverrideLabel(overrides.pm) : tmpl.pm);
+    const am  = overrides.am  === 'REST' ? null : (overrides.am  ? parseOverrideLabel(overrides.am)  : tmpl.am);
+    const pm  = overrides.pm  === 'REST' ? null : (overrides.pm  ? parseOverrideLabel(overrides.pm)  : tmpl.pm);
+    const eve = overrides.eve === 'REST' ? null : (overrides.eve ? parseOverrideLabel(overrides.eve) : tmpl.eve);
     const extraSlots = extraKeys(overrides).map(slot => ({
       slot,
       session: parseOverrideLabel(overrides[slot]),
@@ -5914,13 +5916,16 @@ function renderTrainingCalendar(acts) {
     }));
 
     return {
-      tmpl, d, dateStr, isToday, isPast, am, pm, extraSlots,
+      tmpl, d, dateStr, isToday, isPast, am, pm, eve, extraSlots,
       amOverride: !!overrides.am && overrides.am !== 'REST',
       pmOverride: !!overrides.pm && overrides.pm !== 'REST',
+      eveOverride: !!overrides.eve && overrides.eve !== 'REST',
       amDone: manual.am === 'done' || sessionDone(tmpl.am, acts, dateStr),
       pmDone: manual.pm === 'done' || sessionDone(tmpl.pm, acts, dateStr),
+      eveDone: manual.eve === 'done' || sessionDone(tmpl.eve, acts, dateStr),
       amSkipped: manual.am === 'skipped' || isSkipped(skipped, dateStr, 'am'),
       pmSkipped: manual.pm === 'skipped' || isSkipped(skipped, dateStr, 'pm'),
+      eveSkipped: manual.eve === 'skipped' || isSkipped(skipped, dateStr, 'eve'),
       calEvents: gcalEvents.filter(e => e.date === dateStr)
     };
   });
@@ -5943,7 +5948,7 @@ function renderTrainingCalendar(acts) {
 
   setH('cal-grid', rows.map(r => {
     const dateLabel = r.d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
-    const rowMissed = r.isPast && ((r.am && !r.amDone) || (r.pm && !r.pmDone) || r.extraSlots.some(e => !e.done));
+    const rowMissed = r.isPast && ((r.am && !r.amDone) || (r.pm && !r.pmDone) || (r.eve && !r.eveDone) || r.extraSlots.some(e => !e.done));
     const style = r.isToday
       ? 'border-left:3px solid #3b82f6;background:#f0f7ff;border-radius:8px;padding:10px;'
       : `padding:10px 4px;${rowMissed ? 'opacity:0.55;' : ''}`;
@@ -5956,14 +5961,15 @@ function renderTrainingCalendar(acts) {
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           ${pill(r.am, r.amDone, r.isPast, false, r.amSkipped, r.dateStr, 'am', r.am?.tag, r.amOverride && !r.amDone && !r.amSkipped)}
           ${pill(r.pm, r.pmDone, r.isPast, false, r.pmSkipped, r.dateStr, 'pm', r.pm?.tag, r.pmOverride && !r.pmDone && !r.pmSkipped)}
+          ${pill(r.eve, r.eveDone, r.isPast, false, r.eveSkipped, r.dateStr, 'eve', r.eve?.tag, r.eveOverride && !r.eveDone && !r.eveSkipped)}
           ${extraPillsHtml}
         </div>
       </div>
     </div>`;
   }).join(''));
 
-  const total = rows.reduce((s,r) => s + (r.am?1:0) + (r.pm?1:0) + r.extraSlots.length, 0);
-  const done = rows.reduce((s,r) => s + (r.am && r.amDone?1:0) + (r.pm && r.pmDone?1:0) + r.extraSlots.filter(e=>e.done).length, 0);
+  const total = rows.reduce((s,r) => s + (r.am?1:0) + (r.pm?1:0) + (r.eve?1:0) + r.extraSlots.length, 0);
+  const done = rows.reduce((s,r) => s + (r.am && r.amDone?1:0) + (r.pm && r.pmDone?1:0) + (r.eve && r.eveDone?1:0) + r.extraSlots.filter(e=>e.done).length, 0);
   set('cal-summary', `Week summary: ${done} / ${total} sessions done this week`);
   renderTrainingTodo();
 }
