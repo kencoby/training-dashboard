@@ -17,7 +17,13 @@ function dateOnly(d) { return (d || '').slice(0, 10); }
 const SUM_METRICS = new Set([
   'active_energy', 'basal_energy_burned', 'step_count', 'flights_climbed',
   'cycling_distance', 'walking_running_distance', 'apple_exercise_time',
-  'apple_stand_time', 'apple_stand_hour', 'time_in_daylight', 'dietary_energy'
+  'apple_stand_time', 'apple_stand_hour', 'time_in_daylight', 'dietary_energy',
+  // Macro/nutrition metrics (MacroFactor → Apple Health → Health Auto Export),
+  // logged as one data point per meal — need summing per day for the same
+  // reason dietary_energy does, or only the last meal of the day survives.
+  'protein', 'carbohydrates', 'total_fat', 'saturated_fat',
+  'monounsaturated_fat', 'polyunsaturated_fat', 'dietary_sugar', 'fiber',
+  'cholesterol', 'sodium', 'dietary_water', 'caffeine'
 ]);
 
 function pointValue(point) {

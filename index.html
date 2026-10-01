@@ -247,7 +247,8 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
   <!-- RIGHT: Tasks (top) + Habits (bottom) -->
   <div style="display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden">
 
-    <!-- Stat cards: readiness (semantic tier color) + habits done (fixed lavender) -->
+    <!-- Stat cards: readiness + training load (semantic tier color), habits
+         done (fixed lavender), calorie balance (surplus/deficit tier color) -->
     <div id="home-stat-row" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;flex-shrink:0">
       <div id="home-readiness-card" style="display:none;border-radius:var(--radius-md);padding:10px 12px">
         <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;opacity:.75">Readiness</div>
@@ -258,6 +259,16 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
         <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;opacity:.75">Habits today</div>
         <div style="font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.15" id="home-habits-card-num">—</div>
         <div style="font-size:11px;font-weight:600;margin-top:1px" id="home-habits-card-sub"></div>
+      </div>
+      <div id="home-load-card" style="display:none;border-radius:var(--radius-md);padding:10px 12px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;opacity:.75">Training load</div>
+        <div style="font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.15" id="home-load-card-num">—</div>
+        <div style="font-size:11px;font-weight:600;margin-top:1px" id="home-load-card-sub"></div>
+      </div>
+      <div id="home-balance-card" style="display:none;border-radius:var(--radius-md);padding:10px 12px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;opacity:.75">Calorie balance</div>
+        <div style="font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.15" id="home-balance-card-num">—</div>
+        <div style="font-size:11px;font-weight:600;margin-top:1px" id="home-balance-card-sub"></div>
       </div>
     </div>
 
@@ -486,6 +497,17 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 <div class="card">
   <div id="balance-today-row" style="display:flex;gap:22px;margin-bottom:10px"></div>
   <div class="cht-sm"><canvas id="calorie-balance-chart"></canvas></div>
+</div>
+</div>
+
+<div class="section">
+<h2>Macros</h2>
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+    <span class="sub" id="macro-targets-label"></span>
+    <button onclick="promptMacroTargets()" style="background:none;border:1px solid #F0E1D2;border-radius:8px;padding:3px 8px;font-size:11px;cursor:pointer;color:#7A6656;flex-shrink:0">Edit targets</button>
+  </div>
+  <div id="macros-today-row"></div>
 </div>
 </div>
 
@@ -2272,7 +2294,7 @@ const SYNC_KEYS = [
   'shopping_items',
   'notes_data',
   'mood_log', 'habit_streaks', 'habit_reset_date',
-  'weight_goal', 'cst_grades', 'audit_cycle', 'ukmla_progress'
+  'weight_goal', 'cst_grades', 'audit_cycle', 'ukmla_progress', 'macro_targets'
 ];
 
 function getSyncMeta() {
@@ -3364,14 +3386,51 @@ function renderJournalPrompt() {
 }
 
 // ── Smart training suggestion ────────────────────────────────────────────────
+// Looks at three independent signals — last night's sleep, rolling 14-night
+// sleep debt (computeSleepDebt), and the CTL/ATL Form score (computeFitnessTrend,
+// the same model behind the Training Load chart) — and surfaces whichever one
+// is currently the worst, rather than just reading last night's sleep in
+// isolation. A bad night on top of an otherwise fresh week still shows as
+// "take it easy", but a single good night doesn't mask a week of
+// accumulated debt or a Form score that's deep in fatigue.
 function getTrainingSuggestion() {
   const today = new Date().toLocaleDateString('en-CA');
   const sleepData = (typeof computeSleepForDate === 'function') ? computeSleepForDate(today) : null;
-  if (!sleepData) return null;
-  const h = sleepData.totalSleep;
-  if (h < 6)   return { verdict: 'Rest day 😴', color: 'var(--danger)', bg: 'var(--danger-soft)', detail: `Only ${fmtHrsMin(h)} sleep` };
-  if (h < 7.5) return { verdict: 'Take it easy ⚡', color: 'var(--text-muted)', bg: 'var(--surface-hover)', detail: `${fmtHrsMin(h)} sleep` };
-  return { verdict: 'Ready to push 💪', color: 'var(--accent-text)', bg: 'var(--accent-soft)', detail: `${fmtHrsMin(h)} sleep` };
+  const h = sleepData ? sleepData.totalSleep : null;
+  const debt = (typeof computeSleepDebt === 'function') ? computeSleepDebt() : null;
+  const debtHours = debt ? debt.debtHours : null;
+  const trend = (typeof computeFitnessTrend === 'function') ? computeFitnessTrend(90) : [];
+  const form = trend.length ? trend[trend.length - 1].form : null;
+
+  if (h == null && debtHours == null && form == null) return null;
+
+  // Each candidate factor: tier 0 = worst (rest), 1 = caution, 2 = good.
+  const factors = [];
+  if (h != null) {
+    if (h < 6)        factors.push({ tier: 0, detail: `Only ${fmtHrsMin(h)} sleep last night` });
+    else if (h < 7.5) factors.push({ tier: 1, detail: `${fmtHrsMin(h)} sleep last night` });
+    else              factors.push({ tier: 2, detail: `${fmtHrsMin(h)} sleep last night` });
+  }
+  if (debtHours != null) {
+    if (debtHours > 10)      factors.push({ tier: 0, detail: `${debtHours.toFixed(1)}h sleep debt built up` });
+    else if (debtHours > 5)  factors.push({ tier: 1, detail: `${debtHours.toFixed(1)}h sleep debt building` });
+    else                     factors.push({ tier: 2, detail: 'Sleep debt is caught up' });
+  }
+  if (form != null) {
+    if (form < -25)      factors.push({ tier: 0, detail: `Fatigue has outpaced fitness (Form ${form.toFixed(0)})` });
+    else if (form < -10) factors.push({ tier: 1, detail: `Fatigue building (Form ${form.toFixed(0)})` });
+    else                  factors.push({ tier: 2, detail: `Fitness/fatigue balanced (Form ${form.toFixed(0)})` });
+  }
+  if (!factors.length) return null;
+
+  const worstTier = Math.min(...factors.map(f => f.tier));
+  const worst = factors.find(f => f.tier === worstTier);
+  const TIERS = [
+    { verdict: 'Rest day 😴',      color: 'var(--danger)',     bg: 'var(--danger-soft)' },
+    { verdict: 'Take it easy ⚡',  color: 'var(--text-muted)', bg: 'var(--surface-hover)' },
+    { verdict: 'Ready to push 💪', color: 'var(--accent-text)', bg: 'var(--accent-soft)' }
+  ];
+  return { ...TIERS[worstTier], detail: worst.detail };
 }
 function renderTrainingSuggestion() {
   const el = document.getElementById('home-suggestion');
@@ -3529,6 +3588,46 @@ function promptWeightGoal() {
   const n = parseFloat(input);
   if (isNaN(n) || n <= 0) return;
   setWeightGoal(n);
+}
+
+// ── Macro targets (Protein / Carbs / Fat) ───────────────────────────────────
+// Manual daily targets, same lightweight localStorage+syncPush pattern as the
+// weight goal above. Actual values come from MacroFactor → Apple Health →
+// Health Auto Export (see computeMacrosForDate / renderMacrosCard, defined
+// alongside the Calorie Balance code below).
+const DEFAULT_MACRO_TARGETS = { protein: 150, carbs: 250, fat: 70 };
+function getMacroTargets() {
+  try {
+    const raw = localStorage.getItem('macro_targets');
+    if (raw == null) return DEFAULT_MACRO_TARGETS;
+    const v = JSON.parse(raw) || {};
+    return {
+      protein: typeof v.protein === 'number' && v.protein > 0 ? v.protein : DEFAULT_MACRO_TARGETS.protein,
+      carbs: typeof v.carbs === 'number' && v.carbs > 0 ? v.carbs : DEFAULT_MACRO_TARGETS.carbs,
+      fat: typeof v.fat === 'number' && v.fat > 0 ? v.fat : DEFAULT_MACRO_TARGETS.fat
+    };
+  } catch { return DEFAULT_MACRO_TARGETS; }
+}
+function setMacroTargets(v) {
+  localStorage.setItem('macro_targets', JSON.stringify(v));
+  syncPush('macro_targets', v);
+  renderMacrosCard();
+}
+function promptMacroTargets() {
+  const current = getMacroTargets();
+  const p = window.prompt('Protein target (g/day):', current.protein);
+  if (p === null) return;
+  const pn = parseFloat(p);
+  if (isNaN(pn) || pn <= 0) return;
+  const c = window.prompt('Carbs target (g/day):', current.carbs);
+  if (c === null) return;
+  const cn = parseFloat(c);
+  if (isNaN(cn) || cn <= 0) return;
+  const f = window.prompt('Fat target (g/day):', current.fat);
+  if (f === null) return;
+  const fn = parseFloat(f);
+  if (isNaN(fn) || fn <= 0) return;
+  setMacroTargets({ protein: pn, carbs: cn, fat: fn });
 }
 let _weightChart = null;
 function renderWeightTrend() {
@@ -10033,6 +10132,53 @@ function renderBalanceTodayRow() {
   el.innerHTML = html;
 }
 
+// ── Macros (Protein / Carbs / Fat) ──────────────────────────────────────────
+// Sourced from MacroFactor (Phil's paid calorie-tracking app) → Apple Health →
+// Health Auto Export, same pipeline as Calorie Intake above. protein/
+// carbohydrates/total_fat are logged per-meal in grams and summed per day by
+// SUM_METRICS in health-intake.js, exactly like dietary_energy. No
+// INTAKE_START_DATE gating here — macro logging started separately (later)
+// from the plain-calorie Health Auto Export setup, so "no data for today"
+// already reads correctly as "nothing synced yet" without a hardcoded cutoff.
+function computeMacrosForDate(dateStr) {
+  const protein = _healthValueOnDate('protein', dateStr);
+  const carbs = _healthValueOnDate('carbohydrates', dateStr);
+  const fat = _healthValueOnDate('total_fat', dateStr);
+  if (protein == null && carbs == null && fat == null) return null;
+  return { protein: protein || 0, carbs: carbs || 0, fat: fat || 0 };
+}
+function _macroBarHtml(label, actual, target, color) {
+  const pct = target > 0 ? Math.min(100, Math.round(actual / target * 100)) : 0;
+  return `
+    <div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#7A6656;margin-bottom:2px">
+        <span>${label}</span>
+        <span>${Math.round(actual)}g / ${Math.round(target)}g</span>
+      </div>
+      <div style="background:#F0E1D2;border-radius:6px;height:6px;overflow:hidden">
+        <div style="background:${color};height:100%;width:${pct}%"></div>
+      </div>
+    </div>`;
+}
+function renderMacrosCard() {
+  const row = document.getElementById('macros-today-row');
+  const label = document.getElementById('macro-targets-label');
+  if (!row && !label) return;
+  const targets = getMacroTargets();
+  if (label) label.textContent = `Targets: ${targets.protein}g protein / ${targets.carbs}g carbs / ${targets.fat}g fat`;
+  if (!row) return;
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const macros = computeMacrosForDate(todayStr);
+  if (!macros) {
+    row.innerHTML = `<span class="sub" style="font-style:italic;color:#bbb">No macro data synced today yet</span>`;
+    return;
+  }
+  row.innerHTML =
+    _macroBarHtml('Protein', macros.protein, targets.protein, '#D9481F') +
+    _macroBarHtml('Carbs', macros.carbs, targets.carbs, '#D9A441') +
+    _macroBarHtml('Fat', macros.fat, targets.fat, '#4E9E6E');
+}
+
 let whoopBalanceChart;
 function buildCalorieBalanceChart() {
   const canvas = document.getElementById('calorie-balance-chart');
@@ -10365,6 +10511,7 @@ function renderWhoopMonitor() {
   renderCaloriesTodayRow();
   renderIntakeTodayRow();
   renderBalanceTodayRow();
+  renderMacrosCard();
 
   if (initialised['whoop-monitor']) { buildWhoopWeightChart(); buildFitnessTrendChart(); buildCaloriesBurnedChart(); buildIntakeChart(); buildCalorieBalanceChart(); }
   else pendingCharts['whoop-monitor'] = () => { buildWhoopWeightChart(); buildFitnessTrendChart(); buildCaloriesBurnedChart(); buildIntakeChart(); buildCalorieBalanceChart(); };
@@ -10732,6 +10879,7 @@ function applySyncUpdates(updated) {
   });
   if (updated.includes('progress_log')) safe(() => { renderWeightTrend(); buildWhoopWeightChart(); });
   if (updated.includes('weight_goal')) safe(() => { renderWeightGoalRow(); buildWhoopWeightChart(); });
+  if (updated.includes('macro_targets')) safe(renderMacrosCard);
   if (updated.includes('monthly_km_goal')) safe(() => renderMonthlyGoal(_acts));
   if (updated.includes('pb_log')) safe(buildPBChart);
   if (updated.includes('tasks_priority')) safe(() => { renderTasks(); if (typeof renderHabits === 'function') renderHabits(); });
@@ -10897,7 +11045,6 @@ function renderHomeStatRow() {
     if (card) {
       if (!hasData) {
         card.style.display = 'none';
-        row.style.gridTemplateColumns = '1fr';
       } else {
         const { score, label } = computeReadinessScore();
         const tier = score >= 65 ? { bg: '#bfe3c9', text: '#1c6b3e' }
@@ -10906,7 +11053,6 @@ function renderHomeStatRow() {
         card.style.display = 'block';
         card.style.background = tier.bg;
         card.style.color = tier.text;
-        row.style.gridTemplateColumns = '1fr 1fr';
         const numEl = document.getElementById('home-readiness-card-num');
         const subEl = document.getElementById('home-readiness-card-sub');
         if (numEl) numEl.textContent = score;
@@ -10914,6 +11060,64 @@ function renderHomeStatRow() {
       }
     }
   } catch (e) { /* health data not ready yet — leave placeholder */ }
+
+  // Training load / Form — reuses the same CTL/ATL/Form model as the
+  // dedicated Training Load chart (computeFitnessTrend). Always has a
+  // number (the model floors at 0 load on days with nothing logged), so
+  // unlike Readiness this tile isn't gated on hasData — a fresh "0 load"
+  // history correctly reads as neutral "Maintaining", not an error state.
+  try {
+    const loadCard = document.getElementById('home-load-card');
+    if (loadCard && typeof computeFitnessTrend === 'function') {
+      const trend = computeFitnessTrend(90);
+      const latest = trend[trend.length - 1];
+      if (latest) {
+        const form = latest.form;
+        const tier = form > 5 ? { bg: '#bfe3c9', text: '#1c6b3e', label: 'Fresh' }
+                   : form > -25 ? { bg: 'var(--surface-hover)', text: 'var(--text-muted)', label: 'Maintaining' }
+                   : { bg: '#f9d6d2', text: '#a3352b', label: 'High fatigue' };
+        loadCard.style.display = 'block';
+        loadCard.style.background = tier.bg;
+        loadCard.style.color = tier.text;
+        const numEl = document.getElementById('home-load-card-num');
+        const subEl = document.getElementById('home-load-card-sub');
+        const sign = form > 0 ? '+' : '';
+        if (numEl) numEl.textContent = `${sign}${Math.round(form)}`;
+        if (subEl) subEl.textContent = tier.label;
+      } else {
+        loadCard.style.display = 'none';
+      }
+    }
+  } catch (e) { /* training load data not ready yet — leave placeholder */ }
+
+  // Calorie balance (today) — same intake/output sourcing as the dedicated
+  // Balance card's today-row; only shown once both sides have data for
+  // today (same gating as that card), so it doesn't flash a misleading
+  // "0" before intake syncs.
+  try {
+    const balCard = document.getElementById('home-balance-card');
+    if (balCard) {
+      const todayStr = new Date().toLocaleDateString('en-CA');
+      const intake = (todayStr >= INTAKE_START_DATE) ? _kjToKcal(_healthValueOnDate('dietary_energy', todayStr)) : null;
+      const activeToday = _kjToKcal(_healthValueOnDate('active_energy', todayStr));
+      const basalToday = _kjToKcal(_healthValueOnDate('basal_energy_burned', todayStr));
+      const output = (activeToday != null || basalToday != null) ? (activeToday || 0) + (basalToday || 0) : null;
+      if (intake == null || output == null) {
+        balCard.style.display = 'none';
+      } else {
+        const net = intake - output;
+        const tier = net > 0 ? { bg: '#f9d6d2', text: '#a3352b' } : { bg: '#bfe3c9', text: '#1c6b3e' };
+        balCard.style.display = 'block';
+        balCard.style.background = tier.bg;
+        balCard.style.color = tier.text;
+        const numEl = document.getElementById('home-balance-card-num');
+        const subEl = document.getElementById('home-balance-card-sub');
+        const sign = net > 0 ? '+' : '';
+        if (numEl) numEl.textContent = `${sign}${Math.round(net)}`;
+        if (subEl) subEl.textContent = net > 0 ? 'kcal surplus' : 'kcal deficit';
+      }
+    }
+  } catch (e) { /* calorie data not ready yet — leave placeholder */ }
 }
 
 // Hook readiness chip into daily briefing render
