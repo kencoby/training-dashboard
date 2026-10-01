@@ -5802,6 +5802,33 @@ const TRAINING_TEMPLATE = [
   { day: 'Sunday',    am: { type: 'Bike/Swim',  emoji: '🚴', tag: 'bikeswim', intensity: 'moderate' }, pm: { type: 'Legs (Heavy)',  emoji: '💪', tag: 'lower',    intensity: 'hard' },     eve: null },
 ];
 
+// Short "why this session" coach's notes, keyed by the plain session type
+// string (no emoji) — covers every type that appears in TRAINING_TEMPLATE and
+// every VARIANTS swap option. Custom-typed sessions just get no note.
+const SESSION_COACH_NOTES = {
+  'Easy Run':     'Zone 1-2 effort — builds aerobic base and aids recovery between harder sessions. Resist the urge to push pace.',
+  'Intervals':    'Short, hard efforts with recovery between reps — raises VO2 max and running economy.',
+  'Tempo Run':    "Sustained \"comfortably hard\" pace near lactate threshold — trains your body to clear lactate faster.",
+  'Long Run':     'Longest run of the week at an easy, conversational pace — builds endurance, fat-burning efficiency and durability.',
+  'Push':         'Chest, shoulders, triceps — progressive overload here drives upper-body pushing strength.',
+  'Pull':         'Back, biceps, rear delts — balances the pushing work and supports posture and pulling power.',
+  'Legs (Lighter)': 'Lower volume/intensity leg day — maintains strength while keeping fatigue low for upcoming running.',
+  'Legs (Heavy)': 'Heavier loads, lower reps — the main strength-building leg session of the week.',
+  'Bike/Swim':    'Low-impact cross-training — builds cardio fitness while giving your running muscles and joints a break.',
+  'Football':     "Match play — great for anaerobic fitness and agility, but factor the impact into tomorrow's recovery.",
+  'Upper':        'Chest, back, shoulders and arms in one session — general upper-body strength and hypertrophy.',
+  'Lower':        'Quads, hamstrings, glutes and calves in one session — general lower-body strength and hypertrophy.',
+  'Speed Run':    'Short, fast reps — sharpens top-end speed and running economy.',
+  'Speed Ride':   'High-cadence or hard efforts on the bike — builds anaerobic power with less joint impact than running.',
+  'Long Ride':    'Extended steady-state ride — builds aerobic endurance without the pounding of a long run.',
+  'Easy Ride':    'Easy spin — active recovery that keeps blood flowing without adding fatigue.',
+  'Long Swim':    'Extended continuous swim — builds aerobic capacity and technique endurance.',
+  'Easy Swim':    'Easy, technique-focused swim — low-impact active recovery.',
+};
+function getCoachNote(type) {
+  return SESSION_COACH_NOTES[type] || null;
+}
+
 function sessionDone(session, acts, dateStr) {
   if (!session) return false;
   const dayActs = acts.filter(a => a.start_local.slice(0,10) === dateStr);
@@ -5892,6 +5919,63 @@ function parseOverrideLabel(label) {
   return { type, emoji, tag: tagMap[emoji] || 'run', intensity: 'moderate' };
 }
 
+// Looks up the effective session (override or template) for any date/slot —
+// used by the coach's-note and Next-Best-Workout-swap UI, which both need to
+// know what's actually planned for a given popover without re-deriving the
+// am/pm/eve/extra override logic that getTodaysSessions() already encodes.
+function getSessionForSlot(dateStr, slot) {
+  const overrides = getOverrides(dateStr);
+  if (overrides[slot] === 'REST') return null;
+  if (overrides[slot]) return parseOverrideLabel(overrides[slot]);
+  if (slot.startsWith('extra')) return null;
+  const d = new Date(dateStr + 'T00:00:00');
+  const dayIdx = (d.getDay() + 6) % 7;
+  const tmpl = TRAINING_TEMPLATE[dayIdx];
+  return tmpl ? tmpl[slot] : null;
+}
+
+// "Next Best Workout" — when today's readiness signal (getTrainingSuggestion)
+// says take it easy/rest and a planned session is moderate/hard, suggest an
+// easier swap. Run/bike/swim have a real "Easy ___" VARIANTS entry to swap
+// to; gym (upper/lower) and combined Bike/Swim sessions don't have a clean
+// single "easier" target in the data model, so those get a text-only nudge
+// instead of a one-tap action.
+function _nextBestSwap(session) {
+  if (!session) return null;
+  const s = (typeof getTrainingSuggestion === 'function') ? getTrainingSuggestion() : null;
+  if (!s || s.verdict === 'Ready to push 💪') return null;
+  if (session.intensity === 'easy') return null;
+  const verdictText = s.verdict.replace(/\p{Extended_Pictographic}/gu, '').trim();
+  const EASIER = { run: 'Easy Run 🏃', bike: 'Easy Ride 🚴', swim: 'Easy Swim 🏊' };
+  const easier = EASIER[session.tag];
+  if (easier) {
+    const easierType = easier.replace(/\p{Extended_Pictographic}/gu, '').trim();
+    if (session.type === easierType) return null;
+    return { kind: 'swap', verdictText, detail: s.detail, label: easier, easierType };
+  }
+  const nudge = {
+    upper: 'Consider lighter weights or fewer sets today.',
+    lower: 'Consider lighter weights or fewer sets today.',
+    bikeswim: "Consider making today's session easier or shorter.",
+  }[session.tag];
+  if (!nudge) return null;
+  return { kind: 'nudge', verdictText, detail: s.detail, text: nudge };
+}
+// Renders the suggestion box; `makeOnclick(label)` builds the onclick JS for
+// the swap button so the same decision logic serves both the Home "Today's
+// Training" list and the calendar session popover with different targets.
+function _nextBestSwapHtml(session, makeOnclick) {
+  const sug = _nextBestSwap(session);
+  if (!sug) return '';
+  const box = 'background:var(--surface-hover,#FBF1E7);border-radius:8px;padding:8px 10px;margin:4px 0 8px;font-size:11px;color:#7A6656;line-height:1.4';
+  const head = `⚡ ${escHtml(sug.verdictText)} — ${escHtml(sug.detail)}.`;
+  if (sug.kind === 'swap') {
+    const onclick = makeOnclick(sug.label);
+    return `<div style="${box}">${head}<button onclick="${onclick}" style="margin-top:6px;display:inline-block;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;background:#fffbeb;color:#92400e">↓ Swap to ${escHtml(sug.easierType)}</button></div>`;
+  }
+  return `<div style="${box}">${head} ${escHtml(sug.text)}</div>`;
+}
+
 // Extra (unlimited "+Add") slots are stored as flat keys extra0, extra1, ...
 // on the same overrides/manual objects am/pm use — no fixed cap, just however
 // many keys exist. Returns them sorted numerically, e.g. ['extra0','extra1'].
@@ -5958,13 +6042,25 @@ function renderTrainingTodo() {
     const cbAttr = isDone ? 'checked' : '';
     const evtAttr = stravaDetected ? 'disabled' : `onchange="toggleTrainingTodo('${slot}',this.checked)"`;
     const stravaTag = stravaDetected ? `<span style="font-size:10px;color:#7A6656;margin-left:2px">✓ Strava</span>` : '';
+    const note = getCoachNote(session.type);
+    const noteHtml = (note && !isDone) ? `<div style="font-size:11px;color:#A6937F;margin:-2px 0 4px 28px;line-height:1.35">${escHtml(note)}</div>` : '';
+    const swapHtml = isDone ? '' : _nextBestSwapHtml(session, (label) => `homeApplySwap('${slot}','${label}')`);
     return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;${isDone ? 'opacity:0.5' : ''}">
       <input type="checkbox" ${cbAttr} ${evtAttr} style="cursor:${stravaDetected ? 'default' : 'pointer'};flex-shrink:0"/>
       <span style="flex:1;font-size:13px;${isDone ? 'text-decoration:line-through' : ''}">${session.emoji} ${escHtml(session.type)}</span>
       <span style="font-size:10px;color:#A6937F">${slot.toUpperCase()}</span>${stravaTag}
-    </div>`;
+    </div>${noteHtml}${swapHtml}`;
   });
   el.innerHTML = `<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #FBF1E7">${hdr}${rows.join('')}</div>`;
+}
+
+// Applies a Next-Best-Workout swap tapped from the Home "Today's Training"
+// list (mirrors popoverSetOverride's effect, without a popover to close).
+function homeApplySwap(slot, label) {
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  setOverride(todayStr, slot, label);
+  renderTrainingCalendar(_acts);
+  renderTrainingTodo();
 }
 
 function toggleTrainingTodo(slot, checked) {
@@ -6113,10 +6209,17 @@ function _popStep1Html(dateStr, slot) {
   const isExtra = slot.startsWith('extra');
   const removeBtn = isExtra ? `<button onclick="popoverRemoveExtra('${dateStr}','${slot}')" style="${b};background:#FBF1E7;color:#4A3B2E">🗑 Remove</button>` : '';
   const restBtn = !isExtra ? `<button onclick="popoverSetRest('${dateStr}','${slot}')" style="${b};background:#FBF1E7;color:#4A3B2E">😌 Rest</button>` : '';
+  const session = getSessionForSlot(dateStr, slot);
+  const note = session ? getCoachNote(session.type) : null;
+  const noteHtml = note ? `<div style="font-size:11px;color:#7A6656;margin-bottom:8px;line-height:1.4">${escHtml(note)}</div>` : '';
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const swapHtml = (dateStr === todayStr && state !== 'done' && state !== 'skipped')
+    ? _nextBestSwapHtml(session, (label) => `popoverSetOverride('${dateStr}','${slot}','${label}')`)
+    : '';
   if (state === 'done' || state === 'skipped') {
-    return `<div style="display:flex;gap:6px;flex-wrap:wrap"><button onclick="popoverUndo('${dateStr}','${slot}')" style="${b};background:#eff6ff;color:#1d4ed8">↩ Undo</button>${removeBtn}</div>`;
+    return `${noteHtml}<div style="display:flex;gap:6px;flex-wrap:wrap"><button onclick="popoverUndo('${dateStr}','${slot}')" style="${b};background:#eff6ff;color:#1d4ed8">↩ Undo</button>${removeBtn}</div>`;
   }
-  return `<div style="display:flex;gap:6px;flex-wrap:wrap">
+  return `${noteHtml}${swapHtml}<div style="display:flex;gap:6px;flex-wrap:wrap">
     <button onclick="popoverDone('${dateStr}','${slot}')" style="${b};background:#f0fdf4;color:#166534">✓ Done</button>
     <button onclick="popoverSkip('${dateStr}','${slot}')" style="${b};background:#fef2f2;color:#991b1b">✗ Skip</button>
     <button onclick="popoverGoStep2('${dateStr}','${slot}')" style="${b};background:#fffbeb;color:#92400e">⇄ Change</button>
