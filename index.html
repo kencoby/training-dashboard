@@ -3151,7 +3151,7 @@ function getAutoHabitStateOnDate(dateStr) {
   const loggedWeight = getProgressLog().some(e => e.date === dateStr && e.weight != null);
   // Strava-based: find activities on this date
   const actsOnDate = (_acts || []).filter(a => a.start_local && a.start_local.slice(0, 10) === dateStr);
-  const CARDIO_TYPES = new Set(['Run', 'Ride', 'Swim', 'Walk', 'Hike']);
+  const CARDIO_TYPES = new Set(['Run', 'Ride', 'Swim', 'Walk', 'Hike', 'Soccer']);
   const hasCardio   = actsOnDate.some(a => CARDIO_TYPES.has(a.sport_type));
   const hasStrength = actsOnDate.some(a => a.sport_type === 'WeightTraining');
   // Apple Health dietary_energy intake for the day — same metric the Calorie
