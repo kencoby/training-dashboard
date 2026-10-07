@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>One-time health data backfill</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; max-width: 640px; margin: 60px auto; padding: 0 20px; color: #222; }
+  button { font-size: 16px; padding: 12px 24px; background: #2D7A47; color: white; border: none; border-radius: 8px; cursor: pointer; }
+  button:disabled { background: #999; cursor: default; }
+  pre { background: #f4f4f4; padding: 16px; border-radius: 8px; white-space: pre-wrap; word-break: break-word; }
+  .err { color: #B00020; }
+  .ok { color: #2D7A47; }
+</style>
+</head>
+<body>
+  <h2>One-time health data backfill</h2>
+  <p>This reads the 90-day export at <code>_health-backfill-temp.json</code> (in this same repo) and sends it to <code>/api/health-intake</code> on this site — the normal sync endpoint, just a one-off manual trigger instead of the usual automated phone sync.</p>
+  <p>Click once. Safe to click more than once if something goes wrong — ingestion just merges data in, it won't duplicate or wipe anything.</p>
+  <button id="go">Import 90-day backfill</button>
+  <pre id="out"></pre>
+  <script>
+    document.getElementById('go').addEventListener('click', async () => {
+      const btn = document.getElementById('go');
+      const out = document.getElementById('out');
+      btn.disabled = true;
+      out.textContent = 'Fetching backfill file from GitHub...';
+      try {
+        const rawRes = await fetch('https://raw.githubusercontent.com/kencoby/training-dashboard/main/_health-backfill-temp.json', { cache: 'no-store' });
+        if (!rawRes.ok) throw new Error('Could not fetch backfill file: HTTP ' + rawRes.status);
+        const payload = await rawRes.json();
+        const metricCount = payload?.data?.metrics?.length || 0;
+        out.textContent = 'Got ' + metricCount + ' metrics. Sending to /api/health-intake...';
+        const res = await fetch('/api/health-intake', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const body = await res.json().catch(() => ({}));
+        if (res.ok) {
+          out.innerHTML = '<span class="ok">Success (HTTP ' + res.status + ')</span>\n' + JSON.stringify(body, null, 2);
+        } else {
+          out.innerHTML = '<span class="err">Failed (HTTP ' + res.status + ')</span>\n' + JSON.stringify(body, null, 2);
+        }
+      } catch (e) {
+        out.innerHTML = '<span class="err">Error: ' + (e && e.message ? e.message : String(e)) + '</span>';
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
