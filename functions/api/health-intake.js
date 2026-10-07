@@ -56,9 +56,19 @@ export async function onRequest(context) {
     return json(400, { error: 'No metrics or workouts found in payload (expected data.metrics[] or data.workouts[])' });
   }
 
+  // A failed read here must NOT silently fall through to an empty object —
+  // doing so makes the merge below (and the final sbSet) overwrite the
+  // stored blob with just this one sync's data, permanently wiping every
+  // earlier day. (This is exactly what happened 2026-10-05: a transient
+  // Supabase read failure during ingestion was swallowed, and the next
+  // write replaced months of history with that sync's ~3 days.) Fail the
+  // whole request instead — Health Auto Export will just retry on its next
+  // scheduled sync, which is safe since ingestion is otherwise additive.
   let existing;
   try { existing = await sbGet(env, 'blob:health-data') || {}; }
-  catch { existing = {}; }
+  catch (err) {
+    return json(502, { error: `Failed to read existing health data, aborting ingestion to avoid overwriting history: ${err.message}` });
+  }
 
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - KEEP_DAYS);
