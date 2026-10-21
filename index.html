@@ -6487,7 +6487,7 @@ async function renderS6(acts, tokens) {
 // ── §7 Personal Bests ────────────────────────────────────────────────────────
 // TODO: make editable
 const PBS = [
-  { label: '5km', current: '19:26', goal: '19:00', baseline: '25:00', unit: 'time' },
+  { label: '5km', current: '19:24', goal: '19:00', baseline: '25:00', unit: 'time' },
   { label: '10km', current: '43:46', goal: '42:00', baseline: '55:00', unit: 'time' },
   { label: 'Half Marathon', current: '1:35:14', goal: '1:30:00', baseline: '1:50:00', unit: 'time' },
 ];
@@ -7386,8 +7386,11 @@ function _runClubProgress(curSec, baseSec, goalSec) {
   return { pct, remaining };
 }
 
+// Phil's 5km PB (19:24, set before the Strava history this app loads). Used
+// when no manual override is saved in this browser, so every device shows it.
+const KNOWN_5K_PB = { time: 19 * 60 + 24, date: null };
 function get5kPbOverride() {
-  try { return JSON.parse(localStorage.getItem('run_5k_pb_override')) || null; } catch { return null; }
+  try { return JSON.parse(localStorage.getItem('run_5k_pb_override')) || KNOWN_5K_PB; } catch { return KNOWN_5K_PB; }
 }
 function set5kPbOverride(minStr, secStr, dateStr) {
   const m = parseInt(minStr, 10), s = parseInt(secStr || '0', 10);
@@ -7410,15 +7413,15 @@ function renderRunningPBs(acts) {
     if (!fiveKData.allTime || ov.time < fiveKData.allTime.time) {
       fiveKData.allTime = { time: ov.time, date: ov.date };
     }
-    if (!fiveKData.current || ov.time < fiveKData.current.time) {
+    if (ov.date && (!fiveKData.current || ov.time < fiveKData.current.time)) {
       fiveKData.current = { time: ov.time, date: ov.date };
       fiveKData.isLastKnown = false;
     }
   }
 
   const rows = data.dists.map(d => {
-    const at = d.allTime ? `${fmtRaceTime(d.allTime.time)}<span style="display:block;font-size:11px;color:#aaa;font-weight:500">${fmtDate(d.allTime.date)}</span>` : '<span style="color:#bbb">—</span>';
-    const cur = d.current ? `${fmtRaceTime(d.current.time)}<span style="display:block;font-size:11px;color:#aaa;font-weight:500">${fmtDate(d.current.date)}${d.isLastKnown ? ' · last known' : ''}</span>` : '<span style="color:#bbb">—</span>';
+    const at = d.allTime ? `${fmtRaceTime(d.allTime.time)}<span style="display:block;font-size:11px;color:#aaa;font-weight:500">${d.allTime.date ? fmtDate(d.allTime.date) : 'manual'}</span>` : '<span style="color:#bbb">—</span>';
+    const cur = d.current ? `${fmtRaceTime(d.current.time)}<span style="display:block;font-size:11px;color:#aaa;font-weight:500">${d.current.date ? fmtDate(d.current.date) : 'manual'}${d.isLastKnown ? ' · last known' : ''}</span>` : '<span style="color:#bbb">—</span>';
     return `
     <div class="whoop-contrib-row">
       <span class="wc-label" style="flex:0 0 130px">${d.label}</span>
@@ -7435,7 +7438,7 @@ function renderRunningPBs(acts) {
     </div>${rows}
     <div style="margin-top:8px;padding-top:8px;border-top:1px solid #FAF3EC;font-size:11px;color:#A6937F">
       ${ov
-        ? `Manual 5km PB: <strong>${fmtRaceTime(ov.time)}</strong> (${fmtDate(ov.date)}) <button onclick="clear5kPbOverride()" style="background:none;border:none;color:#A6937F;text-decoration:underline;cursor:pointer;font-size:11px;padding:0;margin-left:6px">Clear</button>`
+        ? `Manual 5km PB: <strong>${fmtRaceTime(ov.time)}</strong>${ov.date ? ` (${fmtDate(ov.date)})` : ''} <button onclick="clear5kPbOverride()"${ov === KNOWN_5K_PB ? ' hidden' : ''} style="background:none;border:none;color:#A6937F;text-decoration:underline;cursor:pointer;font-size:11px;padding:0;margin-left:6px">Clear</button>`
         : `<a href="javascript:void(0)" onclick="document.getElementById('pb-override-form').style.display='flex'" style="color:#A6937F">Set 5km PB manually</a>`}
       <div id="pb-override-form" style="display:none;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap">
         <input id="pb-override-min" type="number" min="0" placeholder="min" style="width:50px;border:1px solid #F0E1D2;border-radius:6px;padding:4px 6px;font-size:12px">
@@ -11086,7 +11089,7 @@ function renderPRTracker() {
   rows.forEach(r => { (bySport[r.t.sport] = bySport[r.t.sport] || []).push(r); });
 
   let html = '';
-  const prOverrides = JSON.parse(localStorage.getItem('pr_overrides') || '{}');
+  const prOverrides = { 'Run_5 km': { time: '19:24' }, ...JSON.parse(localStorage.getItem('pr_overrides') || '{}') }; // 19:24 = Phil's 5km PB (predates the loaded Strava history)
 
   Object.entries(bySport).forEach(([sport, sRows]) => {
     html += `<div style="margin-bottom:12px">
@@ -11102,7 +11105,7 @@ function renderPRTracker() {
             <span style="font-size:14px;font-weight:700">${displayTime}</span>
             ${isOverridden ? `<span style="font-size:10px;color:#6366f1;margin-left:4px">✏️ manual</span>` : ''}
           </div>
-          <div style="font-size:11px;color:#A6937F;text-align:right;margin-right:8px">${fmtPace(best.summary.avg_speed, sport)}<br>${dateStr}</div>
+          <div style="font-size:11px;color:#A6937F;text-align:right;margin-right:8px">${isOverridden ? '' : `${fmtPace(best.summary.avg_speed, sport)}<br>${dateStr}`}</div>
           <button onclick="setPROverride('${overrideKey}')" title="Set actual time" style="background:none;border:1px solid #F0E1D2;border-radius:6px;padding:2px 6px;font-size:11px;color:#7A6656;cursor:pointer">✏️</button>
         </div>`;
       }).join('')}
