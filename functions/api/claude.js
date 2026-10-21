@@ -19,23 +19,32 @@ export async function onRequest(context) {
   const apiKey = env.GEMINI_API_KEY;
   if (!apiKey) return json(500, { error: 'GEMINI_API_KEY not configured' });
 
-  let prompt, ctx;
+  let prompt, ctx, image, json_;
   try {
-    ({ prompt, context: ctx } = JSON.parse(await request.text() || '{}'));
+    // image (optional): { mimeType, data } with base64 data — used by the
+    // Wardrobe tab to tag a clothing photo. json: true asks Gemini for a JSON reply.
+    ({ prompt, context: ctx, image, json: json_ } = JSON.parse(await request.text() || '{}'));
   } catch {
     return json(400, { error: 'Invalid JSON body' });
   }
   if (!prompt) return json(400, { error: 'Missing prompt' });
 
   const userMessage = ctx ? `${prompt}\n\nContext:\n${ctx}` : prompt;
+  const parts = [{ text: userMessage }];
+  if (image) {
+    if (!/^image\/(jpeg|png|webp)$/.test(image.mimeType || '') || typeof image.data !== 'string' || image.data.length > 7e6) {
+      return json(400, { error: 'image must be { mimeType: image/jpeg|png|webp, data: base64 } under ~5 MB' });
+    }
+    parts.push({ inline_data: { mime_type: image.mimeType, data: image.data } });
+  }
 
   try {
     const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: userMessage }] }],
-        generationConfig: { maxOutputTokens: 1024 }
+        contents: [{ parts }],
+        generationConfig: { maxOutputTokens: 1024, ...(json_ ? { responseMimeType: 'application/json' } : {}) }
       })
     });
     const data = await res.json();

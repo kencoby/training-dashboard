@@ -285,6 +285,70 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
   .fx-num{font-size:26px}
   .fx-prog-spark{width:80px}
 }
+
+/* ── Wardrobe tab ───────────────────────────────────────────────────────── */
+.wd-wrap{max-width:900px;margin:0 auto}
+.wd-btn{font-family:inherit;font-size:13px;font-weight:600;border:none;border-radius:999px;padding:8px 14px;background:#E9E9EE;color:var(--fx-text,#1C1C1E);cursor:pointer;white-space:nowrap}
+.wd-btn:hover{background:#DEDEE4}
+.wd-btn:disabled{opacity:.5;cursor:default}
+.wd-btn-primary{background:var(--fx-text,#1C1C1E);color:#fff}
+.wd-btn-primary:hover{background:#000}
+.wd-btn-danger{background:none;color:var(--fx-red,#E5484D);padding-left:0}
+.wd-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.wd-chip{font-family:inherit;font-size:13px;font-weight:600;border:none;border-radius:999px;padding:6px 12px;background:#fff;color:var(--fx-text2,#3A3A3C);cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.wd-chip.on{background:var(--fx-text,#1C1C1E);color:#fff}
+.wd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+@media(max-width:420px){.wd-grid{grid-template-columns:1fr 1fr}}
+.wd-item{background:#fff;border-radius:18px;overflow:hidden;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.04),0 6px 20px rgba(0,0,0,.04);border:none;padding:0;text-align:left;font-family:inherit;color:inherit}
+.wd-item:hover{box-shadow:0 2px 4px rgba(0,0,0,.06),0 10px 26px rgba(0,0,0,.07)}
+.wd-photo{aspect-ratio:1/1;background:#F2F2F7;display:flex;align-items:center;justify-content:center;font-size:34px;overflow:hidden}
+.wd-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.wd-item-body{padding:9px 11px 11px}
+.wd-item-name{font-size:14px;font-weight:600;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wd-item-meta{font-size:12px;color:var(--fx-muted,#8E8E93);margin-top:2px}
+.wd-outfit{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin:12px 0 10px}
+.wd-outfit .wd-photo{border-radius:14px}
+.wd-outfit .wd-cap{font-size:12px;font-weight:600;margin-top:4px;line-height:1.25}
+.wd-outfit .wd-cap span{display:block;font-weight:500;color:var(--fx-muted,#8E8E93)}
+.wd-weather{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--fx-muted,#8E8E93);font-weight:500}
+.wd-weather b{color:var(--fx-text,#1C1C1E);font-size:15px}
+.wd-reason{font-size:13.5px;line-height:1.45;color:var(--fx-text2,#3A3A3C)}
+.wd-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.wd-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--fx-line,#EEEEF2);font-size:13.5px}
+.wd-row:last-child{border-bottom:none}
+.wd-thumbs{display:flex;gap:4px;flex-shrink:0}
+.wd-thumbs .wd-photo{width:34px;height:34px;border-radius:8px;font-size:16px;aspect-ratio:auto}
+.wd-statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.wd-stat{background:#F6F6F9;border-radius:14px;padding:10px 12px}
+.wd-stat .n{font-size:22px;font-weight:700;letter-spacing:-.4px}
+.wd-stat .l{font-size:12px;color:var(--fx-muted,#8E8E93);font-weight:500}
+.wd-sub{font-size:13px;font-weight:600;color:var(--fx-text2,#3A3A3C);margin:10px 0 2px}
+/* modal */
+.wd-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:3000;display:flex;align-items:flex-end;justify-content:center}
+@media(min-width:700px){.wd-overlay{align-items:center}}
+.wd-sheet{background:#fff;width:100%;max-width:520px;max-height:92vh;overflow-y:auto;border-radius:22px 22px 0 0;padding:18px 18px 22px;font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Roboto,sans-serif;color:#1C1C1E}
+@media(min-width:700px){.wd-sheet{border-radius:22px}}
+.wd-sheet h3{font-size:19px;font-weight:700;letter-spacing:-.3px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+.wd-sheet h3 button{background:#F2F2F7;border:none;border-radius:50%;width:30px;height:30px;font-size:15px;cursor:pointer;color:#3A3A3C}
+.wd-field{margin-bottom:12px}
+.wd-field label{display:block;font-size:12.5px;font-weight:600;color:#8E8E93;margin-bottom:5px}
+.wd-field input[type=text],.wd-field input[type=date],.wd-field select,.wd-field textarea{width:100%;font-family:inherit;font-size:15px;padding:10px 12px;border:1px solid #E5E5EA;border-radius:12px;background:#fff;color:#1C1C1E}
+.wd-field textarea{min-height:60px;resize:vertical}
+.wd-2col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.wd-scale{display:flex;gap:4px}
+.wd-scale button{flex:1;font-family:inherit;border:none;border-radius:10px;padding:8px 0;background:#F2F2F7;font-size:13px;font-weight:600;cursor:pointer;color:#3A3A3C}
+.wd-scale button.on{background:#1C1C1E;color:#fff}
+.wd-scale-cap{display:flex;justify-content:space-between;font-size:11px;color:#8E8E93;margin-top:3px}
+.wd-pick{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.wd-pick .wd-photo{width:96px;height:96px;border-radius:16px;flex-shrink:0;aspect-ratio:auto}
+.wd-status{font-size:12.5px;color:#8E8E93;margin-top:6px;line-height:1.4}
+.wd-status.err{color:#E5484D}
+.wd-select-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;max-height:46vh;overflow-y:auto;padding:2px}
+.wd-select-grid .wd-item{box-shadow:none;border:2px solid #EEEEF2;border-radius:14px}
+.wd-select-grid .wd-item.on{border-color:#1C1C1E}
+.wd-select-grid .wd-item-body{padding:5px 7px 7px}
+.wd-select-grid .wd-item-name{font-size:12px}
+.wd-footer{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:16px}
 </style>
 </head>
 <body>
@@ -309,6 +373,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
     <button class="tab-btn" data-tab="shopping">🛒 Shopping</button>
     <button class="tab-btn" data-tab="notes">📝 Notes</button>
     <button class="tab-btn" data-tab="habits">🔥 Habits</button>
+    <button class="tab-btn" data-tab="wardrobe">👕 Wardrobe</button>
     <button class="tab-btn" data-tab="year4">📅 Year 4</button>
   </nav>
   <div style="position:absolute;top:0;right:0;bottom:2px;width:32px;
@@ -1728,6 +1793,29 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 </div>
 </div><!-- /tab-habits -->
 
+<div class="tab-pane fx" id="tab-wardrobe">
+<div class="wd-wrap">
+  <div class="fx-pagehead" style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px">
+    <div><div class="fx-pagetitle">Wardrobe</div><div class="fx-pagesub" id="wd-count">—</div></div>
+    <button class="wd-btn wd-btn-primary" onclick="wdOpenItem()">＋ Add item</button>
+  </div>
+  <div class="section"><div class="card fx-card" id="wd-today"></div></div>
+  <div class="section">
+    <h2>Wear tracking <span class="fx-h2-sub">Last 30 days</span></h2>
+    <div class="card fx-card" id="wd-stats"></div>
+  </div>
+  <div class="section">
+    <h2>Your clothes</h2>
+    <div class="wd-chips" id="wd-filters"></div>
+    <div class="wd-grid" id="wd-grid"></div>
+  </div>
+  <div class="section">
+    <h2 style="justify-content:space-between">Recent outfits <button class="wd-btn" onclick="wdOpenLog()">Log what I wore</button></h2>
+    <div class="card fx-card" id="wd-history"></div>
+  </div>
+</div>
+</div>
+
 <div class="tab-pane" id="tab-year4">
 
 <!-- Legend -->
@@ -2439,7 +2527,8 @@ const SYNC_KEYS = [
   'shopping_items',
   'notes_data',
   'mood_log', 'habit_streaks', 'habit_reset_date',
-  'weight_goal', 'cst_grades', 'audit_cycle', 'ukmla_progress', 'macro_targets'
+  'weight_goal', 'cst_grades', 'audit_cycle', 'ukmla_progress', 'macro_targets',
+  'wardrobe_items', 'wardrobe_wears'
 ];
 
 function getSyncMeta() {
@@ -2479,7 +2568,7 @@ async function syncPull(key) {
     if (remote._ts && remote._ts > localTs) {
       // For append-only log keys, merge remote + local so neither side loses entries.
       // Remote wins on conflicting individual dates, but local-only dates are kept.
-      const MERGE_KEYS = new Set(['habit_log','rev_log','activity_notes','mood_log','pb_log']);
+      const MERGE_KEYS = new Set(['habit_log','rev_log','activity_notes','mood_log','pb_log','wardrobe_wears']);
       if (MERGE_KEYS.has(key) && remote.data && typeof remote.data === 'object' && !Array.isArray(remote.data)) {
         let local;
         try { local = JSON.parse(localStorage.getItem(key)); } catch { local = null; }
@@ -10613,6 +10702,7 @@ function applySyncUpdates(updated) {
     renderTrainingTodo();
   });
   if (updated.includes('daily_habits')) safe(renderHabits);
+  if (updated.includes('wardrobe_items') || updated.includes('wardrobe_wears')) safe(() => { if (typeof wdRender === 'function') wdRender(); });
   if (updated.includes('habit_reset_date') || updated.includes('habit_log') || updated.includes('habit_streaks')) safe(() => {
     recomputeAllStreaks();
     renderHabits();
@@ -12455,13 +12545,416 @@ function calcOttawa() {
   // Cool-grey page background while the Training tab or Health → Fitness is open.
   function updateMode() {
     const tr = $('tab-training'), wh = $('tab-whoop'), fit = $('sub-tab-whoop-fitness');
-    const on = (tr && tr.classList.contains('active')) || (wh && wh.classList.contains('active') && fit && fit.classList.contains('active'));
+    const wd = $('tab-wardrobe');
+    const on = (tr && tr.classList.contains('active')) || (wd && wd.classList.contains('active')) || (wh && wh.classList.contains('active') && fit && fit.classList.contains('active'));
     document.body.classList.toggle('fx-mode', !!on);
   }
   const mo = new MutationObserver(updateMode);
-  ['tab-training', 'tab-whoop', 'sub-tab-whoop-fitness'].forEach(i => { const e = $(i); if (e) mo.observe(e, { attributes: true, attributeFilter: ['class'] }); });
+  ['tab-training', 'tab-whoop', 'sub-tab-whoop-fitness', 'tab-wardrobe'].forEach(i => { const e = $(i); if (e) mo.observe(e, { attributes: true, attributeFilter: ['class'] }); });
   updateMode();
   fxRenderSoon();
+})();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Wardrobe tab — catalogue, today's outfit, wear tracking.
+// Data: synced keys wardrobe_items (array) and wardrobe_wears ({date: [outfit]}).
+// Photos: stored in Phil's Google Drive via /api/wardrobe-photo.
+// Tagging + suggestions: Gemini via /api/claude, with a rule-based fallback
+// for suggestions so the card still works when the AI call fails.
+// ═══════════════════════════════════════════════════════════════════════════
+(function () {
+  const CATS = ['Tops', 'Bottoms', 'Outerwear', 'Shoes', 'Activewear', 'Accessories', 'Other'];
+  const CAT_EMOJI = { Tops: '👕', Bottoms: '👖', Outerwear: '🧥', Shoes: '👟', Activewear: '🏃', Accessories: '🧢', Other: '🧺' };
+  const OCCASIONS = ['Placement', 'Casual', 'Gym', 'Football', 'Smart / night out'];
+  const OCC_FORMALITY = { 'Placement': 4, 'Casual': 2, 'Gym': 1, 'Football': 1, 'Smart / night out': 4 };
+  const DAY = 864e5;
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const today = () => (typeof todayStr === 'function' ? todayStr() : new Date().toLocaleDateString('en-CA'));
+  const fmtD = k => new Date(k + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  const daysAgo = k => Math.round((new Date(today() + 'T12:00:00') - new Date(k + 'T12:00:00')) / DAY);
+  const load = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch { return d; } };
+  const store = (k, v) => { localStorage.setItem(k, JSON.stringify(v)); if (typeof syncPush === 'function') syncPush(k, v); };
+  const items = () => load('wardrobe_items', []).filter(i => i && i.id);
+  const activeItems = () => items().filter(i => !i.archived);
+  const wears = () => load('wardrobe_wears', {});
+  const byId = () => Object.fromEntries(items().map(i => [i.id, i]));
+  let filter = 'All';
+
+  // ── wear stats ───────────────────────────────────────────────────────────
+  function wearIndex() {
+    const idx = {};
+    Object.entries(wears()).forEach(([date, outfits]) => (outfits || []).forEach(o => (o.items || []).forEach(id => {
+      const x = idx[id] = idx[id] || { count: 0, last: null, count30: 0 };
+      x.count++; if (!x.last || date > x.last) x.last = date; if (daysAgo(date) < 30) x.count30++;
+    })));
+    return idx;
+  }
+
+  // ── photo helpers ────────────────────────────────────────────────────────
+  const photoUrl = id => `/api/wardrobe-photo?id=${encodeURIComponent(id)}`;
+  function photoHtml(it) {
+    const em = CAT_EMOJI[it && it.category] || '🧺';
+    if (it && it.photoId) return `<div class="wd-photo"><img loading="lazy" src="${photoUrl(it.photoId)}" alt="" onerror="this.parentNode.textContent='${em}'"></div>`;
+    return `<div class="wd-photo">${em}</div>`;
+  }
+  // Downscale to ≤1024px JPEG before upload/tagging: phone photos are 3–10 MB.
+  function resizeImage(file, max = 1024) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        const dataUrl = c.toDataURL('image/jpeg', 0.85);
+        resolve({ dataUrl, mimeType: 'image/jpeg', data: dataUrl.split(',')[1] });
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read that image')); };
+      img.src = url;
+    });
+  }
+  async function uploadPhoto(img, name) {
+    const res = await fetch('/api/wardrobe-photo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, mimeType: img.mimeType, data: img.data }) });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok || !j.id) throw new Error(j.error || `Upload failed (${res.status})`);
+    return j.id;
+  }
+  async function askAI(prompt, image) {
+    const res = await fetch(`${typeof API !== 'undefined' ? API : '/api'}/claude`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, json: true, ...(image ? { image: { mimeType: image.mimeType, data: image.data } } : {}) })
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(j.error || `AI request failed (${res.status})`);
+    const txt = String(j.text || '').replace(/^```(?:json)?\s*|\s*```$/g, '');
+    return JSON.parse(txt);
+  }
+
+  // ── weather ──────────────────────────────────────────────────────────────
+  function weatherNow() {
+    const w = (typeof _weather !== 'undefined') ? _weather : null;
+    if (!w || !w.current) return null;
+    const d = w.daily || {};
+    return {
+      now: w.current.temperature_2m, max: d.temperature_2m_max && d.temperature_2m_max[0], min: d.temperature_2m_min && d.temperature_2m_min[0],
+      rain: d.precipitation_probability_max && d.precipitation_probability_max[0], wind: w.current.wind_speed_10m, code: w.current.weather_code
+    };
+  }
+  // 1 (light) … 5 (very warm) — what warmth of clothing the day calls for
+  function targetWarmth(w) {
+    if (!w) return 3;
+    const t = w.max != null ? (w.max + (w.min != null ? w.min : w.max)) / 2 : w.now;
+    return t >= 20 ? 1 : t >= 15 ? 2 : t >= 10 ? 3 : t >= 5 ? 4 : 5;
+  }
+
+  // ── suggestion ───────────────────────────────────────────────────────────
+  const SUG_KEY = 'wardrobe_suggestions';
+  const getSug = key => { const all = load(SUG_KEY, {}); return all && typeof all === 'object' ? all[key] || null : null; };
+  const putSug = (key, v) => {
+    const all = load(SUG_KEY, {}); const keep = {};
+    Object.keys(all || {}).forEach(k => { if (k.startsWith(today() + '|')) keep[k] = all[k]; });
+    keep[key] = v; localStorage.setItem(SUG_KEY, JSON.stringify(keep));
+  };
+  function occasion() { return load('wardrobe_occasion', 'Casual'); }
+
+  function ruleSuggest(occ, w, exclude = []) {
+    const list = activeItems(), idx = wearIndex(), tw = targetWarmth(w), tf = OCC_FORMALITY[occ] || 2;
+    const sporty = occ === 'Gym' || occ === 'Football';
+    const score = it => {
+      let s = 0;
+      if ((it.occasions || []).includes(occ)) s += 3;
+      if (sporty && it.category === 'Activewear') s += 3;
+      s -= Math.abs((it.warmth || 3) - tw) * 0.8;
+      s -= Math.abs((it.formality || 2) - tf) * 0.8;
+      const last = idx[it.id] && idx[it.id].last;
+      s += last ? Math.min(daysAgo(last), 14) / 7 : 2;  // favour things not worn lately
+      if (last && daysAgo(last) <= 1) s -= 2;
+      if (exclude.includes(it.id)) s -= 4;
+      return s + Math.random() * 0.6;
+    };
+    const best = pool => pool.length ? pool.map(it => [score(it), it]).sort((a, b) => b[0] - a[0])[0][1] : null;
+    const inCat = (...cats) => list.filter(i => cats.includes(i.category));
+    const pick = [];
+    if (sporty) {
+      const act = inCat('Activewear');
+      const top = best(act.filter(i => /top|shirt|tee|jersey|vest|hoodie/i.test(i.name)).concat(inCat('Tops'))) || best(act);
+      if (top) pick.push(top);
+      const bottom = best(act.filter(i => i !== top && /short|legging|jogger|bottom|tight|pant|trouser/i.test(i.name)).concat(inCat('Bottoms')));
+      if (bottom) pick.push(bottom);
+    } else {
+      const top = best(inCat('Tops')); if (top) pick.push(top);
+      const bottom = best(inCat('Bottoms')); if (bottom) pick.push(bottom);
+    }
+    const shoes = best(inCat('Shoes')); if (shoes) pick.push(shoes);
+    if (w && ((w.max != null && w.max < 14) || (w.rain || 0) >= 50) && occ !== 'Gym') { const o = best(inCat('Outerwear')); if (o) pick.push(o); }
+    const why = [];
+    if (w) why.push(`${Math.round(w.min)}–${Math.round(w.max)}°C${(w.rain || 0) >= 50 ? `, ${w.rain}% chance of rain` : ''}`);
+    why.push(`${occ.toLowerCase()} and favouring things you haven't worn lately`);
+    return { itemIds: pick.map(i => i.id), reason: `Picked by simple rules for ${why.join(', ')}.`, source: 'rules' };
+  }
+
+  async function aiSuggest(occ, w, exclude = []) {
+    const idx = wearIndex();
+    const list = activeItems().map(i => ({ id: i.id, name: i.name, category: i.category, colour: i.colour || '', warmth: i.warmth || 3, formality: i.formality || 2, occasions: i.occasions || [], lastWorn: (idx[i.id] && idx[i.id].last) || 'never' }));
+    const prompt = `You are picking today's outfit from the user's own wardrobe. Use ONLY item ids from the list.
+Occasion: ${occ}. Today is ${today()}.
+Weather in Swansea: ${w ? `now ${w.now}°C, high ${w.max}°C, low ${w.min}°C, ${w.rain}% chance of rain, wind ${w.wind} km/h` : 'unknown'}.
+Warmth and formality are 1 (light/casual) to 5 (very warm/formal).
+Pick a sensible complete outfit (typically a top, bottoms and shoes, plus outerwear if it's cold or likely to rain). Prefer items not worn recently and colours that go together.${exclude.length ? `\nThe user asked for an alternative: avoid repeating these ids where possible: ${exclude.join(', ')}.` : ''}
+Reply with JSON only: {"itemIds": ["id", ...], "reason": "one or two short sentences, referring to the weather and occasion"}.
+Wardrobe: ${JSON.stringify(list)}`;
+    const r = await askAI(prompt);
+    const valid = new Set(list.map(i => i.id));
+    const ids = [...new Set((r.itemIds || []).filter(id => valid.has(id)))];
+    if (!ids.length) throw new Error('AI returned no usable items');
+    return { itemIds: ids, reason: String(r.reason || '').slice(0, 400), source: 'ai' };
+  }
+
+  let _busy = false, _wxGaveUp = false;
+  async function suggest(force) {
+    const occ = occasion(), w = weatherNow(), key = today() + '|' + occ;
+    const cached = getSug(key);
+    if (!force && cached) return renderToday();
+    if (activeItems().length < 2) return renderToday();
+    _busy = true; renderToday();
+    const exclude = force && cached ? cached.itemIds : [];
+    let s;
+    try { s = await aiSuggest(occ, w, exclude); }
+    catch (e) { console.warn('AI outfit suggestion failed, using rules', e); s = ruleSuggest(occ, w, exclude); }
+    putSug(key, { key, ...s, at: Date.now() });
+    _busy = false; renderToday();
+  }
+
+  // ── renderers ────────────────────────────────────────────────────────────
+  function renderToday() {
+    const el = $('wd-today'); if (!el) return;
+    const occ = occasion(), w = weatherNow(), map = byId();
+    const head = `<div class="fx-head"><span style="font-size:16px">✨</span><span>Today's outfit</span></div>`;
+    const wx = w ? `<div class="wd-weather"><b>${Math.round(w.now)}°C</b> now · ${Math.round(w.min)}–${Math.round(w.max)}°C · ${w.rain != null ? w.rain + '% rain' : ''}</div>` : `<div class="wd-weather">Weather unavailable right now</div>`;
+    const chips = `<div class="wd-chips" style="margin:12px 0 0">${OCCASIONS.map(o => `<button class="wd-chip${o === occ ? ' on' : ''}" onclick="wdSetOccasion('${o}')">${esc(o)}</button>`).join('')}</div>`;
+    if (activeItems().length < 2) {
+      el.innerHTML = head + wx + `<div class="fx-empty" style="margin-top:10px">Add a few items (at least a top, bottoms and shoes) and I'll suggest an outfit for the weather and what you're doing.</div><div class="wd-actions"><button class="wd-btn wd-btn-primary" onclick="wdOpenItem()">＋ Add your first item</button></div>`;
+      return;
+    }
+    const s = getSug(today() + '|' + occ);
+    const fresh = !!s;
+    let body;
+    if (_busy) body = `<div class="fx-empty" style="margin-top:12px">Picking an outfit…</div>`;
+    else if (!fresh) {
+      // Only spend an AI call when the tab is actually open, and wait (briefly) for the weather.
+      const open = $('tab-wardrobe') && $('tab-wardrobe').classList.contains('active');
+      body = `<div class="fx-empty" style="margin-top:12px">${open && (w || _wxGaveUp) ? 'Picking an outfit…' : 'Loading…'}</div>`;
+      if (open && (w || _wxGaveUp)) setTimeout(() => suggest(false), 0);
+    }
+    else {
+      const its = s.itemIds.map(id => map[id]).filter(Boolean);
+      const worn = (wears()[today()] || []).some(o => o.occasion === occ && s.itemIds.every(id => (o.items || []).includes(id)));
+      body = `<div class="wd-outfit">${its.map(it => `<div>${photoHtml(it)}<div class="wd-cap">${esc(it.name)}<span>${esc(it.category)}</span></div></div>`).join('')}</div>
+        <div class="wd-reason">${esc(s.reason)}</div>
+        ${s.source === 'rules' ? '<div class="fx-note" style="margin-top:4px">AI suggestion unavailable, so this was picked by simple rules.</div>' : ''}
+        <div class="wd-actions">
+          <button class="wd-btn wd-btn-primary" ${worn ? 'disabled' : ''} onclick="wdWoreSuggestion()">${worn ? '✓ Logged as worn today' : 'I wore this'}</button>
+          <button class="wd-btn" onclick="wdAnother()">Suggest another</button>
+        </div>`;
+    }
+    el.innerHTML = head + wx + chips + body;
+  }
+
+  function renderStats() {
+    const el = $('wd-stats'); if (!el) return;
+    const list = activeItems(), idx = wearIndex();
+    if (!list.length) { el.innerHTML = '<div class="fx-empty">Nothing logged yet. Once you log outfits, your most and least worn clothes show up here.</div>'; return; }
+    let outfits30 = 0; Object.entries(wears()).forEach(([d, os]) => { if (daysAgo(d) < 30) outfits30 += (os || []).length; });
+    const worn30 = list.filter(i => idx[i.id] && idx[i.id].count30);
+    const most = list.filter(i => idx[i.id] && idx[i.id].count30).sort((a, b) => idx[b.id].count30 - idx[a.id].count30).slice(0, 3);
+    const stale = list.filter(i => !idx[i.id] || daysAgo(idx[i.id].last) >= 30)
+      .sort((a, b) => ((idx[a.id] && idx[a.id].last) || '0') < ((idx[b.id] && idx[b.id].last) || '0') ? -1 : 1);
+    const row = (it, right) => `<div class="wd-row" style="cursor:pointer" onclick="wdOpenItem('${it.id}')"><div class="wd-thumbs">${photoHtml(it)}</div><div style="flex:1;min-width:0"><div style="font-weight:600">${esc(it.name)}</div><div class="wd-item-meta">${esc(it.category)}</div></div><div class="wd-item-meta" style="text-align:right">${right}</div></div>`;
+    el.innerHTML = `<div class="wd-statgrid">
+        <div class="wd-stat"><div class="n">${outfits30}</div><div class="l">outfits logged</div></div>
+        <div class="wd-stat"><div class="n">${worn30.length}<span style="font-size:14px;color:var(--fx-muted)">/${list.length}</span></div><div class="l">items worn</div></div>
+        <div class="wd-stat"><div class="n">${stale.length}</div><div class="l">not worn in 30+ days</div></div>
+      </div>
+      ${most.length ? `<div class="wd-sub">Most worn</div>${most.map(it => row(it, `${idx[it.id].count30}× · last ${fmtD(idx[it.id].last)}`)).join('')}` : ''}
+      ${stale.length ? `<div class="wd-sub">Not worn lately</div>${stale.slice(0, 4).map(it => row(it, idx[it.id] ? `last ${fmtD(idx[it.id].last)}` : 'never logged')).join('')}${stale.length > 4 ? `<div class="fx-note">and ${stale.length - 4} more</div>` : ''}` : ''}`;
+  }
+
+  function renderGrid() {
+    const g = $('wd-grid'), f = $('wd-filters'); if (!g || !f) return;
+    const list = activeItems(), idx = wearIndex();
+    const counts = {}; list.forEach(i => counts[i.category] = (counts[i.category] || 0) + 1);
+    const cats = ['All', ...CATS.filter(c => counts[c])];
+    if (!cats.includes(filter)) filter = 'All';
+    f.innerHTML = list.length ? cats.map(c => `<button class="wd-chip${c === filter ? ' on' : ''}" onclick="wdFilter('${c}')">${esc(c)}${c === 'All' ? '' : ` · ${counts[c]}`}</button>`).join('') : '';
+    const shown = list.filter(i => filter === 'All' || i.category === filter).sort((a, b) => CATS.indexOf(a.category) - CATS.indexOf(b.category) || a.name.localeCompare(b.name));
+    g.innerHTML = shown.length ? shown.map(it => {
+      const x = idx[it.id];
+      return `<button class="wd-item" onclick="wdOpenItem('${it.id}')">${photoHtml(it)}<div class="wd-item-body"><div class="wd-item-name">${esc(it.name)}</div><div class="wd-item-meta">${x ? `${x.count}× · last ${fmtD(x.last)}` : 'Not worn yet'}</div></div></button>`;
+    }).join('') : `<div class="card fx-card" style="grid-column:1/-1"><div class="fx-empty">No clothes added yet. Tap <b>＋ Add item</b> and take a photo; I'll fill in the details for you to check.</div></div>`;
+    const cnt = $('wd-count'); if (cnt) cnt.textContent = `${list.length} item${list.length === 1 ? '' : 's'}`;
+  }
+
+  function renderHistory() {
+    const el = $('wd-history'); if (!el) return;
+    const map = byId(), rows = [];
+    Object.keys(wears()).sort().reverse().forEach(d => (wears()[d] || []).forEach((o, i) => rows.push({ d, i, o })));
+    el.innerHTML = rows.length ? rows.slice(0, 12).map(({ d, i, o }) => {
+      const its = (o.items || []).map(id => map[id]).filter(Boolean);
+      return `<div class="wd-row"><div style="width:86px;flex-shrink:0;font-weight:600">${fmtD(d)}<div class="wd-item-meta">${esc(o.occasion || '')}</div></div>
+        <div class="wd-thumbs" style="flex:1;flex-wrap:wrap">${its.map(photoHtml).join('') || '<span class="wd-item-meta">items removed</span>'}</div>
+        <button class="wd-btn wd-btn-danger" title="Remove this entry" onclick="wdDeleteWear('${d}',${i})">Remove</button></div>`;
+    }).join('') : '<div class="fx-empty">No outfits logged yet. Use "I wore this" on today\'s suggestion, or log what you actually wore.</div>';
+  }
+
+  function wdRender() { renderToday(); renderStats(); renderGrid(); renderHistory(); }
+  window.wdRender = wdRender;
+
+  // ── actions ──────────────────────────────────────────────────────────────
+  window.wdSetOccasion = o => { localStorage.setItem('wardrobe_occasion', JSON.stringify(o)); renderToday(); };
+  window.wdAnother = () => suggest(true);
+  window.wdFilter = c => { filter = c; renderGrid(); };
+  function logWear(date, ids, occ) {
+    const all = wears();
+    (all[date] = all[date] || []).push({ items: ids, occasion: occ, at: Date.now() });
+    store('wardrobe_wears', all); wdRender();
+  }
+  window.wdWoreSuggestion = () => { const s = getSug(today() + '|' + occasion()); if (s && s.itemIds) logWear(today(), s.itemIds, occasion()); };
+  window.wdDeleteWear = (d, i) => {
+    if (!confirm('Remove this outfit from your log?')) return;
+    const all = wears(); if (!all[d]) return;
+    all[d].splice(i, 1); if (!all[d].length) all[d] = [];
+    store('wardrobe_wears', all); wdRender();
+  };
+
+  // ── modal ────────────────────────────────────────────────────────────────
+  function openSheet(html) {
+    closeSheet();
+    const ov = document.createElement('div');
+    ov.className = 'wd-overlay'; ov.id = 'wd-overlay';
+    ov.innerHTML = `<div class="wd-sheet" role="dialog" aria-modal="true">${html}</div>`;
+    ov.addEventListener('click', e => { if (e.target === ov) closeSheet(); });
+    document.body.appendChild(ov);
+  }
+  function closeSheet() { const o = $('wd-overlay'); if (o) o.remove(); }
+  window.wdClose = closeSheet;
+
+  const scale = (name, val, lo, hi) => `<div class="wd-scale" data-name="${name}">${[1, 2, 3, 4, 5].map(n => `<button type="button" class="${n === val ? 'on' : ''}" onclick="wdScale(this,${n})">${n}</button>`).join('')}</div><div class="wd-scale-cap"><span>${lo}</span><span>${hi}</span></div>`;
+  window.wdScale = (btn, n) => { btn.parentNode.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === btn)); btn.parentNode.dataset.val = n; };
+
+  let _draft = null; // { item, image(new photo or null) }
+  window.wdOpenItem = id => {
+    const it = id ? byId()[id] : { id: 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: '', category: 'Tops', colour: '', warmth: 3, formality: 2, occasions: [], notes: '' };
+    if (!it) return;
+    _draft = { item: { ...it }, image: null, isNew: !id };
+    const x = id ? wearIndex()[id] : null;
+    openSheet(`<h3>${id ? 'Edit item' : 'Add an item'} <button onclick="wdClose()" aria-label="Close">✕</button></h3>
+      <div class="wd-pick"><div id="wd-prev">${photoHtml(it)}</div>
+        <div><label class="wd-btn" style="display:inline-block">${it.photoId ? 'Replace photo' : 'Take or choose photo'}<input type="file" accept="image/*" capture="environment" style="display:none" onchange="wdPhoto(this)"></label>
+        <div class="wd-status" id="wd-status">${id ? (x ? `Worn ${x.count}× · last ${fmtD(x.last)}` : 'Not worn yet') : 'Add a photo and I\'ll fill in the details for you to check.'}</div></div></div>
+      <div class="wd-field"><label>Name</label><input type="text" id="wd-name" value="${esc(it.name)}" placeholder="e.g. Navy merino jumper"></div>
+      <div class="wd-2col">
+        <div class="wd-field"><label>Category</label><select id="wd-cat">${CATS.map(c => `<option${c === it.category ? ' selected' : ''}>${c}</option>`).join('')}</select></div>
+        <div class="wd-field"><label>Colour</label><input type="text" id="wd-colour" value="${esc(it.colour)}" placeholder="e.g. navy"></div>
+      </div>
+      <div class="wd-field"><label>Warmth</label>${scale('warmth', it.warmth || 3, 'Light', 'Very warm')}</div>
+      <div class="wd-field"><label>Formality</label>${scale('formality', it.formality || 2, 'Casual', 'Smart')}</div>
+      <div class="wd-field"><label>Good for</label><div class="wd-chips" id="wd-occ" style="margin:0">${OCCASIONS.map(o => `<button type="button" class="wd-chip${(it.occasions || []).includes(o) ? ' on' : ''}" style="background:${(it.occasions || []).includes(o) ? '' : '#F2F2F7'}" onclick="this.classList.toggle('on');this.style.background=this.classList.contains('on')?'':'#F2F2F7'">${esc(o)}</button>`).join('')}</div></div>
+      <div class="wd-field"><label>Notes</label><textarea id="wd-notes" placeholder="Optional">${esc(it.notes || '')}</textarea></div>
+      <div class="wd-footer">${id ? `<button class="wd-btn wd-btn-danger" onclick="wdDeleteItem('${id}')">Delete item</button>` : '<span></span>'}
+        <button class="wd-btn wd-btn-primary" id="wd-save" onclick="wdSaveItem()">Save</button></div>`);
+  };
+
+  window.wdPhoto = async input => {
+    const file = input.files && input.files[0]; if (!file || !_draft) return;
+    const st = $('wd-status');
+    try {
+      const img = await resizeImage(file);
+      _draft.image = img;
+      $('wd-prev').innerHTML = `<div class="wd-photo"><img src="${img.dataUrl}" alt=""></div>`;
+      st.className = 'wd-status'; st.textContent = 'Reading the photo…';
+      const r = await askAI(`This is a photo of one clothing item (or footwear/accessory) from someone's wardrobe. Describe it for a wardrobe catalogue.
+Reply with JSON only: {"name": "short name with colour, e.g. 'Navy merino jumper'", "category": one of ${JSON.stringify(CATS)}, "colour": "main colour(s)", "warmth": 1-5 (1 = very light, 5 = very warm), "formality": 1-5 (1 = gym/very casual, 5 = formal), "occasions": subset of ${JSON.stringify(OCCASIONS)}}`, img);
+      if (!$('wd-name')) return; // sheet closed meanwhile
+      if (r.name && !$('wd-name').value.trim()) $('wd-name').value = String(r.name).slice(0, 80);
+      if (CATS.includes(r.category)) $('wd-cat').value = r.category;
+      if (r.colour && !$('wd-colour').value.trim()) $('wd-colour').value = String(r.colour).slice(0, 40);
+      ['warmth', 'formality'].forEach(k => { const n = Math.round(+r[k]); if (n >= 1 && n <= 5) { const b = document.querySelector(`.wd-scale[data-name="${k}"] button:nth-child(${n})`); if (b) wdScale(b, n); } });
+      if (Array.isArray(r.occasions)) document.querySelectorAll('#wd-occ .wd-chip').forEach(b => { const on = r.occasions.includes(b.textContent); b.classList.toggle('on', on); b.style.background = on ? '' : '#F2F2F7'; });
+      st.textContent = 'Filled in from the photo. Check it, then save.';
+    } catch (e) {
+      st.className = 'wd-status err';
+      st.textContent = _draft.image ? `Couldn't auto-fill (${e.message}). Fill in the details yourself.` : e.message;
+    }
+  };
+
+  window.wdSaveItem = async () => {
+    if (!_draft) return;
+    const st = $('wd-status'), btn = $('wd-save');
+    const name = $('wd-name').value.trim();
+    if (!name) { st.className = 'wd-status err'; st.textContent = 'Give it a name first.'; $('wd-name').focus(); return; }
+    const scaleVal = k => { const el = document.querySelector(`.wd-scale[data-name="${k}"]`); const on = el && el.querySelector('button.on'); return on ? +on.textContent : 3; };
+    const it = { ..._draft.item, name, category: $('wd-cat').value, colour: $('wd-colour').value.trim(), warmth: scaleVal('warmth'), formality: scaleVal('formality'),
+      occasions: [...document.querySelectorAll('#wd-occ .wd-chip.on')].map(b => b.textContent), notes: $('wd-notes').value.trim(), updatedAt: Date.now() };
+    if (_draft.isNew) it.addedAt = Date.now();
+    if (_draft.image) {
+      btn.disabled = true; st.className = 'wd-status'; st.textContent = 'Uploading photo to Google Drive…';
+      try { it.photoId = await uploadPhoto(_draft.image, name); }
+      catch (e) {
+        btn.disabled = false; st.className = 'wd-status err';
+        st.innerHTML = `Photo upload failed: ${esc(e.message)}. <a href="javascript:void(0)" onclick="wdSaveWithoutPhoto()">Save without the new photo</a>`;
+        _draft.pending = it; return;
+      }
+    }
+    commitItem(it);
+  };
+  window.wdSaveWithoutPhoto = () => { if (_draft && _draft.pending) commitItem(_draft.pending); };
+  function commitItem(it) {
+    const all = load('wardrobe_items', []);
+    const i = all.findIndex(x => x.id === it.id);
+    if (i >= 0) all[i] = it; else all.push(it);
+    store('wardrobe_items', all); closeSheet(); _draft = null;
+    localStorage.removeItem(SUG_KEY); wdRender();
+  }
+  window.wdDeleteItem = id => {
+    const it = byId()[id]; if (!it) return;
+    if (!confirm(`Delete "${it.name}"? Past outfits that included it will show it as removed.`)) return;
+    store('wardrobe_items', load('wardrobe_items', []).filter(x => x.id !== id));
+    if (it.photoId) fetch(photoUrl(it.photoId), { method: 'DELETE' }).catch(() => {});
+    closeSheet(); localStorage.removeItem(SUG_KEY); wdRender();
+  };
+
+  window.wdOpenLog = () => {
+    const list = activeItems();
+    if (!list.length) return wdOpenItem();
+    openSheet(`<h3>Log what you wore <button onclick="wdClose()" aria-label="Close">✕</button></h3>
+      <div class="wd-2col">
+        <div class="wd-field"><label>Date</label><input type="date" id="wd-log-date" value="${today()}" max="${today()}"></div>
+        <div class="wd-field"><label>Occasion</label><select id="wd-log-occ">${OCCASIONS.map(o => `<option${o === occasion() ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select></div>
+      </div>
+      <div class="wd-field"><label>Tap everything you wore</label><div class="wd-select-grid">${list.sort((a, b) => CATS.indexOf(a.category) - CATS.indexOf(b.category)).map(it => `<button type="button" class="wd-item" data-id="${it.id}" onclick="this.classList.toggle('on')">${photoHtml(it)}<div class="wd-item-body"><div class="wd-item-name">${esc(it.name)}</div></div></button>`).join('')}</div></div>
+      <div class="wd-status" id="wd-log-status"></div>
+      <div class="wd-footer"><span></span><button class="wd-btn wd-btn-primary" onclick="wdSaveLog()">Log outfit</button></div>`);
+  };
+  window.wdSaveLog = () => {
+    const ids = [...document.querySelectorAll('.wd-select-grid .wd-item.on')].map(b => b.dataset.id);
+    if (!ids.length) { const s = $('wd-log-status'); s.className = 'wd-status err'; s.textContent = 'Pick at least one item.'; return; }
+    const d = $('wd-log-date').value || today();
+    logWear(d > today() ? today() : d, ids, $('wd-log-occ').value);
+    closeSheet();
+  };
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+
+  // Render now; re-render when the tab is opened and once the weather has loaded
+  // (or after ~10 s without it, so the suggestion falls back to "weather unknown").
+  wdRender();
+  document.querySelectorAll('.tab-btn[data-tab="wardrobe"]').forEach(b => b.addEventListener('click', () => setTimeout(wdRender, 0)));
+  let _wxTries = 0;
+  const wxWait = setInterval(() => {
+    if (weatherNow() || ++_wxTries > 20) { if (!weatherNow()) _wxGaveUp = true; clearInterval(wxWait); renderToday(); }
+  }, 500);
 })();
 </script>
 </body>
