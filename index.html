@@ -8,7 +8,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Nunito:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
   color-scheme:light;
@@ -175,6 +175,115 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
 @media(max-width:640px){
   body{padding-bottom:16px}
+}
+
+/* ── Fitness restyle (Bevel-inspired) ─────────────────────────────────────
+   Scoped to .fx, which is on the Training tab and the Health → Fitness
+   sub-tab. body.fx-mode (toggled in the "Fitness restyle" script) swaps the
+   warm cream page background for a cool light grey while either is open. */
+body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
+.fx{
+  --fx-text:#1C1C1E;--fx-text2:#3A3A3C;--fx-muted:#8E8E93;--fx-faint:#C7C7CC;
+  --fx-line:#EEEEF2;--fx-track:#E9E9EE;--fx-empty:#E5E5EA;
+  --fx-purple:#8B7CF6;--fx-purple-soft:#E7E3FD;--fx-blue:#4C8DF6;--fx-teal:#22B8B0;
+  --fx-cyan:#38C6E0;--fx-green:#7CCB4E;--fx-yellow:#F2BE2E;--fx-orange:#F26B4F;--fx-red:#E5484D;
+  font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Roboto,sans-serif;color:var(--fx-text);
+}
+.fx .section{margin-bottom:26px}
+.fx h2{font-family:inherit;font-size:19px;font-weight:700;text-transform:none;letter-spacing:-.3px;color:var(--fx-text);margin:0 2px 10px;display:flex;align-items:baseline;gap:8px}
+.fx .fx-h2-sub{font-size:13px;font-weight:500;color:var(--fx-muted);letter-spacing:0}
+.fx .card{background:#fff;border:none;border-radius:22px;box-shadow:0 1px 2px rgba(0,0,0,.04),0 6px 24px rgba(0,0,0,.045);padding:16px}
+.fx .section > .card + .card,.fx .section > .card + .fx-tiles,.fx .section > .fx-tiles + .card,.fx .section > .g2 + .card,.fx .section > .card + .g2{margin-top:10px}
+.fx .g2,.fx .g3,.fx .g4{gap:10px}
+.fx .lbl{font-size:13px;font-weight:600;text-transform:none;letter-spacing:0;color:var(--fx-text2);margin-bottom:10px}
+.fx .big{font-family:inherit;font-size:30px;font-weight:700;letter-spacing:-.8px}
+.fx .mid{font-family:inherit;font-size:22px;font-weight:700;letter-spacing:-.4px}
+.fx .sub{color:var(--fx-muted);font-size:12px}
+.fx .badge{background:none!important;padding:0;font-size:13px;font-weight:600;letter-spacing:0;margin-top:4px}
+.fx .b-sage{color:var(--fx-teal)}.fx .b-amber{color:#D99A0B}.fx .b-red{color:var(--fx-red)}.fx .b-blue{color:var(--fx-blue)}.fx .b-grey{color:var(--fx-muted)}
+.fx .row{border-bottom-color:var(--fx-line)}
+.fx .skeleton{background:linear-gradient(90deg,#EDEDF1 25%,#F6F6F9 50%,#EDEDF1 75%);background-size:200% 100%}
+.fx .whoop-contrib-row{border-bottom-color:var(--fx-line)}
+/* iOS-style segmented control for the Training sub-tabs */
+.fx .sub-tab-nav{background:#E4E4EA;padding:3px;border-radius:12px;gap:2px}
+.fx .sub-tab-btn{border-radius:9px;color:var(--fx-text2);font-weight:600;font-family:inherit;padding:7px 14px}
+.fx .sub-tab-btn.active{background:#fff;color:var(--fx-text);box-shadow:0 1px 3px rgba(0,0,0,.1),0 1px 1px rgba(0,0,0,.04)}
+/* existing hard-coded warm borders inside cards */
+.fx .card [style*="#F0E1D2"],.fx .card [style*="#F7EEE4"],.fx .card [style*="#FBF1E7"]{border-color:var(--fx-line)!important}
+
+/* keep the Fitness page at phone-app proportions on wide screens */
+#sub-tab-whoop-fitness.fx{max-width:760px;margin-left:auto;margin-right:auto}
+.fx-hrr-spark{max-width:260px}
+/* page header (Fitness sub-tab) */
+.fx-pagehead{margin:2px 2px 16px}
+.fx-pagetitle{font-size:30px;font-weight:700;letter-spacing:-.8px;line-height:1.1}
+.fx-pagesub{font-size:14px;font-weight:500;color:var(--fx-muted);margin-top:2px}
+
+/* new cards */
+.fx-card{position:relative}
+.fx-tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fx-head{display:flex;align-items:center;gap:7px;font-size:14px;font-weight:600;color:var(--fx-text2);margin-bottom:10px}
+.fx-head svg.fx-ico{width:16px;height:16px;flex-shrink:0;color:var(--fx-muted)}
+.fx-head .fx-go{margin-left:auto;background:none;border:none;padding:2px;cursor:pointer;color:var(--fx-muted);display:flex;border-radius:6px}
+.fx-head .fx-go:hover{color:var(--fx-text);background:#F2F2F7}
+.fx-head .fx-go svg{width:18px;height:18px}
+.fx-head .info-i{color:var(--fx-faint)}
+.fx-num{font-size:28px;font-weight:700;letter-spacing:-.7px;line-height:1.1;color:var(--fx-text)}
+.fx-num small{font-size:16px;font-weight:600;letter-spacing:-.2px;margin-left:1px}
+.fx-num-sm{font-size:22px;font-weight:700;letter-spacing:-.5px;line-height:1.15}
+.fx-status{font-size:14px;font-weight:600;margin-top:2px}
+.fx-meta{font-size:13px;font-weight:500;color:var(--fx-muted)}
+.fx-empty{font-size:13px;color:var(--fx-muted);padding:6px 0 2px;line-height:1.45}
+.fx-note{font-size:11.5px;color:var(--fx-muted);margin-top:10px;line-height:1.4}
+.fx-split{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.fx-svg{display:block;width:100%;height:auto;overflow:visible}
+.fx-svg text{font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Roboto,sans-serif}
+
+/* activity calendar */
+.fx-cal-months{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.fx-cal-mtitle{font-size:14px;font-weight:600;color:var(--fx-text2);margin-bottom:8px}
+.fx-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:7px 5px}
+.fx-cal-dow{font-size:9.5px;font-weight:600;color:var(--fx-faint);text-align:center}
+.fx-cal-cell{height:8px;border-radius:3px;background:var(--fx-empty)}
+.fx-cal-cell.future{background:#F4F4F7}
+.fx-cal-cell.pad{background:none}
+.fx-cal-cell.today{outline:2px solid var(--fx-blue);outline-offset:1.5px}
+.fx-cal-cell.n1{background:#8FD694}.fx-cal-cell.n2{background:#3CC2A0}.fx-cal-cell.n3{background:#2AA6D9}
+.fx-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;font-size:11.5px;color:var(--fx-muted)}
+.fx-legend i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:1px}
+
+/* cardio focus bars */
+.fx-bars{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.fx-bar{height:7px;border-radius:99px;background:var(--fx-track);overflow:hidden}
+.fx-bar > span{display:block;height:100%;border-radius:99px}
+
+/* strength progression rows */
+.fx-prog-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--fx-line)}
+.fx-prog-row:last-child{border-bottom:none;padding-bottom:2px}
+.fx-prog-row:first-of-type{padding-top:2px}
+.fx-prog-name{font-size:15px;font-weight:600;color:var(--fx-text)}
+.fx-prog-sub{font-size:12.5px;color:var(--fx-muted);margin-top:2px}
+.fx-prog-val{font-size:12.5px;font-weight:600;text-align:right;white-space:nowrap}
+.fx-prog-spark{width:96px;flex-shrink:0}
+
+/* Phone: stat tiles sit two-up like the Bevel tiles; grids holding charts,
+   lists or the calendar keep the single column. */
+@media (max-width:700px){
+  .fx .g2:not(:has(canvas,#cal-grid,#gauge-svg,#strength-list,#strength-insight,table)),
+  .fx .g3:not(:has(canvas,table)),
+  .fx .g4:not(:has(canvas,table)){grid-template-columns:1fr 1fr}
+  .fx .g3:not(:has(canvas,table)) > :last-child:nth-child(odd),
+  .fx .g4:not(:has(canvas,table)) > :last-child:nth-child(odd){grid-column:1/-1}
+  .fx .g2 .big,.fx .g3 .big,.fx .g4 .big{font-size:26px}
+}
+/* muscle list under the rose */
+.fx-muscle-wrap{max-width:360px;margin:0 auto}
+
+@media(max-width:420px){
+  .fx-cal-months{gap:12px}
+  .fx-cal-grid{gap:6px 4px}
+  .fx-num{font-size:26px}
+  .fx-prog-spark{width:80px}
 }
 </style>
 </head>
@@ -529,11 +638,33 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
 </div><!-- /sub-tab-whoop-monitor -->
 
-<div class="sub-tab-pane" id="sub-tab-whoop-fitness">
+<div class="sub-tab-pane fx" id="sub-tab-whoop-fitness">
+
+<div class="fx-pagehead">
+  <div class="fx-pagetitle">Fitness</div>
+  <div class="fx-pagesub">Last 30 days</div>
+</div>
+
+<!-- Bevel-style cards: rendered by the fx* functions in the "Fitness restyle" script block -->
+<div class="section">
+<div class="card fx-card" id="fx-cal"></div>
+<div class="card fx-card" id="fx-summary"></div>
+<div class="card fx-card" id="fx-strainperf"></div>
+</div>
 
 <div class="section">
-<h2>Last 30 Days</h2>
-<div class="card" id="whoop-fitness-summary" style="padding:16px"></div>
+<h2>Cardio</h2>
+<div class="card fx-card" id="fx-cardioload"></div>
+<div class="fx-tiles">
+  <div class="card fx-card" id="fx-cardiofocus"></div>
+  <div class="card fx-card" id="fx-hrr"></div>
+</div>
+</div>
+
+<div class="section">
+<h2>Strength</h2>
+<div class="card fx-card" id="fx-muscle"></div>
+<div class="card fx-card" id="fx-progress"></div>
 </div>
 
 <div class="section">
@@ -542,27 +673,21 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 </div>
 
 <div class="section">
-<h2>Cardio Focus — 30 Days</h2>
-<div class="card" id="whoop-cardio-focus" style="padding:14px"></div>
-</div>
-
-
-<div class="section">
-<h2>Personal Records 🏆</h2>
+<h2>Personal records</h2>
 <div class="card" id="whoop-pr-tracker" style="padding:14px">
   <div style="font-size:12px;color:#bbb;text-align:center;padding:16px">Loading PRs…</div>
 </div>
 </div>
 
 <div class="section">
-<h2>Load Forecast</h2>
+<h2>Load forecast</h2>
 <div class="card" id="whoop-load-forecast" style="padding:14px">
   <div style="font-size:12px;color:#bbb;text-align:center;padding:16px">Loading…</div>
 </div>
 </div>
 
 <div class="section">
-<h2>VO₂ Max Trend</h2>
+<h2>VO₂ max trend</h2>
 <div class="card"><div class="cht-sm"><canvas id="vo2max-trend-chart"></canvas></div></div>
 </div>
 
@@ -570,7 +695,7 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
 </div><!-- /tab-whoop -->
 
-<div class="tab-pane" id="tab-training">
+<div class="tab-pane fx" id="tab-training">
 
 <nav class="sub-tab-nav">
   <button class="sub-tab-btn active" data-subtab="train-overview">Overview</button>
@@ -583,9 +708,19 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
 <div class="sub-tab-pane active" id="sub-tab-train-overview">
 
+<!-- CARDIO (Bevel-style tiles, shared renderers with the Health → Fitness sub-tab) -->
+<div class="section">
+<h2>Cardio <span class="fx-h2-sub">Last 30 days</span></h2>
+<div class="card fx-card" id="tr-cardioload"></div>
+<div class="fx-tiles">
+  <div class="card fx-card" id="tr-cardiofocus"></div>
+  <div class="card fx-card" id="tr-hrr"></div>
+</div>
+</div>
+
 <!-- TRAINING CALENDAR -->
 <div class="section">
-<h2>Training Calendar</h2>
+<h2>Training calendar</h2>
 <div class="g2">
 <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;flex-wrap:wrap">
@@ -631,7 +766,7 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
 <!-- LOAD BY SPORT -->
 <div class="section">
-<h2>Load by Sport</h2>
+<h2>Load by sport</h2>
 <div class="g3">
   <div class="card">
     <div class="lbl">🏃 Run ACWR <button class="info-i" data-t="acwr-run">ⓘ</button></div>
@@ -662,7 +797,7 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
 <!-- WEEKLY TRIATHLON BALANCE -->
 <div class="section">
-<h2>Weekly Triathlon Balance</h2>
+<h2>Weekly triathlon balance</h2>
 <div class="card">
   <div class="cht"><div class="skeleton" id="tri-balance-chart-skel" style="position:absolute;inset:0"></div><canvas id="tri-balance-chart"></canvas></div>
 </div>
@@ -671,7 +806,7 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
 <!-- MONTHLY GOAL -->
 <div class="section">
-<h2>Monthly Goal</h2>
+<h2>Monthly goal</h2>
 <div class="card">
   <div class="lbl">Monthly Distance Goal <button class="info-i" onclick="toggleGoalEdit()" title="Edit goal">✏️</button></div>
   <div style="background:#FBF1E7;border-radius:99px;height:8px;overflow:hidden;margin:8px 0">
@@ -686,7 +821,7 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
 <!-- §5 LONG-TERM -->
 <div class="section">
-<h2>Long-term Stats</h2>
+<h2>Long-term stats</h2>
 <div class="g3">
   <div class="card">
     <div class="lbl">YTD Distance <button class="info-i" data-t="ytd-distance">ⓘ</button></div>
@@ -708,7 +843,7 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
 <!-- §2 WEEKLY VIEW -->
 <div class="section">
-<h2>Weekly View</h2>
+<h2>Weekly view</h2>
 <div class="g2" style="margin-bottom:12px">
   <div class="card">
     <div class="lbl">8-Week Volume <button class="info-i" data-t="weekly-volume">ⓘ</button></div>
@@ -727,14 +862,14 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
 <!-- §3 WEEKLY PLAN -->
 <div class="section">
-<h2>Weekly Plan <button class="info-i" data-t="weekly-plan" style="color:#bbb">ⓘ</button></h2>
+<h2>Weekly plan <button class="info-i" data-t="weekly-plan" style="color:#bbb">ⓘ</button></h2>
 <div class="card" id="plan-sum" style="font-size:13px;color:#666;margin-bottom:10px;font-style:italic;line-height:1.6">Generating plan…</div>
 <div id="plan-cards"></div>
 </div>
 
 <!-- §12 SPORT MIX -->
 <div class="section">
-<h2>Sport Mix — Last 90 Days</h2>
+<h2>Sport mix · last 90 days</h2>
 <div class="card">
   <div class="cht-sm"><canvas id="sport-split"></canvas></div>
 </div>
@@ -743,6 +878,13 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 </div><!-- /sub-tab-train-overview -->
 
 <div class="sub-tab-pane" id="sub-tab-train-strength">
+
+<!-- MUSCULAR LOAD + PROGRESSION (Bevel-style, shared renderers) -->
+<div class="section">
+<h2>Last 30 days</h2>
+<div class="card fx-card" id="tr-muscle"></div>
+<div class="card fx-card" id="tr-progress"></div>
+</div>
 
 <!-- §6 STRENGTH -->
 <div class="section">
@@ -804,13 +946,13 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
 <!-- §6c SESSION ANALYSIS -->
 <div class="section">
-<h2>Session Analysis <span id="session-analysis-source" style="font-size:11px;font-weight:600;color:#aaa;text-transform:none;letter-spacing:0"></span></h2>
+<h2>Session analysis <span id="session-analysis-source" style="font-size:11px;font-weight:600;color:#aaa;text-transform:none;letter-spacing:0"></span></h2>
 <div id="session-analysis-list" class="sub">Loading…</div>
 </div>
 
 <!-- §6d ESTIMATED 1RM TREND -->
 <div class="section">
-<h2>Estimated 1RM Trend <button class="info-i" data-t="e1rm-trend">ⓘ</button></h2>
+<h2>Estimated 1RM trend <button class="info-i" data-t="e1rm-trend">ⓘ</button></h2>
 <div class="card">
   <div class="cht"><div class="skeleton" id="e1rm-chart-skel" style="position:absolute;inset:0"></div><canvas id="e1rm-chart"></canvas></div>
   <div class="sub" id="e1rm-chart-status" style="margin-top:8px;font-style:italic"></div>
@@ -819,7 +961,7 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
 <!-- §6e VOLUME BY MUSCLE GROUP -->
 <div class="section">
-<h2>Weekly Volume by Muscle Group <button class="info-i" data-t="tonnage">ⓘ</button></h2>
+<h2>Weekly volume by muscle group <button class="info-i" data-t="tonnage">ⓘ</button></h2>
 <div class="card">
   <div class="cht"><div class="skeleton" id="tonnage-chart-skel" style="position:absolute;inset:0"></div><canvas id="tonnage-chart"></canvas></div>
 </div>
@@ -827,7 +969,7 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
 <!-- §6g SLEEP → PERFORMANCE LINK -->
 <div class="section">
-<h2>Sleep → Performance Link <button class="info-i" data-t="sleep-performance">ⓘ</button></h2>
+<h2>Sleep → performance link <button class="info-i" data-t="sleep-performance">ⓘ</button></h2>
 <div class="card">
   <div id="sleep-perf-list" class="sub">Loading…</div>
 </div>
@@ -839,7 +981,7 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
 <!-- §7 PERSONAL BESTS -->
 <div class="section">
-<h2>Personal Bests</h2>
+<h2>Personal bests</h2>
 <div class="g4" id="pb-cards"></div>
 </div>
 
@@ -918,7 +1060,7 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
 <!-- SWIM DISTANCE TREND -->
 <div class="section">
-<h2>Distance per Session</h2>
+<h2>Distance per session</h2>
 <div class="card">
   <div class="cht"><div class="skeleton" id="swim-pace-chart-skel" style="position:absolute;inset:0"></div><canvas id="swim-pace-chart"></canvas></div>
   <div class="sub" id="swim-pace-note"></div>
@@ -931,7 +1073,7 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 
 <!-- OTHER ACTIVITIES -->
 <div class="section">
-<h2>Other Activities</h2>
+<h2>Other activities</h2>
 <div id="other-content"></div>
 </div>
 
@@ -1770,6 +1912,9 @@ function normalizeActivity(a) {
       avg_hr: a.average_heartrate || 0,
       max_hr: a.max_heartrate || 0,
       avg_watts: a.average_watts || 0,
+      // Strava's Relative Effort (HR-based; null when the activity has no HR) —
+      // used by the Cardio Load card.
+      relative_effort: (a.suffer_score != null) ? a.suffer_score : null,
       total_calories: Math.round(met * ATHLETE_WEIGHT_KG * hours)
     }
   };
@@ -6058,7 +6203,7 @@ function buildHRZones(acts) {
     : '');
 }
 
-// ── Weekly Triathlon Balance ─────────────────────────────────────────────────
+// ── Weekly triathlon balance ─────────────────────────────────────────────────
 function buildTriBalance(acts) {
   rmSkel('tri-balance-chart');
   const ws = weekStart(), weeks = [];
@@ -11829,6 +11974,492 @@ function calcOttawa() {
   footEl.style.color = footIndicated ? '#c53030' : 'inherit';
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Fitness restyle (Bevel-inspired) — new cards for the Health → Fitness
+// sub-tab (ids fx-*) and the Training tab (ids tr-*). Every number here is
+// computed from data the dashboard already loads (Strava activities, the
+// Hevy set logs in Strava activity descriptions, Apple Health via
+// /api/health-data); a card with nothing to show says so rather than
+// rendering a placeholder value.
+// ═══════════════════════════════════════════════════════════════════════════
+(function () {
+  const DAY = 864e5;
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const keyOf = d => d.toLocaleDateString('en-CA');
+  const actDate = a => (a.start_local || '').slice(0, 10);
+  const fmtD = (k, opts) => new Date(k + 'T12:00:00').toLocaleDateString('en-GB', opts || { day: 'numeric', month: 'short' });
+  const acts = () => (typeof _acts !== 'undefined' && Array.isArray(_acts)) ? _acts : [];
+  const todayKey = () => (typeof todayStr === 'function' ? todayStr() : keyOf(new Date()));
+  const dayOffset = (k, n) => { const d = new Date(k + 'T12:00:00'); d.setDate(d.getDate() + n); return keyOf(d); };
+  const hm = mins => { const h = Math.floor(mins / 60), m = Math.round(mins % 60); return h ? `${h}h ${m}m` : `${m}m`; };
+  const isCardio = a => !['WeightTraining', 'Yoga', 'Walk'].includes(a.sport_type);
+
+  // ── icons ────────────────────────────────────────────────────────────────
+  const I = p => `<svg class="fx-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+  const ICON = {
+    bars: I('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
+    target: I('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>'),
+    load: I('<path d="M3 12h4l3-8 4 16 3-8h4"/>'),
+    focus: I('<path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="m3 13 9 5 9-5"/>'),
+    heart: I('<path d="M20.8 5.6a5.5 5.5 0 0 0-7.8 0L12 6.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 22l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/>'),
+    dumbbell: I('<path d="M6.5 6.5v11M17.5 6.5v11M3 9v6M21 9v6M6.5 12h11"/>'),
+    trend: I('<path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/>'),
+    cal: I('<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/>'),
+  };
+  const ARROW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+
+  // Arrow buttons only make sense on the Health → Fitness copies: they jump
+  // to the Training sub-tab that has the detail for that card.
+  function head(id, icon, title, go, tip) {
+    const goBtn = (go && id.startsWith('fx-'))
+      ? `<button class="fx-go" title="Open in Training" onclick="fxGo('${go}')">${ARROW}</button>` : '';
+    const info = tip ? `<button class="info-i" data-t="${tip}">ⓘ</button>` : '';
+    return `<div class="fx-head">${ICON[icon] || ''}<span>${esc(title)}</span>${info}${goBtn}</div>`;
+  }
+  window.fxGo = function (sub) {
+    if (typeof switchTab === 'function') switchTab('training');
+    const b = document.querySelector(`#tab-training .sub-tab-btn[data-subtab="${sub}"]`);
+    if (b) b.click();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // ── SVG helpers ──────────────────────────────────────────────────────────
+  function scale(v, d0, d1, r0, r1) { return d1 === d0 ? (r0 + r1) / 2 : r0 + (v - d0) * (r1 - r0) / (d1 - d0); }
+  function pathOf(pts) {
+    let d = '', pen = false;
+    pts.forEach(p => { if (!p) { pen = false; return; } d += (pen ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); pen = true; });
+    return d;
+  }
+  // Small sparkline: values may contain nulls (gaps). band = [lo, hi] shaded horizontally.
+  function spark(values, o = {}) {
+    const W = o.w || 160, H = o.h || 48, P = 4;
+    const nums = values.filter(v => v != null);
+    if (nums.length < 2) return '';
+    let lo = Math.min(...nums, ...(o.band || [])), hi = Math.max(...nums, ...(o.band || []));
+    if (o.min != null) lo = Math.min(lo, o.min);
+    if (hi === lo) { hi += 1; lo -= 1; }
+    const x = i => scale(i, 0, values.length - 1, P, W - P);
+    const y = v => scale(v, lo, hi, H - P, P);
+    const pts = values.map((v, i) => v == null ? null : [x(i), y(v)]);
+    const col = o.color || 'var(--fx-purple)';
+    let band = '';
+    if (o.band) band = `<rect x="${P}" y="${y(o.band[1]).toFixed(1)}" width="${W - 2 * P}" height="${Math.max(2, y(o.band[0]) - y(o.band[1])).toFixed(1)}" rx="4" fill="${o.bandColor || 'var(--fx-purple-soft)'}"/>`;
+    let li = values.length - 1; while (li >= 0 && values[li] == null) li--;
+    const last = li >= 0 ? `<circle cx="${x(li).toFixed(1)}" cy="${y(values[li]).toFixed(1)}" r="6" fill="${o.dot || col}" opacity=".18"/><circle cx="${x(li).toFixed(1)}" cy="${y(values[li]).toFixed(1)}" r="3" fill="#fff" stroke="${o.dot || col}" stroke-width="2"/>` : '';
+    return `<svg class="fx-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${band}<path d="${pathOf(pts)}" fill="none" stroke="${col}" stroke-width="${o.sw || 1.8}" stroke-linejoin="round" stroke-linecap="round"/>${last}</svg>`;
+  }
+
+  // ── TIPS (ⓘ popovers) ────────────────────────────────────────────────────
+  if (typeof TIPS === 'object' && TIPS) {
+    Object.assign(TIPS, {
+      'fx-cardio-load': { what: 'Your rolling 7-day total of Strava Relative Effort across cardio sessions (runs, rides, swims, football and other non-lifting activities). Relative Effort is Strava\'s heart-rate-based effort score, so sessions recorded without HR don\'t count.', how: 'Compared with your average week over the 3 weeks before that (shaded band = 80–120% of it). Below the band reads as Detraining, inside as Maintaining, up to 150% as Building, above that as Spiking.' },
+      'fx-cardio-focus': { what: 'How your cardio time in the last 30 days splits by intensity, using each session\'s average heart rate against your HR zones: Low Aerobic = Z1–2, High Aerobic = Z3, Anaerobic = Z4–5.', how: 'Sessions without heart rate fall back to the dashboard\'s pace/type-based intensity estimate. Average HR per session is coarse: an interval session with an easy warm-up can average into Z3.' },
+      'fx-hrr': { what: 'Heart rate recovery: how far your heart rate drops in the first minute after a workout, as measured by Apple Watch ("Cardio Recovery" in Apple Health).', how: 'A drop of 12 bpm or less is the conventional abnormal cut-off; higher is better and tends to rise with aerobic fitness. Labels here: ≤12 Low, 13–19 Average, 20–29 Good, 30+ Excellent.' },
+      'fx-strain-perf': { what: 'How your daily strain compared with the target band the Recovery coach sets from that morning\'s recovery (high recovery: 12–18, moderate: 7–12, low: under 8).', how: 'The headline is the average gap between your strain and the band across days that had a recovery score; days inside the band count as 0%. Days without HRV/sleep data have no target and are left out.' },
+      'fx-muscle-load': { what: 'Share of your working sets in the last 30 days by muscle group, parsed from the Hevy logs in your Strava activity descriptions. Warm-up sets are excluded.', how: 'Each exercise is matched to one group by name (deadlifts are split between Back and Legs). Exercises it can\'t match are counted separately in the note under the chart.' },
+      'fx-strength-prog': { what: 'Best estimated 1-rep max per session (Epley formula, sets of 12 reps or fewer) for the exercises you\'ve done most often in the last 8 weeks.', how: 'The figure on the right is the latest session\'s e1RM and its change from the first session in the window.' },
+    });
+  }
+
+  // ── Activity calendar ────────────────────────────────────────────────────
+  function renderCal(id) {
+    const el = $(id); if (!el) return;
+    const counts = {}, names = {};
+    acts().forEach(a => { const k = actDate(a); counts[k] = (counts[k] || 0) + 1; (names[k] = names[k] || []).push(a.name); });
+    const tk = todayKey(), t = new Date(tk + 'T12:00:00');
+    const months = [new Date(t.getFullYear(), t.getMonth() - 1, 1), new Date(t.getFullYear(), t.getMonth(), 1)];
+    const dow = ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map(d => `<div class="fx-cal-dow">${d}</div>`).join('');
+    const html = months.map(m => {
+      const days = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
+      const pad = (m.getDay() + 6) % 7;
+      let cells = '';
+      for (let i = 0; i < pad; i++) cells += '<div class="fx-cal-cell pad"></div>';
+      for (let d = 1; d <= days; d++) {
+        const k = keyOf(new Date(m.getFullYear(), m.getMonth(), d, 12));
+        const n = counts[k] || 0;
+        const cls = k > tk ? 'future' : n >= 3 ? 'n3' : n === 2 ? 'n2' : n === 1 ? 'n1' : '';
+        const tip = k > tk ? '' : `${fmtD(k, { weekday: 'short', day: 'numeric', month: 'short' })} · ${n ? n + (n === 1 ? ' activity: ' : ' activities: ') + names[k].join(', ') : 'rest day'}`;
+        cells += `<div class="fx-cal-cell ${cls}${k === tk ? ' today' : ''}" title="${esc(tip)}"></div>`;
+      }
+      return `<div><div class="fx-cal-mtitle">${m.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}</div><div class="fx-cal-grid">${dow}${cells}</div></div>`;
+    }).join('');
+    el.innerHTML = `<div class="fx-cal-months">${html}</div>
+      <div class="fx-legend"><span><i style="background:#8FD694"></i>1 activity</span><span><i style="background:#3CC2A0"></i>2 activities</span><span><i style="background:#2AA6D9"></i>3+ activities</span></div>`;
+  }
+
+  // ── Activity summary (cumulative active time, this 30 days vs previous) ──
+  function renderSummary(id) {
+    const el = $(id); if (!el) return;
+    const tk = todayKey();
+    const mins = {};
+    acts().forEach(a => { const k = actDate(a); mins[k] = (mins[k] || 0) + (a.summary.moving_time || 0) / 60; });
+    const cur = [], prev = [];
+    let c = 0, p = 0;
+    for (let i = 29; i >= 0; i--) { c += mins[dayOffset(tk, -i)] || 0; p += mins[dayOffset(tk, -i - 30)] || 0; cur.push(c); prev.push(p); }
+    const start = dayOffset(tk, -29);
+    const last30 = acts().filter(a => actDate(a) >= start);
+    const km = last30.filter(a => a.sport_type === 'Run' || a.sport_type === 'Ride').reduce((s, a) => s + (a.summary.distance || 0) / 1000, 0);
+    if (!acts().length) { el.innerHTML = head(id, 'bars', 'Activity Summary', 'train-overview') + '<div class="fx-empty">Waiting for Strava activities…</div>'; return; }
+
+    const W = 320, H = 130, PL = 2, PR = 30, PT = 10, PB = 20;
+    const maxH = Math.max(cur[29], prev[29], 60) / 60;
+    const step = maxH > 40 ? 10 : maxH > 16 ? 5 : maxH > 6 ? 2 : 1;
+    const yMax = Math.ceil(maxH / step) * step;
+    const x = i => scale(i, 0, 29, PL + 4, W - PR - 4);
+    const y = m => scale(m / 60, 0, yMax, H - PB, PT);
+    const pPrev = pathOf(prev.map((v, i) => [x(i), y(v)]));
+    const pCur = pathOf(cur.map((v, i) => [x(i), y(v)]));
+    const area = pCur + `L${x(29).toFixed(1)} ${H - PB}L${x(0).toFixed(1)} ${H - PB}Z`;
+    const dots = cur.map((v, i) => i === 29 ? '' : `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="2.2" fill="#fff" stroke="var(--fx-orange)" stroke-width="1.3"/>`).join('');
+    const lx = x(29), ly = y(cur[29]);
+    const grid = [0, yMax / 2, yMax].map(v => `<line x1="${PL}" x2="${W - PR}" y1="${y(v * 60).toFixed(1)}" y2="${y(v * 60).toFixed(1)}" stroke="var(--fx-line)" stroke-dasharray="${v ? '3 4' : ''}"/><text x="${W - PR + 6}" y="${(y(v * 60) + 3.5).toFixed(1)}" font-size="10" fill="var(--fx-muted)">${v}h</text>`).join('');
+    const xl = [0, 15, 29].map((i, n) => `<text x="${x(i).toFixed(1)}" y="${H - 4}" font-size="10" fill="var(--fx-muted)" text-anchor="${['start', 'middle', 'end'][n]}">${fmtD(dayOffset(tk, i - 29))}</text>`).join('');
+    const svg = `<svg class="fx-svg" viewBox="0 0 ${W} ${H}">
+      <defs><linearGradient id="${id}-g" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#F26B4F" stop-opacity=".16"/><stop offset="1" stop-color="#F26B4F" stop-opacity="0"/></linearGradient></defs>
+      ${grid}<path d="${pPrev}" fill="none" stroke="#C7C7CC" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="${area}" fill="url(#${id}-g)"/><path d="${pCur}" fill="none" stroke="var(--fx-orange)" stroke-width="1.8" stroke-linejoin="round"/>${dots}
+      <circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="7" fill="var(--fx-orange)" opacity=".2"/><circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="3.6" fill="var(--fx-orange)"/>${xl}</svg>`;
+    const diff = cur[29] - prev[29];
+    el.innerHTML = head(id, 'bars', 'Activity Summary', 'train-overview') + `
+      <div class="fx-split" style="align-items:flex-start;margin-bottom:6px">
+        <div><div class="fx-num">${hm(cur[29])}</div><div class="fx-meta">${fmtD(start)} – ${fmtD(tk, { day: 'numeric', month: 'short', year: 'numeric' })}</div></div>
+        <div style="text-align:right"><div class="fx-meta" style="display:flex;align-items:center;gap:5px;justify-content:flex-end"><span style="width:9px;height:2px;background:#C7C7CC;display:inline-block;border-radius:2px"></span>Previous 30 days</div>
+          <div style="font-size:15px;font-weight:700;margin-top:2px">${hm(prev[29])}</div>
+          <div style="font-size:12px;font-weight:600;color:${diff >= 0 ? 'var(--fx-teal)' : 'var(--fx-orange)'}">${diff >= 0 ? '+' : '−'}${hm(Math.abs(diff))} this period</div></div>
+      </div>${svg}
+      <div class="fx-note" style="display:flex;gap:16px"><span><b style="color:var(--fx-text)">${last30.length}</b> workouts</span><span><b style="color:var(--fx-text)">${km.toFixed(0)} km</b> run + ride</span></div>`;
+  }
+
+  // ── Strain performance vs the recovery-based target band ────────────────
+  function strainBand(rec) { return rec >= 67 ? [12, 18] : rec >= 34 ? [7, 12] : [0, 8]; }
+  function renderStrainPerf(id) {
+    const el = $(id); if (!el) return;
+    if (typeof computeHealthDailySeries !== 'function') { el.innerHTML = ''; el.style.display = 'none'; return; }
+    const series = computeHealthDailySeries(30);
+    const days = series.map(d => ({ ...d, band: d.recovery != null ? strainBand(d.recovery) : null }));
+    const scored = days.filter(d => d.band && d.strain != null);
+    const devs = scored.map(d => d.strain < d.band[0] ? (d.strain - d.band[0]) / d.band[0] : d.strain > d.band[1] ? (d.strain - d.band[1]) / d.band[1] : 0);
+    const inBand = devs.filter(v => v === 0).length;
+    const avg = devs.length ? devs.reduce((s, v) => s + v, 0) / devs.length : null;
+
+    const W = 190, H = 70, P = 4;
+    const x = i => scale(i, 0, days.length - 1, P, W - P);
+    const y = v => scale(v, 0, 21, H - P, P);
+    const half = (W - 2 * P) / (days.length - 1) / 2;
+    const bands = days.map((d, i) => d.band ? `<rect x="${(x(i) - half).toFixed(1)}" y="${y(d.band[1]).toFixed(1)}" width="${(2 * half + .4).toFixed(1)}" height="${(y(d.band[0]) - y(d.band[1])).toFixed(1)}" fill="#22B8B0" opacity=".14"/>` : '').join('');
+    const pts = days.map((d, i) => d.strain == null ? null : [x(i), y(d.strain)]);
+    let li = days.length - 1; while (li >= 0 && days[li].strain == null) li--;
+    const svg = `<svg class="fx-svg" viewBox="0 0 ${W} ${H}">${bands}<path d="${pathOf(pts)}" fill="none" stroke="var(--fx-teal)" stroke-width="1.6" stroke-linejoin="round"/>${li >= 0 ? `<circle cx="${x(li).toFixed(1)}" cy="${y(days[li].strain).toFixed(1)}" r="3" fill="#fff" stroke="var(--fx-blue)" stroke-width="2"/>` : ''}</svg>`;
+
+    let num, status, col;
+    if (avg == null) { num = '—'; status = 'Needs recovery data'; col = 'var(--fx-muted)'; }
+    else {
+      const pct = Math.round(avg * 100);
+      num = (pct > 0 ? '+' : pct < 0 ? '−' : '') + Math.abs(pct) + '%';
+      if (Math.abs(avg) < 0.1) { status = 'On target'; col = 'var(--fx-teal)'; }
+      else if (avg < 0) { status = 'Below target'; col = 'var(--fx-blue)'; }
+      else { status = 'Above target'; col = 'var(--fx-orange)'; }
+    }
+    el.style.display = '';
+    el.innerHTML = head(id, 'target', 'Strain Performance', null, 'fx-strain-perf') + `
+      <div class="fx-split"><div style="flex-shrink:0"><div class="fx-num">${num}</div><div class="fx-status" style="color:${col}">${status}</div>
+        ${scored.length ? `<div class="fx-meta" style="font-size:12px;margin-top:2px">${inBand} of ${scored.length} days in band</div>` : ''}</div>
+        <div style="flex:1;max-width:220px">${svg}</div></div>
+      ${avg == null ? '<div class="fx-note">The strain target comes from each morning\'s recovery score, which needs HRV and sleep from Apple Health. None in the last 30 days yet.</div>' : ''}`;
+  }
+
+  // ── Cardio load (Strava Relative Effort, 7-day rolling) ─────────────────
+  function renderCardioLoad(id) {
+    const el = $(id); if (!el) return;
+    const tk = todayKey();
+    const re = {}; let haveRE = false;
+    acts().filter(isCardio).forEach(a => {
+      const v = a.summary.relative_effort;
+      if (v == null) return;
+      haveRE = true; const k = actDate(a); re[k] = (re[k] || 0) + v;
+    });
+    const roll = k => { let s = 0; for (let i = 0; i < 7; i++) s += re[dayOffset(k, -i)] || 0; return s; };
+    if (!acts().length || !haveRE) {
+      el.innerHTML = head(id, 'load', 'Cardio Load', 'train-overview', 'fx-cardio-load') +
+        `<div class="fx-empty">${acts().length ? 'No Relative Effort on your recent cardio. Strava only calculates it for activities recorded with heart rate.' : 'Waiting for Strava activities…'}</div>`;
+      return;
+    }
+    const line = []; for (let i = 29; i >= 0; i--) line.push(roll(dayOffset(tk, -i)));
+    const now = line[29];
+    // baseline: average weekly total over the 3 weeks before the current one
+    let base = 0; for (let i = 7; i < 28; i++) base += re[dayOffset(tk, -i)] || 0; base /= 3;
+    const r = base > 0 ? now / base : (now > 0 ? 2 : 1);
+    const st = !base && !now ? { t: 'No recent load', c: 'var(--fx-muted)' }
+      : r < 0.8 ? { t: 'Detraining', c: 'var(--fx-muted)' } : r <= 1.2 ? { t: 'Maintaining', c: 'var(--fx-purple)' }
+      : r <= 1.5 ? { t: 'Building', c: 'var(--fx-teal)' } : { t: 'Spiking', c: 'var(--fx-orange)' };
+    el.innerHTML = head(id, 'load', 'Cardio Load', 'train-overview', 'fx-cardio-load') + `
+      <div class="fx-split"><div style="flex-shrink:0"><div class="fx-num">${Math.round(now)}</div><div class="fx-status" style="color:${st.c}">${st.t}</div>
+        <div class="fx-meta" style="font-size:12px;margin-top:2px">3-wk avg ${Math.round(base)}/wk</div></div>
+        <div style="flex:1;max-width:220px">${spark(line, { w: 190, h: 66, band: base ? [base * 0.8, base * 1.2] : null, min: 0, color: 'var(--fx-purple)' })}</div></div>`;
+  }
+
+  // ── Cardio focus (HR-zone split of cardio time) ─────────────────────────
+  function renderCardioFocus(id) {
+    const el = $(id); if (!el) return;
+    const start = dayOffset(todayKey(), -29);
+    const list = acts().filter(a => isCardio(a) && actDate(a) >= start);
+    const b = { low: 0, high: 0, ana: 0 };
+    let usedHR = 0;
+    const zones = (typeof getEffectiveHRZones === 'function') ? getEffectiveHRZones() : null;
+    list.forEach(a => {
+      const m = (a.summary.moving_time || 0) / 60, hr = a.summary.avg_hr;
+      if (hr && zones) {
+        const zi = zones.findIndex(z => hr < z.max); const z = zi < 0 ? 4 : zi;
+        b[z <= 1 ? 'low' : z === 2 ? 'high' : 'ana'] += m; usedHR += m;
+      } else if (typeof intensity === 'function') {
+        const k = intensity(a); b[k === 'easy' ? 'low' : k === 'moderate' ? 'high' : 'ana'] += m;
+      }
+    });
+    const tot = b.low + b.high + b.ana;
+    const H = head(id, 'focus', 'Cardio Focus', 'train-running', 'fx-cardio-focus');
+    if (!tot) { el.innerHTML = H + '<div class="fx-empty">No cardio in the last 30 days.</div>'; return; }
+    const cfg = [['low', 'Low Aerobic', 'var(--fx-cyan)'], ['high', 'High Aerobic', 'var(--fx-blue)'], ['ana', 'Anaerobic', 'var(--fx-purple)']];
+    const top = cfg.reduce((a, c) => b[c[0]] > b[a[0]] ? c : a, cfg[0]);
+    const pct = k => Math.round(b[k] / tot * 100);
+    el.innerHTML = H + `<div class="fx-num-sm">${top[1]}</div><div class="fx-status" style="color:${top[2]}">${pct(top[0])}%</div>
+      <div class="fx-bars">${cfg.map(c => `<div class="fx-bar" title="${c[1]} · ${pct(c[0])}% · ${hm(b[c[0]])}"><span style="width:${Math.max(pct(c[0]), 2)}%;background:${c[2]}"></span></div>`).join('')}</div>
+      ${usedHR < tot * 0.5 ? '<div class="fx-note">Mostly estimated from session type, as most sessions have no HR.</div>' : ''}`;
+  }
+
+  // ── Heart rate recovery (Apple Health cardio_recovery) ──────────────────
+  function renderHRR(id) {
+    const el = $(id); if (!el) return;
+    const H = head(id, 'heart', 'HRR', null, 'fx-hrr');
+    const s = (typeof _healthSeries === 'function') ? _healthSeries('cardio_recovery', 90) : [];
+    const cutoff = dayOffset(todayKey(), -30);
+    const recent = s.filter(p => p.date >= cutoff);
+    if (!recent.length) {
+      el.innerHTML = H + `<div class="fx-empty">${s.length ? `Last reading ${fmtD(s[s.length - 1].date)}, none in the past 30 days.` : (typeof _healthData !== 'undefined' && _healthData ? 'No Cardio Recovery readings in Apple Health yet.' : 'Waiting for Apple Health…')}</div>`;
+      return;
+    }
+    const v = recent[recent.length - 1].value;
+    const rt = v <= 12 ? ['Low', 'var(--fx-red)'] : v < 20 ? ['Average', '#D99A0B'] : v < 30 ? ['Good', 'var(--fx-teal)'] : ['Excellent', 'var(--fx-purple)'];
+    el.innerHTML = H + `<div class="fx-num-sm">${Math.round(v)} <span style="font-size:15px;font-weight:600">bpm</span></div>
+      <div class="fx-status" style="color:${rt[1]}">${rt[0]}</div>
+      <div class="fx-hrr-spark" style="margin-top:8px">${spark(recent.slice(-20).map(p => p.value), { w: 150, h: 40, color: 'var(--fx-purple)' })}</div>
+      <div class="fx-note" style="margin-top:4px">${fmtD(recent[recent.length - 1].date)} · ${recent.length} reading${recent.length === 1 ? '' : 's'} in 30 days</div>`;
+  }
+
+  // ── Strength: parse Hevy logs from Strava descriptions ──────────────────
+  // [pattern, groups]; matched longest-first on word boundaries so "Rear
+  // Delt Reverse Fly" lands in Shoulders, not Chest, and "Cable" never
+  // matches "ab". A trailing * means "prefix" (adductor/adduction).
+  const EX_GROUPS = [
+    ['romanian deadlift', ['Legs']], ['stiff leg deadlift', ['Legs']], ['deadlift', ['Back', 'Legs']], ['rdl', ['Legs']],
+    ['rear delt', ['Shoulders']], ['reverse fly', ['Shoulders']], ['face pull', ['Shoulders']], ['lateral raise', ['Shoulders']], ['front raise', ['Shoulders']],
+    ['shoulder press', ['Shoulders']], ['overhead press', ['Shoulders']], ['military press', ['Shoulders']], ['arnold press', ['Shoulders']], ['ohp', ['Shoulders']], ['upright row', ['Shoulders']],
+    ['overhead triceps', ['Arms']], ['tricep', ['Arms']], ['pushdown', ['Arms']], ['kickback', ['Arms']], ['skull crusher', ['Arms']], ['dip', ['Arms']],
+    ['leg curl', ['Legs']], ['hamstring curl', ['Legs']], ['curl', ['Arms']], ['bicep', ['Arms']],
+    ['bench press', ['Chest']], ['flat bench', ['Chest']], ['chest press', ['Chest']], ['chest fly', ['Chest']], ['fly', ['Chest']], ['flye', ['Chest']], ['crossover', ['Chest']], ['pec deck', ['Chest']], ['push up', ['Chest']], ['push-up', ['Chest']],
+    ['row', ['Back']], ['pull up', ['Back']], ['pull-up', ['Back']], ['pullup', ['Back']], ['chin up', ['Back']], ['pulldown', ['Back']], ['shrug', ['Back']], ['back extension', ['Back']], ['hyperextension', ['Back']],
+    ['squat', ['Legs']], ['leg press', ['Legs']], ['lunge', ['Legs']], ['step up', ['Legs']], ['leg extension', ['Legs']], ['hip thrust', ['Legs']], ['glute', ['Legs']], ['calf raise', ['Legs']],
+    ['rear kick', ['Legs']], ['clamshell', ['Legs']], ['adduct*', ['Legs']], ['abduct*', ['Legs']],
+    ['plank', ['Core']], ['crunch', ['Core']], ['leg raise', ['Core']], ['knee raise', ['Core']], ['oblique', ['Core']], ['sit-up', ['Core']], ['sit up', ['Core']], ['ab wheel', ['Core']], ['russian twist', ['Core']], ['dead bug', ['Core']], ['pallof', ['Core']], ['around the world', ['Core']],
+  ].map(([k, g]) => [k.length, new RegExp('\\b' + k.replace('*', '').replace(/[-]/g, '\\-') + (k.endsWith('*') ? '' : '(?:s|es)?\\b'), 'i'), g])
+    .sort((a, b) => b[0] - a[0]);
+  const groupsFor = name => { const hit = EX_GROUPS.find(e => e[1].test(name)); return hit ? hit[2] : null; };
+
+  function cleanName(raw) {
+    let n = raw.replace(/\(copy\)/ig, '').replace(/techno ?gym/ig, '').replace(/\s+/g, ' ').trim();
+    const eq = (n.match(/\(([^)]+)\)\s*$/) || [])[1] || '';
+    const base = n.replace(/\s*\([^)]*\)\s*$/, '').trim();
+    return { key: n.toLowerCase(), name: base, equip: eq };
+  }
+  // → [{name, key, equip, sets:[{kg, reps, warm}]}]
+  function parseHevy(desc) {
+    if (!desc || !/set \d+:/i.test(desc)) return [];
+    const out = []; let cur = null;
+    desc.split('\n').forEach(line => {
+      const l = line.trim(); if (!l) return;
+      const m = l.match(/^set \d+:\s*(.*)$/i);
+      if (m) {
+        if (!cur) return;
+        const body = m[1], warm = /warm-?up/i.test(body);
+        const w = body.match(/([\d.]+)\s*(kg|lbs?)\s*x\s*(\d+)/i);
+        if (w) cur.sets.push({ kg: +w[1] * (/lb/i.test(w[2]) ? 0.4536 : 1), reps: +w[3], warm });
+        else cur.sets.push({ kg: null, reps: +((body.match(/(\d+)\s*reps?/i) || [])[1] || 0), warm });
+        return;
+      }
+      if (/hevy/i.test(l) || /^["“].*["”]$/.test(l)) return; // "Logged with hevyapp.com", exercise notes
+      cur = { ...cleanName(l), raw: l, sets: [] }; out.push(cur);
+    });
+    return out.filter(e => e.sets.length);
+  }
+
+  // ── Strength details: one shared, cached fetch ──────────────────────────
+  // Wraps the existing fetchStrengthDetails so the Strength sub-tab and the
+  // new cards share one round of Strava detail calls per page load, and
+  // descriptions already seen are kept in localStorage (they don't change
+  // after Hevy posts them), so later loads only fetch new sessions.
+  let _fxTokens = null, _sdMemo = null;
+  const DESC_KEY = 'fx_strava_desc_cache';
+  const loadDescCache = () => { try { return JSON.parse(localStorage.getItem(DESC_KEY)) || {}; } catch { return {}; } };
+  const saveDescCache = c => { try { const ids = Object.keys(c); if (ids.length > 300) ids.slice(0, ids.length - 300).forEach(k => delete c[k]); localStorage.setItem(DESC_KEY, JSON.stringify(c)); } catch {} };
+  if (typeof fetchStrengthDetails === 'function') {
+    fetchStrengthDetails = function (tokens, actList) {
+      const recent = (actList || []).filter(a => a.sport_type === 'WeightTraining' && (Date.now() - new Date(a.start_local)) < 56 * DAY);
+      const key = recent.map(a => a.id).join(',');
+      if (_sdMemo && _sdMemo.key === key) return _sdMemo.p;
+      const p = (async () => {
+        const cache = loadDescCache(), out = [];
+        for (let i = 0; i < recent.length; i += 5) {
+          const chunk = recent.slice(i, i + 5);
+          out.push(...await Promise.all(chunk.map(async a => {
+            let description = cache[a.id] || '';
+            if (!description) {
+              try {
+                const res = await fetch(`${API}/strava-auth?action=proxy&path=${encodeURIComponent('/activities/' + a.id)}&access_token=${encodeURIComponent(tokens.access_token)}`);
+                if (res.ok) { const data = await res.json(); description = data.description || ''; if (description) cache[a.id] = description; }
+              } catch {}
+            }
+            return { id: a.id, name: a.name, start_local: a.start_local, moving_time: a.summary.moving_time, summary: a.summary, description };
+          })));
+        }
+        saveDescCache(cache);
+        return out;
+      })();
+      _sdMemo = { key, p };
+      p.catch(() => { if (_sdMemo && _sdMemo.p === p) _sdMemo = null; });
+      return p;
+    };
+  }
+  if (typeof fetchActivities === 'function') {
+    const _origFA = fetchActivities;
+    fetchActivities = async function (tokens) { _fxTokens = tokens; const r = await _origFA.apply(this, arguments); setTimeout(fxRenderSoon, 0); return r; };
+  }
+  async function strengthDetails() {
+    if (!_fxTokens || !acts().length) return null;
+    return fetchStrengthDetails(_fxTokens, acts());
+  }
+
+  // ── Muscular load (polar rose) ──────────────────────────────────────────
+  const MUSCLE_ORDER = [ // clockwise from top
+    ['Chest', '#F26B4F'], ['Back', '#4C8DF6'], ['Legs', '#22B8B0'], ['Shoulders', '#7CCB4E'], ['Core', '#A78BFA'], ['Arms', '#F2BE2E']];
+  function renderMuscle(id, details) {
+    const el = $(id); if (!el) return;
+    const H = head(id, 'dumbbell', 'Muscular Load', 'train-strength', 'fx-muscle-load');
+    if (details === undefined) { el.innerHTML = H + '<div class="fx-empty">Loading your Hevy sessions…</div>'; return; }
+    const start = dayOffset(todayKey(), -29);
+    const sess = (details || []).filter(a => (a.start_local || '').slice(0, 10) >= start);
+    const g = {}; let total = 0, unmatched = 0, nSess = 0; const unk = new Set();
+    sess.forEach(a => {
+      const ex = parseHevy(a.description); if (ex.length) nSess++;
+      ex.forEach(e => {
+        const n = e.sets.filter(s => !s.warm).length; if (!n) return;
+        const gs = groupsFor(e.raw);
+        if (!gs) { unmatched += n; unk.add(e.name); return; }
+        gs.forEach(k => g[k] = (g[k] || 0) + n / gs.length); total += n;
+      });
+    });
+    if (!total) { el.innerHTML = H + `<div class="fx-empty">${details === null ? 'Strength data unavailable right now.' : 'No Hevy-logged strength sessions in the last 30 days.'}</div>`; return; }
+    const share = k => (g[k] || 0) / total;
+    const maxS = Math.max(...MUSCLE_ORDER.map(([k]) => share(k)));
+    const W = 320, Ht = 250, cx = W / 2, cy = Ht / 2, R0 = 16, R = 82, LR = R + 32;
+    const pt = (r, deg) => { const a = deg * Math.PI / 180; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; };
+    const wedge = (r0, r1, a0, a1, fill, op) => {
+      const [x0, y0] = pt(r1, a0), [x1, y1] = pt(r1, a1), [x2, y2] = pt(r0, a1), [x3, y3] = pt(r0, a0);
+      return `<path d="M${x0.toFixed(1)} ${y0.toFixed(1)}A${r1} ${r1} 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)}L${x2.toFixed(1)} ${y2.toFixed(1)}A${r0} ${r0} 0 0 0 ${x3.toFixed(1)} ${y3.toFixed(1)}Z" fill="${fill}" opacity="${op}"/>`;
+    };
+    let shapes = '', labels = '';
+    MUSCLE_ORDER.forEach(([k, col], i) => {
+      const mid = -90 + i * 60, a0 = mid - 29, a1 = mid + 29;
+      shapes += wedge(R0, R, a0, a1, '#F2F2F7', 1);
+      const sh = share(k);
+      if (sh > 0) {
+        const r = R0 + (R - R0) * Math.sqrt(sh / maxS);
+        shapes += wedge(R0, r, a0, a1, col, .25) + wedge(R0, R0 + (r - R0) * .62, a0, a1, col, .55) + wedge(r - Math.min(5, (r - R0) * .3), r, a0, a1, col, 1);
+      }
+      const [lx, ly] = pt(LR, mid);
+      const anchor = Math.abs(Math.cos(mid * Math.PI / 180)) < .2 ? 'middle' : Math.cos(mid * Math.PI / 180) > 0 ? 'start' : 'end';
+      const pctTxt = sh > 0 && sh < 0.005 ? '<1' : Math.round(sh * 100);
+      labels += `<text x="${lx.toFixed(1)}" y="${(ly - 2).toFixed(1)}" text-anchor="${anchor}" font-size="13" font-weight="700" fill="${sh ? col : 'var(--fx-faint)'}">${pctTxt}%</text>
+                 <text x="${lx.toFixed(1)}" y="${(ly + 13).toFixed(1)}" text-anchor="${anchor}" font-size="11.5" fill="var(--fx-muted)">${k}</text>`;
+    });
+    const tip = MUSCLE_ORDER.map(([k]) => `${k}: ${Math.round(g[k] || 0)} sets`).join(' · ');
+    el.innerHTML = H + `<div class="fx-muscle-wrap" title="${esc(tip)}"><svg class="fx-svg" viewBox="0 0 ${W} ${Ht}">${shapes}${labels}</svg></div>
+      <div class="fx-note" style="text-align:center">${Math.round(total)} working sets across ${nSess} session${nSess === 1 ? '' : 's'}${unmatched ? ` · ${unmatched} set${unmatched === 1 ? '' : 's'} not matched to a group (${esc([...unk].slice(0, 3).join(', '))}${unk.size > 3 ? '…' : ''})` : ''}</div>`;
+  }
+
+  // ── Strength progression (best e1RM per session) ────────────────────────
+  function renderProgress(id, details) {
+    const el = $(id); if (!el) return;
+    const H = head(id, 'trend', 'Strength Progression', 'train-strength', 'fx-strength-prog');
+    if (details === undefined) { el.innerHTML = H + '<div class="fx-empty">Loading…</div>'; return; }
+    const byEx = {};
+    (details || []).slice().sort((a, b) => new Date(a.start_local) - new Date(b.start_local)).forEach(a => {
+      parseHevy(a.description).forEach(e => {
+        const best = Math.max(0, ...e.sets.filter(s => !s.warm && s.kg && s.reps > 0 && s.reps <= 12).map(s => s.kg * (1 + s.reps / 30)));
+        if (!best) return;
+        const x = byEx[e.key] = byEx[e.key] || { name: e.name, equip: e.equip, pts: [] };
+        x.pts.push({ date: (a.start_local || '').slice(0, 10), v: best });
+      });
+    });
+    const list = Object.values(byEx).filter(x => x.pts.length >= 2)
+      .sort((a, b) => b.pts.length - a.pts.length || a.name.localeCompare(b.name)).slice(0, 4);
+    if (!list.length) { el.innerHTML = H + `<div class="fx-empty">${details === null ? 'Strength data unavailable right now.' : 'Needs at least two weighted sessions of the same exercise in the last 8 weeks.'}</div>`; return; }
+    el.innerHTML = H + list.map(x => {
+      const first = x.pts[0].v, last = x.pts[x.pts.length - 1].v, d = last - first;
+      const dTxt = Math.abs(d) < 0.5 ? '±0' : (d > 0 ? '+' : '−') + Math.abs(d).toFixed(d % 1 && Math.abs(d) < 10 ? 1 : 0);
+      return `<div class="fx-prog-row" title="${esc(x.pts.map(p => fmtD(p.date) + ': ' + p.v.toFixed(1) + ' kg').join(' · '))}">
+        <div style="flex:1;min-width:0"><div class="fx-prog-name">${esc(x.name)}</div><div class="fx-prog-sub">${x.equip ? esc(x.equip) + ' · ' : ''}${x.pts.length} sessions</div></div>
+        <div class="fx-prog-spark">${spark(x.pts.map(p => p.v), { w: 96, h: 34, color: 'var(--fx-cyan)', dot: 'var(--fx-blue)', sw: 1.6 })}</div>
+        <div class="fx-prog-val"><div>${Math.round(last)} kg</div><div style="color:${d > 0.5 ? 'var(--fx-teal)' : d < -0.5 ? 'var(--fx-orange)' : 'var(--fx-muted)'}">${dTxt} kg</div></div>
+      </div>`;
+    }).join('') + '<div class="fx-note">Estimated 1RM, best set per session · last 8 weeks</div>';
+  }
+
+  // ── orchestration ────────────────────────────────────────────────────────
+  const safe = (fn, ...a) => { try { fn(...a); } catch (e) { console.warn('fx render failed', fn.name, e); } };
+  let _strengthReq = 0;
+  function fxRenderAll() {
+    ['fx-', 'tr-'].forEach(p => {
+      safe(renderCal, p + 'cal'); safe(renderSummary, p + 'summary'); safe(renderStrainPerf, p + 'strainperf');
+      safe(renderCardioLoad, p + 'cardioload'); safe(renderCardioFocus, p + 'cardiofocus'); safe(renderHRR, p + 'hrr');
+    });
+    if (!acts().length) return;
+    const ids = ['fx-muscle', 'tr-muscle', 'fx-progress', 'tr-progress'].filter($);
+    if (!ids.length) return;
+    const req = ++_strengthReq;
+    const done = d => { if (req !== _strengthReq) return; ['fx-', 'tr-'].forEach(p => { safe(renderMuscle, p + 'muscle', d); safe(renderProgress, p + 'progress', d); }); };
+    const pending = strengthDetails();
+    if (!pending) return done(null);
+    if (!ids.some(i => $(i).innerHTML)) ['fx-', 'tr-'].forEach(p => { safe(renderMuscle, p + 'muscle', undefined); safe(renderProgress, p + 'progress', undefined); });
+    pending.then(done, () => done(null));
+  }
+  let _t = null;
+  function fxRenderSoon() { clearTimeout(_t); _t = setTimeout(fxRenderAll, 60); }
+  window.fxRenderAll = fxRenderAll;
+
+  // Re-render after anything that changes the inputs: renderWhoopMonitor is
+  // called once Strava activities land, again when Apple Health data
+  // arrives, and when real HR zones load.
+  if (typeof renderWhoopMonitor === 'function') {
+    const _origRWM = renderWhoopMonitor;
+    renderWhoopMonitor = function () { const r = _origRWM.apply(this, arguments); fxRenderSoon(); return r; };
+  }
+  if (typeof renderFitnessSubTab === 'function') {
+    const _origRFS = renderFitnessSubTab;
+    renderFitnessSubTab = function () { const r = _origRFS.apply(this, arguments); fxRenderSoon(); return r; };
+  }
+
+  // Cool-grey page background while the Training tab or Health → Fitness is open.
+  function updateMode() {
+    const tr = $('tab-training'), wh = $('tab-whoop'), fit = $('sub-tab-whoop-fitness');
+    const on = (tr && tr.classList.contains('active')) || (wh && wh.classList.contains('active') && fit && fit.classList.contains('active'));
+    document.body.classList.toggle('fx-mode', !!on);
+  }
+  const mo = new MutationObserver(updateMode);
+  ['tab-training', 'tab-whoop', 'sub-tab-whoop-fitness'].forEach(i => { const e = $(i); if (e) mo.observe(e, { attributes: true, attributeFilter: ['class'] }); });
+  updateMode();
+  fxRenderSoon();
+})();
 </script>
 </body>
 </html>
