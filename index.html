@@ -3319,7 +3319,8 @@ const DAILY_HABITS = [
   { id: 'h-steps',     label: '10,000 steps', auto: 'steps',       group: 'Tracked automatically' },
   { id: 'h-sleep',     label: '8h sleep',     auto: 'sleep',       group: 'Tracked automatically' },
   { id: 'h-weight',    label: 'Weigh in',     auto: 'weight',      group: 'Tracked automatically' },
-  { id: 'h-calories',  label: 'Calories logged', auto: 'health-calories', group: 'Tracked automatically' },
+  { id: 'h-calories',  label: 'Under 2,183 kcal', auto: 'health-calories', group: 'Tracked automatically' },
+  { id: 'h-protein',   label: '186g protein',     auto: 'health-protein',  group: 'Tracked automatically' },
   { id: 'h-anki-100',       label: '100 Anki cards',   group: 'Study' },
   { id: 'h-passmed-50',     label: '25 PassMed Qs',    group: 'Study' },
   { id: 'h-osce-2',         label: 'OSCE revision',    group: 'Study' },
@@ -3425,7 +3426,14 @@ function getAutoHabitStateOnDate(dateStr) {
   const hasStrength = actsOnDate.some(a => a.sport_type === 'WeightTraining');
   // Apple Health dietary_energy intake for the day — same metric the Calorie
   // Intake / Calorie Balance cards read, just surfaced as a habit tick too.
-  const caloriesLogged = tryHealth('dietary_energy') != null;
+  // Ticked while food is logged and the day's total is at or under the
+  // calorie goal; goes back to unticked once it climbs above.
+  const kj = tryHealth('dietary_energy');
+  const kcal = kj != null ? _kjToKcal(kj) : null;
+  const underCalories = kcal != null && kcal > 0 && kcal <= NUTRITION_GOALS.calories;
+  // Protein (grams, MacroFactor → Apple Health) at or above goal.
+  const protein = tryHealth('protein');
+  const proteinMet = protein != null && protein >= getMacroTargets().protein;
   // 'top' priority task has no per-date history — only meaningful for today,
   // based on whichever 'top' task was most recently created.
   const todayStr = new Date().toLocaleDateString('en-CA');
@@ -3440,7 +3448,8 @@ function getAutoHabitStateOnDate(dateStr) {
     'h-weight':   weight != null || loggedWeight,
     'h-cardio':   hasCardio,
     'h-strength': hasStrength,
-    'h-calories': caloriesLogged,
+    'h-calories': underCalories,
+    'h-protein':  proteinMet,
     'h-top-priority': topDone,
   };
 }
@@ -3467,6 +3476,14 @@ function renderHabits() {
   // faint note next to "Calories logged" — same metric as the Calorie Intake card.
   const currentCaloriesKj = (typeof _healthValueOnDate === 'function') ? _healthValueOnDate('dietary_energy', today) : null;
   const currentCaloriesKcal = (currentCaloriesKj != null && typeof _kjToKcal === 'function') ? Math.round(_kjToKcal(currentCaloriesKj)) : null;
+  // A hand tick on the calorie habit doesn't survive going over the goal —
+  // clear it from the saved log so counts and streaks agree with the list.
+  if (ticked['h-calories'] && currentCaloriesKcal != null && currentCaloriesKcal > NUTRITION_GOALS.calories) {
+    ticked['h-calories'] = false;
+    saveHabits({ date: today, ticked });
+  }
+
+  const currentProteinG = (typeof _healthValueOnDate === 'function') ? _healthValueOnDate('protein', today) : null;
 
   // Current top-priority task text, for the faint note next to "Top priority"
   const currentTopTask = (typeof getCurrentTopTask === 'function') ? getCurrentTopTask() : null;
@@ -3483,7 +3500,9 @@ function renderHabits() {
   let lastGroup = null;
   setH('habit-list', ordered.map((h, i) => {
     const autoOn = h.auto ? (auto[h.id] || false) : false;
-    const isDone = ticked[h.id] || autoOn;
+    // Going over the calorie goal unticks it, even if it was ticked by hand.
+    const overCalGoal = h.id === 'h-calories' && currentCaloriesKcal != null && currentCaloriesKcal > NUTRITION_GOALS.calories;
+    const isDone = !overCalGoal && (ticked[h.id] || autoOn);
     const syncedLabel = autoOn && !ticked[h.id] ? `<span style="font-size:10px;color:var(--accent-text);margin-left:4px">⌚ synced</span>` : '';
     const sleepMiss = h.id === 'h-sleep' && sleepTrackedButMissed && !ticked[h.id];
     const missLabel = sleepMiss ? `<span style="font-size:11px;color:var(--danger);margin-left:5px">❌ missed</span>` : '';
@@ -3499,7 +3518,9 @@ function renderHabits() {
     const stepsProgress = (h.id === 'h-steps' && currentSteps != null)
       ? `<span style="font-size:11px;color:var(--text-faint);margin-left:5px">${Math.round(currentSteps).toLocaleString()} / 10,000</span>` : '';
     const caloriesProgress = (h.id === 'h-calories' && currentCaloriesKcal != null)
-      ? `<span style="font-size:11px;color:var(--text-faint);margin-left:5px">${currentCaloriesKcal.toLocaleString()} kcal</span>` : '';
+      ? `<span style="font-size:11px;color:${overCalGoal ? 'var(--danger)' : 'var(--text-faint)'};margin-left:5px">${currentCaloriesKcal.toLocaleString()} / ${NUTRITION_GOALS.calories.toLocaleString()} kcal</span>` : '';
+    const proteinProgress = (h.id === 'h-protein' && currentProteinG != null)
+      ? `<span style="font-size:11px;color:var(--text-faint);margin-left:5px">${Math.round(currentProteinG)} / ${getMacroTargets().protein}g</span>` : '';
     const topTaskNote = (h.id === 'h-top-priority' && currentTopTask)
       ? `<span style="font-size:11px;color:var(--text-faint);margin-left:5px">— ${escHtml(currentTopTask.text)}</span>` : '';
     const isNewGroup = h.group !== lastGroup;
@@ -3510,7 +3531,7 @@ function renderHabits() {
     const sameGroupNext = i < ordered.length - 1 && ordered[i+1].group === h.group;
     return `${headerHtml}<div style="display:flex;align-items:center;gap:10px;padding:8px 0;${sameGroupNext?'border-bottom:1px solid var(--border-soft);':''}${isDone?'opacity:0.45':''}">
       <input type="checkbox" ${isDone?'checked':''} onchange="toggleHabit('${h.id}')" style="cursor:pointer;flex-shrink:0;accent-color:var(--accent)"/>
-      <span style="flex:1;font-size:13px;${isDone?'text-decoration:line-through;color:var(--text-faint)':''}">${h.label}${stepsProgress}${caloriesProgress}${topTaskNote}${syncedLabel}${missLabel}${streakLabel}</span>
+      <span style="flex:1;font-size:13px;${isDone?'text-decoration:line-through;color:var(--text-faint)':''}">${h.label}${stepsProgress}${caloriesProgress}${proteinProgress}${topTaskNote}${syncedLabel}${missLabel}${streakLabel}</span>
     </div>`;
   }).join(''));
   renderTrainingTodo();
@@ -3842,7 +3863,17 @@ function promptWeightGoal() {
 // weight goal above. Actual values come from MacroFactor → Apple Health →
 // Health Auto Export (see computeMacrosForDate / renderMacrosCard, defined
 // alongside the Calorie Balance code below).
-const DEFAULT_MACRO_TARGETS = { protein: 150, carbs: 250, fat: 70 };
+const DEFAULT_MACRO_TARGETS = { protein: 186, carbs: 250, fat: 70 };
+// Daily nutrition goals for the habit tracker (set Oct 2026).
+const NUTRITION_GOALS = { calories: 2183 };
+// One-off: bring any previously saved protein target up to the new 186 g goal.
+try {
+  if (!localStorage.getItem('protein_goal_186_applied')) {
+    const raw = localStorage.getItem('macro_targets');
+    if (raw) { const v = JSON.parse(raw) || {}; v.protein = 186; localStorage.setItem('macro_targets', JSON.stringify(v)); }
+    localStorage.setItem('protein_goal_186_applied', '1');
+  }
+} catch {}
 function getMacroTargets() {
   try {
     const raw = localStorage.getItem('macro_targets');
