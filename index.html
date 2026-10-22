@@ -5558,6 +5558,134 @@ function getCoachNote(type) {
   return SESSION_COACH_NOTES[type] || null;
 }
 
+// ── Structured run sessions ─────────────────────────────────────────────────
+// Each run type in TRAINING_TEMPLATE / VARIANTS gets a concrete session,
+// rotating through a few options week to week (and offset by weekday, so
+// Monday's and Friday's easy runs differ). Targets follow one rule:
+//   • easy, long and warm-up/cool-down running → heart-rate zone (HR adjusts
+//     for hills, heat and fatigue; pace doesn't)
+//   • tempo, intervals, reps and race-pace segments → pace (HR lags 15–60 s,
+//     too slow for short reps)
+// HR zones come from getEffectiveHRZones() (real Strava zones when synced,
+// else %-of-threshold-HR). Paces come from the Planner run threshold pace if
+// set, otherwise from Jack Daniels' VDOT model applied to the 5km PB
+// (get5kPbOverride). Half-marathon pace uses the HM goal in PBS.
+function _vdotFromRace(distM, sec) {
+  const t = sec / 60, v = distM / t;
+  const vo2 = -4.60 + 0.182258 * v + 0.000104 * v * v;
+  const pct = 0.8 + 0.1894393 * Math.exp(-0.012778 * t) + 0.2989558 * Math.exp(-0.1932605 * t);
+  return vo2 / pct;
+}
+function _secPerKmAtVo2(vo2) {
+  const a = 0.000104, b = 0.182258, c = -4.60 - vo2;
+  const v = (-b + Math.sqrt(b * b - 4 * a * c)) / (2 * a); // m/min
+  return 60000 / v;
+}
+function _timeStrToSec(str) {
+  const p = String(str).split(':').map(Number);
+  return p.reduce((acc, n) => acc * 60 + n, 0);
+}
+function getRunTargets() {
+  const zones = getEffectiveHRZones();
+  const hrSource = (typeof _stravaHRZones !== 'undefined' && _stravaHRZones) ? 'strava'
+    : (_plannerZones && _plannerZones.thresholdHR) ? 'threshold' : 'default';
+  const pb = get5kPbOverride();
+  const vdot = _vdotFromRace(5000, pb.time);
+  const plannerT = _plannerZones && _plannerZones.runThresholdSecPerKm;
+  const T = plannerT || _secPerKmAtVo2(vdot * 0.88);
+  const I = _secPerKmAtVo2(vdot * 0.975);
+  const R = I - 15; // Daniels R ≈ I minus ~6 s per 400 m
+  const hmGoal = (PBS.find(p => p.label === 'Half Marathon') || {}).goal;
+  const HM = hmGoal ? _timeStrToSec(hmGoal) / 21.0975 : _secPerKmAtVo2(vdot * 0.84);
+  return {
+    z1Max: Math.round(zones[0].max),
+    z2Min: Math.round(zones[1].min), z2Max: Math.round(zones[1].max),
+    T, I, R, HM, hmGoal, hrSource, paceSource: plannerT ? 'planner' : 'pb',
+  };
+}
+function _paceRange(sec) {
+  return `${fmtPaceFromSec(sec - 3)}–${fmtPaceFromSec(sec + 3)}/km`;
+}
+function _repTime(secPerKm, metres) {
+  return fmtPaceFromSec(secPerKm * metres / 1000);
+}
+
+// Step = [what, target]. Builders take the targets object from getRunTargets().
+const _wu = t => ['Warm-up: 2 km easy', `HR under ${t.z2Max} bpm (Z1–2)`];
+const _cd = t => ['Cool-down: 1.5 km easy', `HR under ${t.z2Max} bpm (Z1–2)`];
+const _ivReps = (n, m, pace, rec) => t => [
+  `${n} × ${m} m, ${rec} jog between`,
+  `${_paceRange(t[pace])} (≈ ${_repTime(t[pace], m)} each)`,
+];
+const RUN_WORKOUTS = {
+  'Easy Run': [
+    { title: '5 km easy', steps: t => [['5 km continuous', `HR ${t.z2Min}–${t.z2Max} bpm (Z2) — ignore pace`]] },
+    { title: '6 km easy + strides', steps: t => [
+      ['6 km continuous', `HR ${t.z2Min}–${t.z2Max} bpm (Z2)`],
+      ['4 × 20 s strides, walk back between', 'Relaxed and quick, not a sprint'],
+    ] },
+    { title: '40 min easy', steps: t => [['40 min by time, not distance', `HR ${t.z2Min}–${t.z2Max} bpm (Z2)`]] },
+    { title: '5 km easy, hilly or off-road', steps: t => [['5 km on a hilly or soft route', `HR under ${t.z2Max} bpm — walk the steep bits if it climbs above`]] },
+  ],
+  'Intervals': [
+    { title: '6 × 800 m', steps: t => [_wu(t), _ivReps(6, 800, 'I', '2 min')(t), _cd(t)] },
+    { title: '5 × 1 km', steps: t => [_wu(t), _ivReps(5, 1000, 'I', '2:30')(t), _cd(t)] },
+    { title: '4 × 1200 m', steps: t => [_wu(t), _ivReps(4, 1200, 'I', '3 min')(t), _cd(t)] },
+    { title: 'Pyramid 400–800–1200–800–400', steps: t => [_wu(t),
+      ['400 / 800 / 1200 / 800 / 400 m, jog 90 s / 2 / 3 / 2 min between', `${_paceRange(t.I)} (800 m ≈ ${_repTime(t.I, 800)})`],
+      _cd(t)] },
+  ],
+  'Tempo Run': [
+    { title: '3 × 10 min tempo', steps: t => [_wu(t), ['3 × 10 min, 2 min jog between', _paceRange(t.T)], _cd(t)] },
+    { title: '20 min continuous tempo', steps: t => [_wu(t), ['20 min continuous', _paceRange(t.T)], _cd(t)] },
+    { title: '2 × 15 min tempo', steps: t => [_wu(t), ['2 × 15 min, 3 min jog between', _paceRange(t.T)], _cd(t)] },
+    { title: '4 × 2 km tempo', steps: t => [_wu(t), ['4 × 2 km, 90 s jog between', `${_paceRange(t.T)} (≈ ${_repTime(t.T, 2000)} each)`], _cd(t)] },
+  ],
+  'Long Run': [
+    { title: '12 km easy', steps: t => [['12 km continuous', `HR ${t.z2Min}–${t.z2Max} bpm (Z2)`]] },
+    { title: '14 km easy', steps: t => [['14 km continuous', `HR ${t.z2Min}–${t.z2Max} bpm (Z2)`]] },
+    { title: '14 km, last 3 km at half-marathon pace', steps: t => [
+      ['First 11 km', `HR ${t.z2Min}–${t.z2Max} bpm (Z2)`],
+      ['Last 3 km', `${_paceRange(t.HM)}${t.hmGoal ? ` (goal HM pace, ${t.hmGoal})` : ''}`],
+    ] },
+    { title: '16 km easy', steps: t => [['16 km continuous, take fluids/gel after ~60 min', `HR ${t.z2Min}–${t.z2Max} bpm (Z2)`]] },
+  ],
+  'Speed Run': [
+    { title: '10 × 200 m', steps: t => [_wu(t), _ivReps(10, 200, 'R', '200 m')(t), _cd(t)] },
+    { title: '6 × 400 m', steps: t => [_wu(t), _ivReps(6, 400, 'R', '400 m')(t), _cd(t)] },
+    { title: '8 × 30 s hill sprints', steps: t => [_wu(t), ['8 × 30 s up a steady hill, walk back down', 'Hard effort — pace doesn’t apply on a hill'], _cd(t)] },
+  ],
+};
+// Shown in the readiness swap box when a hard run should be made easier.
+const EASIER_RUN = { title: '5 km easy', steps: t => [['5 km continuous', `HR under ${t.z2Max} bpm (Z2) — or skip if you feel unwell`]] };
+
+function getRunStructure(type, dateStr) {
+  const opts = RUN_WORKOUTS[type];
+  if (!opts) return null;
+  const d = dateStr ? new Date(dateStr + 'T00:00:00') : new Date();
+  const week = parseInt(getISOWeek(d).slice(5), 10);
+  const dayIdx = (d.getDay() + 6) % 7;
+  const idx = (week + dayIdx) % opts.length;
+  return { ...opts[idx], idx, count: opts.length };
+}
+function _runStepsHtml(w, t) {
+  return w.steps(t).map(([what, target]) =>
+    `<div style="margin-top:3px"><span style="color:var(--text,#2B2118);font-weight:600">${escHtml(what)}</span><br><span>${escHtml(target)}</span></div>`
+  ).join('');
+}
+function runStructureHtml(type, dateStr, indentPx) {
+  const w = getRunStructure(type, dateStr);
+  if (!w) return '';
+  const t = getRunTargets();
+  const caveats = [];
+  if (t.hrSource === 'default') caveats.push('HR zones are estimated from a default threshold HR of 170 — set yours in Planner zones.');
+  const cav = caveats.length ? `<div style="margin-top:4px;font-style:italic">${escHtml(caveats.join(' '))}</div>` : '';
+  return `<div style="margin:2px 0 8px ${indentPx || 0}px;padding:8px 10px;border-left:3px solid var(--accent,#2D7A47);background:var(--surface-hover,#FBF1E7);border-radius:6px;font-size:11px;color:#7A6656;line-height:1.4">
+    <div style="font-weight:700;color:var(--text,#2B2118)">${escHtml(w.title)} <span style="font-weight:500;color:#A6937F">· option ${w.idx + 1} of ${w.count}, rotates weekly</span></div>
+    ${_runStepsHtml(w, t)}${cav}
+  </div>`;
+}
+
 function sessionDone(session, acts, dateStr) {
   if (!session) return false;
   const dayActs = acts.filter(a => a.start_local.slice(0,10) === dateStr);
@@ -5700,7 +5828,9 @@ function _nextBestSwapHtml(session, makeOnclick) {
   const head = `⚡ ${escHtml(sug.verdictText)} — ${escHtml(sug.detail)}.`;
   if (sug.kind === 'swap') {
     const onclick = makeOnclick(sug.label);
-    return `<div style="${box}">${head}<button onclick="${onclick}" style="margin-top:6px;display:inline-block;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;background:#fffbeb;color:#92400e">↓ Swap to ${escHtml(sug.easierType)}</button></div>`;
+    const easier = sug.easierType === 'Easy Run'
+      ? `<div style="margin-top:4px"><b>Easier version: ${escHtml(EASIER_RUN.title)}</b>${_runStepsHtml(EASIER_RUN, getRunTargets())}</div>` : '';
+    return `<div style="${box}">${head}${easier}<button onclick="${onclick}" style="margin-top:6px;display:inline-block;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;background:#fffbeb;color:#92400e">↓ Swap to ${escHtml(sug.easierType)}</button></div>`;
   }
   return `<div style="${box}">${head} ${escHtml(sug.text)}</div>`;
 }
@@ -5774,11 +5904,12 @@ function renderTrainingTodo() {
     const note = getCoachNote(session.type);
     const noteHtml = (note && !isDone) ? `<div style="font-size:11px;color:#A6937F;margin:-2px 0 4px 28px;line-height:1.35">${escHtml(note)}</div>` : '';
     const swapHtml = isDone ? '' : _nextBestSwapHtml(session, (label) => `homeApplySwap('${slot}','${label}')`);
+    const structHtml = isDone ? '' : runStructureHtml(session.type, todayStr, 28);
     return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;${isDone ? 'opacity:0.5' : ''}">
       <input type="checkbox" ${cbAttr} ${evtAttr} style="cursor:${stravaDetected ? 'default' : 'pointer'};flex-shrink:0"/>
       <span style="flex:1;font-size:13px;${isDone ? 'text-decoration:line-through' : ''}">${session.emoji} ${escHtml(session.type)}</span>
       <span style="font-size:10px;color:#A6937F">${slot.toUpperCase()}</span>${stravaTag}
-    </div>${noteHtml}${swapHtml}`;
+    </div>${noteHtml}${structHtml}${swapHtml}`;
   });
   el.innerHTML = `<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #FBF1E7">${hdr}${rows.join('')}</div>`;
 }
@@ -5940,7 +6071,8 @@ function _popStep1Html(dateStr, slot) {
   const restBtn = !isExtra ? `<button onclick="popoverSetRest('${dateStr}','${slot}')" style="${b};background:#FBF1E7;color:#4A3B2E">😌 Rest</button>` : '';
   const session = getSessionForSlot(dateStr, slot);
   const note = session ? getCoachNote(session.type) : null;
-  const noteHtml = note ? `<div style="font-size:11px;color:#7A6656;margin-bottom:8px;line-height:1.4">${escHtml(note)}</div>` : '';
+  const noteHtml = (note ? `<div style="font-size:11px;color:#7A6656;margin-bottom:8px;line-height:1.4">${escHtml(note)}</div>` : '')
+    + (session ? runStructureHtml(session.type, dateStr, 0) : '');
   const todayStr = new Date().toLocaleDateString('en-CA');
   const swapHtml = (dateStr === todayStr && state !== 'done' && state !== 'skipped')
     ? _nextBestSwapHtml(session, (label) => `popoverSetOverride('${dateStr}','${slot}','${label}')`)
