@@ -5688,6 +5688,25 @@ const RUN_WORKOUTS = {
     { title: '8 × 30 s hill sprints', steps: t => [_wu(t), ['8 × 30 s up a steady hill, walk back down', 'Hard effort — pace doesn’t apply on a hill'], _cd(t)] },
   ],
 };
+// Which pair to wear. Ghost 17 = cushioned daily trainer, so it takes the
+// easy mileage; Megablast = light, bouncier max-stack trainer, so it's saved
+// for faster running and the long run. Splitting them also spreads the wear.
+const RUN_SHOES = {
+  ghost:     { name: 'Brooks Ghost 17', short: 'Ghost 17' },
+  megablast: { name: 'ASICS Megablast', short: 'Megablast' },
+};
+const SHOE_FOR_RUN = {
+  'Easy Run':  { shoe: 'ghost',     why: 'everyday easy miles' },
+  'Long Run':  { shoe: 'megablast', why: 'lighter and bouncier for the distance' },
+  'Tempo Run': { shoe: 'megablast', why: 'light and responsive at threshold pace' },
+  'Intervals': { shoe: 'megablast', why: 'lightest option for fast reps' },
+  'Speed Run': { shoe: 'megablast', why: 'lightest option for fast reps' },
+};
+function getRunShoe(type) {
+  const s = SHOE_FOR_RUN[type];
+  return s ? { ...RUN_SHOES[s.shoe], why: s.why } : null;
+}
+
 // Shown in the readiness swap box when a hard run should be made easier.
 const EASIER_RUN = { title: '5 km easy', steps: t => [['5 km continuous', `HR under ${t.z2Max} bpm (Z2) — or skip if you feel unwell`]] };
 
@@ -5709,11 +5728,13 @@ function runStructureHtml(type, dateStr, indentPx) {
   const w = getRunStructure(type, dateStr);
   if (!w) return '';
   const t = getRunTargets();
+  const shoe = getRunShoe(type);
   const caveats = [];
   if (t.hrSource === 'default') caveats.push('HR zones are estimated from a default threshold HR of 170 — set yours in Planner zones.');
   const cav = caveats.length ? `<div style="margin-top:4px;font-style:italic">${escHtml(caveats.join(' '))}</div>` : '';
   return `<div style="margin:2px 0 8px ${indentPx || 0}px;padding:8px 10px;border-left:3px solid var(--accent,#2D7A47);background:var(--surface-hover,#FBF1E7);border-radius:6px;font-size:11px;color:#7A6656;line-height:1.4">
     <div style="font-weight:700;color:var(--text,#2B2118)">${escHtml(w.title)} <span style="font-weight:500;color:#A6937F">· option ${w.idx + 1} of ${w.count}, rotates weekly</span></div>
+    ${shoe ? `<div style="margin-top:2px">👟 <b>${escHtml(shoe.name)}</b> — ${escHtml(shoe.why)}</div>` : ''}
     ${_runStepsHtml(w, t)}${cav}
   </div>`;
 }
@@ -5936,7 +5957,7 @@ function renderTrainingTodo() {
     const structHtml = isDone ? '' : runStructureHtml(session.type, todayStr, 28);
     return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;${isDone ? 'opacity:0.5' : ''}">
       <input type="checkbox" ${cbAttr} ${evtAttr} style="cursor:${stravaDetected ? 'default' : 'pointer'};flex-shrink:0"/>
-      <span style="flex:1;font-size:13px;${isDone ? 'text-decoration:line-through' : ''}">${session.emoji} ${escHtml(session.type)}</span>
+      <span style="flex:1;font-size:13px;${isDone ? 'text-decoration:line-through' : ''}">${session.emoji} ${escHtml(session.type)}${getRunShoe(session.type) ? `<span style="font-size:11px;color:#A6937F"> · 👟 ${escHtml(getRunShoe(session.type).short)}</span>` : ''}</span>
       <span style="font-size:10px;color:#A6937F">${slot.toUpperCase()}</span>${stravaTag}
     </div>${noteHtml}${structHtml}${swapHtml}`;
   });
@@ -6043,7 +6064,9 @@ function renderTrainingCalendar(acts) {
     if (blocked || isSkp) style += 'text-decoration:line-through;';
     if (blocked) style += 'opacity:0.6;';
     const onclick = ` onclick="toggleSessionPopover(event,'${dateStr}','${slot}','${tag || 'default'}')"`;
-    return `<span class="badge ${cls}" style="${style}"${onclick}>${blocked ? '🔒 ' : ''}${session.emoji} ${escHtml(session.type)}${mark}</span>`;
+    const shoe = getRunShoe(session.type);
+    const shoeTxt = shoe ? `<span style="font-weight:500;opacity:.75"> · 👟 ${escHtml(shoe.short)}</span>` : '';
+    return `<span class="badge ${cls}" style="${style}"${onclick}>${blocked ? '🔒 ' : ''}${session.emoji} ${escHtml(session.type)}${shoeTxt}${mark}</span>`;
   };
 
   setH('cal-grid', rows.map(r => {
