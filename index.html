@@ -5724,11 +5724,11 @@ function _runStepsHtml(w, t) {
     `<div style="margin-top:3px"><span style="color:var(--text,#2B2118);font-weight:600">${escHtml(what)}</span><br><span>${escHtml(target)}</span></div>`
   ).join('');
 }
-function runStructureHtml(type, dateStr, indentPx) {
+function runStructureHtml(type, dateStr, indentPx, showShoe) {
   const w = getRunStructure(type, dateStr);
   if (!w) return '';
   const t = getRunTargets();
-  const shoe = getRunShoe(type);
+  const shoe = showShoe ? getRunShoe(type) : null;
   const caveats = [];
   if (t.hrSource === 'default') caveats.push('HR zones are estimated from a default threshold HR of 170 — set yours in Planner zones.');
   const cav = caveats.length ? `<div style="margin-top:4px;font-style:italic">${escHtml(caveats.join(' '))}</div>` : '';
@@ -5957,7 +5957,7 @@ function renderTrainingTodo() {
     const structHtml = isDone ? '' : runStructureHtml(session.type, todayStr, 28);
     return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;${isDone ? 'opacity:0.5' : ''}">
       <input type="checkbox" ${cbAttr} ${evtAttr} style="cursor:${stravaDetected ? 'default' : 'pointer'};flex-shrink:0"/>
-      <span style="flex:1;font-size:13px;${isDone ? 'text-decoration:line-through' : ''}">${session.emoji} ${escHtml(session.type)}${getRunShoe(session.type) ? `<span style="font-size:11px;color:#A6937F"> · 👟 ${escHtml(getRunShoe(session.type).short)}</span>` : ''}</span>
+      <span style="flex:1;font-size:13px;${isDone ? 'text-decoration:line-through' : ''}"${getRunShoe(session.type) ? ` title="👟 ${escHtml(getRunShoe(session.type).name)} — ${escHtml(getRunShoe(session.type).why)}"` : ''}>${session.emoji} ${escHtml(session.type)}</span>
       <span style="font-size:10px;color:#A6937F">${slot.toUpperCase()}</span>${stravaTag}
     </div>${noteHtml}${structHtml}${swapHtml}`;
   });
@@ -6065,8 +6065,8 @@ function renderTrainingCalendar(acts) {
     if (blocked) style += 'opacity:0.6;';
     const onclick = ` onclick="toggleSessionPopover(event,'${dateStr}','${slot}','${tag || 'default'}')"`;
     const shoe = getRunShoe(session.type);
-    const shoeTxt = shoe ? `<span style="font-weight:500;opacity:.75"> · 👟 ${escHtml(shoe.short)}</span>` : '';
-    return `<span class="badge ${cls}" style="${style}"${onclick}>${blocked ? '🔒 ' : ''}${session.emoji} ${escHtml(session.type)}${shoeTxt}${mark}</span>`;
+    const tip = shoe ? ` title="👟 ${escHtml(shoe.name)} — ${escHtml(shoe.why)}"` : '';
+    return `<span class="badge ${cls}" style="${style}"${onclick}${tip}>${blocked ? '🔒 ' : ''}${session.emoji} ${escHtml(session.type)}${mark}</span>`;
   };
 
   setH('cal-grid', rows.map(r => {
@@ -6143,7 +6143,7 @@ function _popStep1Html(dateStr, slot) {
   const session = getSessionForSlot(dateStr, slot);
   const note = session ? getCoachNote(session.type) : null;
   const noteHtml = (note ? `<div style="font-size:11px;color:#7A6656;margin-bottom:8px;line-height:1.4">${escHtml(note)}</div>` : '')
-    + (session ? runStructureHtml(session.type, dateStr, 0) : '');
+    + (session ? runStructureHtml(session.type, dateStr, 0, true) : '');
   const todayStr = new Date().toLocaleDateString('en-CA');
   const swapHtml = (dateStr === todayStr && state !== 'done' && state !== 'skipped')
     ? _nextBestSwapHtml(session, (label) => `popoverSetOverride('${dateStr}','${slot}','${label}')`)
