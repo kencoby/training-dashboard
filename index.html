@@ -794,7 +794,11 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 <div class="g2">
 <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;flex-wrap:wrap">
-    <div class="lbl" style="margin-bottom:0">This Week</div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <button id="cal-prev" onclick="shiftCalWeek(-1)" aria-label="Previous week" style="border:1px solid #F0E1D2;background:#fff;border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:14px;line-height:1">‹</button>
+      <div class="lbl" id="cal-week-label" style="margin-bottom:0;min-width:84px;text-align:center">This Week</div>
+      <button id="cal-next" onclick="shiftCalWeek(1)" aria-label="Next week" style="border:1px solid #F0E1D2;background:#fff;border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:14px;line-height:1">›</button>
+    </div>
     <span id="gcal-sync-status"></span>
   </div>
   <div id="cal-grid"></div>
@@ -5521,7 +5525,21 @@ renderUkmlaCompleted();
 const REV_EXAM = new Date('2026-11-23T00:00:00'); // real UKMLA AKT date
 
 // ── Training Calendar ───────────────────────────────────────────────────────
+// Standard week (agreed Oct 2026): one speed/interval run (Mon) and one
+// tempo run (Wed) as the hard runs, long run Sat, easy runs in between.
+// Legs sit on the hard-run day (Mon, run AM / lift PM) and the no-run day
+// (Thu), so they never fall the day before the long run.
 const TRAINING_TEMPLATE = [
+  { day: 'Monday',    am: { type: 'Speed Run',  emoji: '🏃', tag: 'run',   intensity: 'hard' },     pm: { type: 'Legs (Heavy)',   emoji: '💪', tag: 'lower', intensity: 'hard' },     eve: null },
+  { day: 'Tuesday',   am: { type: 'Easy Run',   emoji: '🏃', tag: 'run',   intensity: 'easy' },     pm: { type: 'Push',           emoji: '💪', tag: 'upper', intensity: 'hard' },     eve: null },
+  { day: 'Wednesday', am: { type: 'Tempo Run',  emoji: '🏃', tag: 'run',   intensity: 'hard' },     pm: { type: 'Pull',           emoji: '💪', tag: 'upper', intensity: 'hard' },     eve: null },
+  { day: 'Thursday',  am: null,                                                                     pm: { type: 'Legs (Lighter)', emoji: '💪', tag: 'lower', intensity: 'moderate' }, eve: null },
+  { day: 'Friday',    am: { type: 'Easy Run',   emoji: '🏃', tag: 'run',   intensity: 'easy' },     pm: { type: 'Push',           emoji: '💪', tag: 'upper', intensity: 'hard' },     eve: null },
+  { day: 'Saturday',  am: { type: 'Long Run',   emoji: '🏃', tag: 'run',   intensity: 'moderate' }, pm: { type: 'Pull',           emoji: '💪', tag: 'upper', intensity: 'hard' },     eve: null },
+  { day: 'Sunday',    am: { type: 'Easy Run',   emoji: '🏃', tag: 'run',   intensity: 'easy' },     pm: null,                                                                         eve: null },
+];
+
+const TRAINING_TEMPLATE_BEFORE_2026_10_23 = [
   { day: 'Monday',    am: { type: 'Easy Run',   emoji: '🏃', tag: 'run',      intensity: 'easy' },     pm: { type: 'Push',          emoji: '💪', tag: 'upper',    intensity: 'hard' },     eve: null },
   { day: 'Tuesday',   am: { type: 'Intervals',  emoji: '🏃', tag: 'run',      intensity: 'hard' },     pm: { type: 'Pull',          emoji: '💪', tag: 'upper',    intensity: 'hard' },     eve: null },
   { day: 'Wednesday', am: { type: 'Bike/Swim',  emoji: '🚴', tag: 'bikeswim', intensity: 'moderate' }, pm: { type: 'Legs (Lighter)',emoji: '💪', tag: 'lower',    intensity: 'moderate' }, eve: null },
@@ -5530,6 +5548,15 @@ const TRAINING_TEMPLATE = [
   { day: 'Saturday',  am: { type: 'Long Run',   emoji: '🏃', tag: 'run',      intensity: 'moderate' }, pm: null,                                                                          eve: null },
   { day: 'Sunday',    am: { type: 'Bike/Swim',  emoji: '🚴', tag: 'bikeswim', intensity: 'moderate' }, pm: { type: 'Legs (Heavy)',  emoji: '💪', tag: 'lower',    intensity: 'hard' },     eve: null },
 ];
+// The new week applies from this date; earlier dates keep the old template so
+// past days aren't retroactively marked as missed.
+const TEMPLATE_SWITCH_DATE = '2026-10-23';
+function getTemplateDay(dateOrStr) {
+  const d = typeof dateOrStr === 'string' ? new Date(dateOrStr + 'T00:00:00') : dateOrStr;
+  const ds = d.toLocaleDateString('en-CA');
+  const t = ds < TEMPLATE_SWITCH_DATE ? TRAINING_TEMPLATE_BEFORE_2026_10_23 : TRAINING_TEMPLATE;
+  return t[(d.getDay() + 6) % 7];
+}
 
 // Short "why this session" coach's notes, keyed by the plain session type
 // string (no emoji) — covers every type that appears in TRAINING_TEMPLATE and
@@ -5547,7 +5574,7 @@ const SESSION_COACH_NOTES = {
   'Football':     "Match play — great for anaerobic fitness and agility, but factor the impact into tomorrow's recovery.",
   'Upper':        'Chest, back, shoulders and arms in one session — general upper-body strength and hypertrophy.',
   'Lower':        'Quads, hamstrings, glutes and calves in one session — general lower-body strength and hypertrophy.',
-  'Speed Run':    'Short, fast reps — sharpens top-end speed and running economy.',
+  'Speed Run':    'The week\'s fast session — alternates short reps with longer VO2 intervals to raise top-end speed, VO2 max and running economy.',
   'Speed Ride':   'High-cadence or hard efforts on the bike — builds anaerobic power with less joint impact than running.',
   'Long Ride':    'Extended steady-state ride — builds aerobic endurance without the pounding of a long run.',
   'Easy Ride':    'Easy spin — active recovery that keeps blood flowing without adding fatigue.',
@@ -5640,6 +5667,7 @@ const RUN_WORKOUTS = {
     { title: '20 min continuous tempo', steps: t => [_wu(t), ['20 min continuous', _paceRange(t.T)], _cd(t)] },
     { title: '2 × 15 min tempo', steps: t => [_wu(t), ['2 × 15 min, 3 min jog between', _paceRange(t.T)], _cd(t)] },
     { title: '4 × 2 km tempo', steps: t => [_wu(t), ['4 × 2 km, 90 s jog between', `${_paceRange(t.T)} (≈ ${_repTime(t.T, 2000)} each)`], _cd(t)] },
+    { title: '5 × 1.6 km cruise intervals', steps: t => [_wu(t), ['5 × 1.6 km, 1 min jog between', `${_paceRange(t.T)} (≈ ${_repTime(t.T, 1600)} each)`], _cd(t)] },
   ],
   'Long Run': [
     { title: '12 km easy', steps: t => [['12 km continuous', `HR ${t.z2Min}–${t.z2Max} bpm (Z2)`]] },
@@ -5650,9 +5678,13 @@ const RUN_WORKOUTS = {
     ] },
     { title: '16 km easy', steps: t => [['16 km continuous, take fluids/gel after ~60 min', `HR ${t.z2Min}–${t.z2Max} bpm (Z2)`]] },
   ],
+  // Monday's hard run: alternates short fast reps with longer VO2 intervals.
   'Speed Run': [
+    { title: '6 × 800 m', steps: t => [_wu(t), _ivReps(6, 800, 'I', '2 min')(t), _cd(t)] },
     { title: '10 × 200 m', steps: t => [_wu(t), _ivReps(10, 200, 'R', '200 m')(t), _cd(t)] },
+    { title: '5 × 1 km', steps: t => [_wu(t), _ivReps(5, 1000, 'I', '2:30')(t), _cd(t)] },
     { title: '6 × 400 m', steps: t => [_wu(t), _ivReps(6, 400, 'R', '400 m')(t), _cd(t)] },
+    { title: '4 × 1200 m', steps: t => [_wu(t), _ivReps(4, 1200, 'I', '3 min')(t), _cd(t)] },
     { title: '8 × 30 s hill sprints', steps: t => [_wu(t), ['8 × 30 s up a steady hill, walk back down', 'Hard effort — pace doesn’t apply on a hill'], _cd(t)] },
   ],
 };
@@ -5785,9 +5817,7 @@ function getSessionForSlot(dateStr, slot) {
   if (overrides[slot] === 'REST') return null;
   if (overrides[slot]) return parseOverrideLabel(overrides[slot]);
   if (slot.startsWith('extra')) return null;
-  const d = new Date(dateStr + 'T00:00:00');
-  const dayIdx = (d.getDay() + 6) % 7;
-  const tmpl = TRAINING_TEMPLATE[dayIdx];
+  const tmpl = getTemplateDay(dateStr);
   return tmpl ? tmpl[slot] : null;
 }
 
@@ -5862,8 +5892,7 @@ cleanupOldWeekData();
 function getTodaysSessions(forDate) {
   const d = forDate || new Date();
   const todayStr = d.toLocaleDateString('en-CA');
-  const dayIdx = (d.getDay() + 6) % 7; // Mon=0 … Sun=6
-  const tmpl = TRAINING_TEMPLATE[dayIdx];
+  const tmpl = getTemplateDay(d);
   if (!tmpl) return [];
   const manual = getManual(todayStr);
   const overrides = getOverrides(todayStr);
@@ -5936,8 +5965,24 @@ function toggleTrainingTodo(slot, checked) {
 }
 
 // ── Calendar render ──────────────────────────────────────────────────────────
+// 0 = this week, 1 = next week, ... Changes made while viewing a future week
+// are per-date overrides, so they only affect that week, not the template.
+let _calWeekOffset = 0;
+const CAL_MAX_WEEKS_AHEAD = 4;
+function shiftCalWeek(delta) {
+  _calWeekOffset = Math.max(0, Math.min(CAL_MAX_WEEKS_AHEAD, _calWeekOffset + delta));
+  closeSessionPopover();
+  renderTrainingCalendar(_acts);
+}
 function renderTrainingCalendar(acts) {
   const ws = weekStart();
+  ws.setDate(ws.getDate() + 7 * _calWeekOffset);
+  const lbl = document.getElementById('cal-week-label');
+  if (lbl) lbl.textContent = _calWeekOffset === 0 ? 'This Week' : _calWeekOffset === 1 ? 'Next Week'
+    : `w/c ${ws.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
+  const prevBtn = document.getElementById('cal-prev'), nextBtn = document.getElementById('cal-next');
+  if (prevBtn) prevBtn.disabled = _calWeekOffset === 0;
+  if (nextBtn) nextBtn.disabled = _calWeekOffset === CAL_MAX_WEEKS_AHEAD;
   const todayStr = new Date().toLocaleDateString('en-CA');
 
   const lastSyncTs = getSyncMeta()['gcal_events'];
@@ -5948,8 +5993,9 @@ function renderTrainingCalendar(acts) {
 
   const skipped = getSkipped();
 
-  const rows = TRAINING_TEMPLATE.map((tmpl,i) => {
+  const rows = TRAINING_TEMPLATE.map((_t,i) => {
     const d = new Date(ws); d.setDate(d.getDate()+i);
+    const tmpl = getTemplateDay(d);
     const dateStr = d.toLocaleDateString('en-CA');
     const isToday = dateStr === todayStr;
     const isPast = dateStr < todayStr;
@@ -6024,14 +6070,16 @@ function renderTrainingCalendar(acts) {
 
   const total = rows.reduce((s,r) => s + (r.am?1:0) + (r.pm?1:0) + (r.eve?1:0) + r.extraSlots.length, 0);
   const done = rows.reduce((s,r) => s + (r.am && r.amDone?1:0) + (r.pm && r.pmDone?1:0) + (r.eve && r.eveDone?1:0) + r.extraSlots.filter(e=>e.done).length, 0);
-  set('cal-summary', `Week summary: ${done} / ${total} sessions done this week`);
+  set('cal-summary', _calWeekOffset === 0
+    ? `Week summary: ${done} / ${total} sessions done this week`
+    : `${total} sessions planned — tap any session to change it for this week only`);
   renderTrainingTodo();
 }
 
 // ── Session tap popover — cascading multi-step ───────────────────────────────
 const VARIANTS = {
   gym:  ['Upper 💪', 'Lower 💪', 'Push 💪', 'Pull 💪'],
-  run:  ['Speed Run 🏃', 'Long Run 🏃', 'Easy Run 🏃'],
+  run:  ['Speed Run 🏃', 'Intervals 🏃', 'Tempo Run 🏃', 'Long Run 🏃', 'Easy Run 🏃'],
   bike: ['Speed Ride 🚴', 'Long Ride 🚴', 'Easy Ride 🚴'],
   swim: ['Long Swim 🏊', 'Easy Swim 🏊'],
 };
