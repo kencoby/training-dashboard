@@ -111,9 +111,12 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 @media (max-width:700px){.g4{grid-template-columns:1fr 1fr}.g2,.g3{grid-template-columns:1fr}.col2{grid-column:span 1}body{padding:12px}.todo-grid{grid-template-columns:1fr !important}.todo-divider{display:none}.todo-right{padding-left:0 !important;border-top:1px solid var(--border-soft);margin-top:16px;padding-top:16px}}
 @media (max-width:420px){.g4{grid-template-columns:1fr}}
-.home-2col{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:12px;height:calc(100vh - 130px)}
+.home-2col{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);grid-template-rows:minmax(0,1fr) auto;grid-template-areas:"briefing right" "statrow right";gap:12px;height:calc(100vh - 130px)}
+.home-briefing-col{grid-area:briefing}
+#home-stat-row{grid-area:statrow;margin:0}
+.home-tasks-col{grid-area:right}
 @media(max-width:640px){
-  .home-2col{grid-template-columns:1fr;height:calc(100vh - 195px)}
+  .home-2col{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr);grid-template-areas:"statrow" "right";height:calc(100vh - 195px)}
   .home-briefing-col{display:none!important}
 }
 .accordion{border:1px solid var(--border-soft);border-radius:var(--radius-lg);margin-bottom:10px;overflow:hidden;background:var(--surface)}
@@ -418,33 +421,35 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
     </div>
   </div>
 
-  <!-- RIGHT: Tasks (top) + Habits (bottom) -->
-  <div style="display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden">
-
-    <!-- Stat cards: readiness + training load (semantic tier color), habits
-         done (fixed lavender), calorie balance (surplus/deficit tier color) -->
-    <div id="home-stat-row" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;flex-shrink:0">
-      <div id="home-readiness-card" style="display:none;border-radius:var(--radius-md);padding:10px 12px">
-        <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;opacity:.75">Readiness</div>
-        <div style="font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.15" id="home-readiness-card-num">—</div>
-        <div style="font-size:11px;font-weight:600;margin-top:1px" id="home-readiness-card-sub"></div>
-      </div>
-      <div style="border-radius:var(--radius-md);padding:10px 12px;background:var(--lavender);color:var(--lavender-text)">
-        <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;opacity:.75">Habits today</div>
-        <div style="font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.15" id="home-habits-card-num">—</div>
-        <div style="font-size:11px;font-weight:600;margin-top:1px" id="home-habits-card-sub"></div>
-      </div>
-      <div id="home-load-card" style="display:none;border-radius:var(--radius-md);padding:10px 12px">
-        <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;opacity:.75">Training load</div>
-        <div style="font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.15" id="home-load-card-num">—</div>
-        <div style="font-size:11px;font-weight:600;margin-top:1px" id="home-load-card-sub"></div>
-      </div>
-      <div id="home-balance-card" style="display:none;border-radius:var(--radius-md);padding:10px 12px">
-        <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;opacity:.75">Calorie balance</div>
-        <div style="font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.15" id="home-balance-card-num">—</div>
-        <div style="font-size:11px;font-weight:600;margin-top:1px" id="home-balance-card-sub"></div>
-      </div>
+  <!-- Stat cards: readiness + training load (semantic tier color), habits
+       done (fixed lavender), calorie balance (surplus/deficit tier color).
+       Placed via grid-area in .home-2col: bottom-left on desktop, above the
+       tasks/habits column on mobile (see CSS) -->
+  <div id="home-stat-row" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div id="home-readiness-card" style="display:none;border-radius:var(--radius-md);padding:10px 12px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;opacity:.75">Readiness</div>
+      <div style="font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.15" id="home-readiness-card-num">—</div>
+      <div style="font-size:11px;font-weight:600;margin-top:1px" id="home-readiness-card-sub"></div>
     </div>
+    <div style="border-radius:var(--radius-md);padding:10px 12px;background:var(--lavender);color:var(--lavender-text)">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;opacity:.75">Habits today</div>
+      <div style="font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.15" id="home-habits-card-num">—</div>
+      <div style="font-size:11px;font-weight:600;margin-top:1px" id="home-habits-card-sub"></div>
+    </div>
+    <div id="home-load-card" style="display:none;border-radius:var(--radius-md);padding:10px 12px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;opacity:.75">Training load</div>
+      <div style="font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.15" id="home-load-card-num">—</div>
+      <div style="font-size:11px;font-weight:600;margin-top:1px" id="home-load-card-sub"></div>
+    </div>
+    <div id="home-balance-card" style="display:none;border-radius:var(--radius-md);padding:10px 12px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;opacity:.75">Calorie balance</div>
+      <div style="font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.15" id="home-balance-card-num">—</div>
+      <div style="font-size:11px;font-weight:600;margin-top:1px" id="home-balance-card-sub"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Tasks (top) + Habits (bottom) -->
+  <div class="home-tasks-col" style="display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden">
 
     <!-- Tasks card -->
     <div class="card" style="padding:14px;flex-shrink:0">
