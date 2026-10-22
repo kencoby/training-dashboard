@@ -48,7 +48,7 @@
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{overflow-x:hidden;width:100%;max-width:100%}
-body{font-family:'Nunito',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);padding:20px;min-height:100vh;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+body{font-family:'Nunito',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);padding:10px 20px 20px;min-height:100vh;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);margin-bottom:12px}
 .section{margin-bottom:28px}
 .card{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:18px;box-shadow:var(--shadow-sm);transition:box-shadow .2s var(--ease),border-color .2s var(--ease)}
@@ -86,7 +86,7 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 .pc-rest{background:var(--surface-hover);border-color:var(--border)}
 .cht{position:relative;height:200px}
 .cht-sm{position:relative;height:160px}
-.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:0;position:sticky;top:0;background:var(--bg);z-index:100;padding-top:20px}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:0;position:sticky;top:0;background:var(--bg);z-index:100;padding-top:4px}
 .topbar-title{font-family:'Quicksand',system-ui,sans-serif;font-size:21px;font-weight:700;letter-spacing:-.3px;color:var(--text)}
 .disconnect-btn{background:var(--surface-hover);color:var(--text-muted);border:1px solid var(--border-soft);border-radius:var(--radius-pill);padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s var(--ease)}
 .disconnect-btn:hover{background:var(--border);color:var(--text)}
@@ -101,9 +101,9 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 .tab-btn.active:hover{color:#fff;background:var(--primary)}
 .tab-pane{display:none;opacity:0;transition:opacity .18s var(--ease)}
 .tab-pane.active{display:block;opacity:1}
-.tab-nav{position:sticky;top:52px;background:var(--bg);z-index:99;display:flex;flex-wrap:wrap;gap:6px;border-bottom:none;padding:6px 6px 14px;margin-bottom:24px}
+.tab-nav{position:sticky;top:var(--topbar-h,36px);background:var(--bg);z-index:99;display:flex;flex-wrap:wrap;gap:6px;border-bottom:none;padding:4px 6px 6px;margin-bottom:8px}
 @media(max-width:640px){
-  .tab-nav{top:44px;gap:4px;border-bottom:none;padding-bottom:8px}
+  .tab-nav{top:var(--topbar-h,36px);gap:4px;border-bottom:none;padding-bottom:6px}
   .tab-btn{font-size:11px;padding:6px 7px;flex:1 0 18%;justify-content:center;white-space:nowrap}
 }
 .tab-badge{display:inline-flex;align-items:center;padding:1px 7px;border-radius:var(--radius-pill);font-size:10px;font-weight:700}
@@ -417,7 +417,29 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
           </div>
         </div>
       </div>
-      <div id="today-sections" style="padding:10px 14px 6px;flex:1;overflow-y:auto;min-height:0"></div>
+      <div style="flex:1;overflow-y:auto;min-height:0;display:flex;flex-direction:column">
+        <div id="today-sections" style="padding:10px 14px 6px;flex-shrink:0"></div>
+        <!-- Top Priority (moved here from the right column, Oct 2026) -->
+        <div id="priority-block" style="padding:4px 0 14px;margin:0 14px;flex-shrink:0">
+      <div class="lbl" style="margin-bottom:8px">🎯 Top Priority</div>
+      <div id="dash-tasks-list"></div>
+      <div style="display:flex;gap:5px;margin-top:8px">
+        <select id="dash-task-priority" style="border:1px solid #F0E1D2;border-radius:8px;padding:5px 3px;font-size:12px;font-family:inherit;background:#fff;color:#4A3B2E;flex-shrink:0">
+          <option value="top" selected>🎯</option>
+          <option value="critical">🔴</option>
+          <option value="ondeck">🟡</option>
+          <option value="someday">⚫</option>
+          <option value="dashboard">🟣</option>
+        </select>
+        <input id="dash-task-input" type="text" placeholder="Add task…"
+          autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+          onkeydown="if(event.key==='Enter')addTaskFromDash()"
+          style="flex:1;border:1px solid #F0E1D2;border-radius:8px;padding:6px 8px;font-size:12px;outline:none;font-family:inherit"/>
+        <button onclick="addTaskFromDash()"
+          style="background:var(--primary);color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:13px;font-weight:600;cursor:pointer">+</button>
+      </div>
+            </div>
+      </div>
     </div>
   </div>
 
@@ -451,26 +473,8 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
   <!-- RIGHT: Tasks (top) + Habits (bottom) -->
   <div class="home-tasks-col" style="display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden">
 
-    <!-- Tasks card -->
-    <div class="card" style="padding:14px;flex-shrink:0">
-      <div class="lbl" style="margin-bottom:8px">🎯 Top Priority</div>
-      <div id="dash-tasks-list"></div>
-      <div style="display:flex;gap:5px;margin-top:8px">
-        <select id="dash-task-priority" style="border:1px solid #F0E1D2;border-radius:8px;padding:5px 3px;font-size:12px;font-family:inherit;background:#fff;color:#4A3B2E;flex-shrink:0">
-          <option value="top" selected>🎯</option>
-          <option value="critical">🔴</option>
-          <option value="ondeck">🟡</option>
-          <option value="someday">⚫</option>
-          <option value="dashboard">🟣</option>
-        </select>
-        <input id="dash-task-input" type="text" placeholder="Add task…"
-          autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-          onkeydown="if(event.key==='Enter')addTaskFromDash()"
-          style="flex:1;border:1px solid #F0E1D2;border-radius:8px;padding:6px 8px;font-size:12px;outline:none;font-family:inherit"/>
-        <button onclick="addTaskFromDash()"
-          style="background:var(--primary);color:#fff;border:none;border-radius:8px;padding:6px 10px;font-size:13px;font-weight:600;cursor:pointer">+</button>
-      </div>
-    </div>
+    <!-- Top Priority lives here on mobile only (briefing column is hidden there) -->
+    <div id="priority-slot-mobile" class="card" style="padding:14px;flex-shrink:0;display:none"></div>
 
     <!-- Habits card -->
     <div class="card" style="padding:14px;flex:1;overflow-x:hidden;overflow-y:auto;min-height:0">
@@ -8766,6 +8770,24 @@ if (savedTab && document.getElementById('tab-' + savedTab)) switchTab(savedTab);
 else document.body.style.overflow = 'hidden'; // default is dashboard
 
 // Manual swipe scrolling for tab nav, clamped to its bounds, with momentum glide
+// Header-size sync: sticky nav sits right under the top bar, and the Home
+// grid fills exactly what's left of the viewport, whatever the nav wraps to.
+function syncHeaderLayout() {
+  const tb = document.querySelector('.topbar'), tn = document.querySelector('.tab-nav'), grid = document.querySelector('.home-2col');
+  if (!tb || !tn) return;
+  document.documentElement.style.setProperty('--topbar-h', tb.offsetHeight + 'px');
+  if (grid) grid.style.height = `calc(100vh - ${Math.ceil(tb.offsetHeight + tn.offsetHeight + 8 + 10 + 20)}px)`;
+  const mobile = window.matchMedia('(max-width:640px)').matches;
+  const block = document.getElementById('priority-block'), mob = document.getElementById('priority-slot-mobile');
+  const desk = document.getElementById('today-sections');
+  if (block && mob && desk) {
+    if (mobile && block.parentElement !== mob) { mob.appendChild(block); mob.style.display = ''; block.style.margin = '0'; block.style.padding = '0'; }
+    if (!mobile && mob.contains(block)) { desk.after(block); mob.style.display = 'none'; block.style.cssText = 'padding:4px 0 14px;margin:0 14px;flex-shrink:0'; }
+  }
+}
+window.addEventListener('resize', syncHeaderLayout);
+syncHeaderLayout();
+
 const nav = document.querySelector('.tab-nav');
 let startX, startScroll, velX = 0, lastX, lastT, rafId;
 
