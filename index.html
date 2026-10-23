@@ -12928,14 +12928,14 @@ function calcOttawa() {
 (function () {
   const CATS = ['Tops', 'Bottoms', 'Outerwear', 'Shoes', 'Activewear', 'Accessories', 'Other'];
   const CAT_EMOJI = { Tops: '👕', Bottoms: '👖', Outerwear: '🧥', Shoes: '👟', Activewear: '🏃', Accessories: '🧢', Other: '🧺' };
-  const OCCASIONS = ['Placement', 'Casual', 'Gym', 'Football', 'Smart / night out'];
+  const OCCASIONS = ['Casual', 'Gym', 'Football', 'Smart / night out'];
   // Where each item lives (3 drawers per unit).
   const LOCATIONS = [
     ['Desk', ['Desk – drawer 1', 'Desk – drawer 2', 'Desk – drawer 3']],
     ['Cupboard', ['Cupboard – hanging', 'Cupboard – drawer 1', 'Cupboard – drawer 2', 'Cupboard – drawer 3']],
     ['Chest of drawers', ['Chest of drawers – drawer 1', 'Chest of drawers – drawer 2', 'Chest of drawers – drawer 3']],
   ];
-  const OCC_FORMALITY = { 'Placement': 4, 'Casual': 2, 'Gym': 1, 'Football': 1, 'Smart / night out': 4 };
+  const OCC_FORMALITY = { 'Casual': 2, 'Gym': 1, 'Football': 1, 'Smart / night out': 4 };
   const DAY = 864e5;
   const $ = id => document.getElementById(id);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -13089,7 +13089,7 @@ function calcOttawa() {
     Object.keys(all || {}).forEach(k => { if (k.startsWith(today() + '|')) keep[k] = all[k]; });
     keep[key] = v; localStorage.setItem(SUG_KEY, JSON.stringify(keep));
   };
-  function occasion() { return load('wardrobe_occasion', 'Casual'); }
+  function occasion() { const o = load('wardrobe_occasion', 'Casual'); return OCCASIONS.includes(o) ? o : 'Casual'; }
 
   function ruleSuggest(occ, w, exclude = []) {
     const list = outfitItems(), idx = wearIndex(), tw = targetWarmth(w), tf = OCC_FORMALITY[occ] || 2;
