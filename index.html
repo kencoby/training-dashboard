@@ -5514,8 +5514,7 @@ const UKMLA_REVISION_PLAN = [
 
 // ── Passmedicine scores + weak areas ────────────────────────────────────────
 // A % per revision day (ukmla_scores). Topics from days scoring under 65%
-// (lowest first), plus any Passmedicine categories under 60% from the last
-// category snapshot, become "weak areas", which are added to the recap day.
+// (lowest first) become "weak areas", which are added to the recap day.
 const UKMLA_RECAP_DATE = '2026-11-21';
 const UKMLA_WEAK_PCT = 65;
 function getUkmlaScores() { try { return JSON.parse(localStorage.getItem('ukmla_scores')) || {}; } catch { return {}; } }
@@ -5529,16 +5528,6 @@ function setUkmlaScore(date, val) {
   const recap = UKMLA_REVISION_PLAN.find(d => d.date === UKMLA_RECAP_DATE);
   if (recap) renderUkmlaDay(UKMLA_RECAP_DATE);
 }
-let _passmedCats = null;
-async function loadPassmedCategories() {
-  try {
-    const r = await fetch(`/api/sync?key=passmed_category_snapshots`);
-    if (!r.ok) return;
-    const j = await r.json();
-    const arr = j && (j.data || j);
-    if (Array.isArray(arr) && arr.length) { _passmedCats = arr[arr.length - 1]; renderUkmlaScores(); }
-  } catch {}
-}
 function getUkmlaWeakTopics() {
   const scores = getUkmlaScores();
   const days = UKMLA_REVISION_PLAN.filter(d => scores[d.date] != null && scores[d.date] < UKMLA_WEAK_PCT)
@@ -5547,14 +5536,23 @@ function getUkmlaWeakTopics() {
   days.forEach(d => d.groups.forEach(g => {
     if (g.subject && /High Yield/.test(g.subject)) g.items.forEach(it => topics.push({ text: it, from: `${scores[d.date]}% on ${fmtDate(d.date)}` }));
   }));
-  const cats = (_passmedCats && _passmedCats.categories || []).filter(c => c.you < 60).sort((a, b) => a.you - b.you)
-    .map(c => ({ text: `${c.name} (Passmedicine category)`, from: `${c.you}% vs ${c.avg}% average` }));
-  return [...topics.slice(0, 8), ...cats.slice(0, 4)];
+  return topics.slice(0, 8);
+}
+// Daily question set: 30 Passmedicine questions filtered to the day's system
+// (so a low score points at that day's topics); the recap day stays mixed.
+function _ukmlaSetText(day) {
+  const sys = (day.groups.find(g => g.subject && /High Yield/.test(g.subject)) || {}).subject;
+  const name = sys ? sys.replace(/\s*—\s*High Yield/, '') : null;
+  return name && name !== 'Recap'
+    ? `30 Passmedicine questions – ${name} only + Anki reviews`
+    : '30 Passmedicine questions – mixed, all systems + Anki reviews';
 }
 function ukmlaGroups(day) {
-  if (day.date !== UKMLA_RECAP_DATE) return day.groups;
+  let groups = day.groups.map(g => g.items.includes('Mixed Passmedicine set + Anki reviews')
+    ? { ...g, items: g.items.map(it => it === 'Mixed Passmedicine set + Anki reviews' ? _ukmlaSetText(day) : it) } : g);
+  if (day.date !== UKMLA_RECAP_DATE) return groups;
   const weak = getUkmlaWeakTopics();
-  return weak.length ? [...day.groups, { subject: 'Your weak areas (from scores)', items: weak.map(w => w.text) }] : day.groups;
+  return weak.length ? [...groups, { subject: 'Your weak areas (from scores)', items: weak.map(w => w.text) }] : groups;
 }
 function renderUkmlaScores() {
   const el = document.getElementById('ukmla-scores');
@@ -5574,10 +5572,10 @@ function renderUkmlaScores() {
   const weakHtml = weak.length
     ? `<div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:#A6937F;margin:10px 0 4px">Weak areas → added to ${fmtDate(UKMLA_RECAP_DATE)} recap</div>`
       + weak.map(w => `<div style="font-size:13px;padding:2px 0">• ${escHtml(w.text)} <span style="color:#aaa;font-size:11px">${escHtml(w.from)}</span></div>`).join('')
-    : `<div class="sub" style="margin-top:8px">Days under ${UKMLA_WEAK_PCT}% will show here and be added to the ${fmtDate(UKMLA_RECAP_DATE)} recap.</div>`;
+    : '';
   el.innerHTML = `<div class="card">
     <div style="display:flex;justify-content:space-between;align-items:baseline"><div class="lbl" style="margin:0">Passmedicine scores</div>${avg != null ? `<span class="sub">Average ${avg}% over ${scored.length} day${scored.length === 1 ? '' : 's'}</span>` : ''}</div>
-    <div class="sub" style="margin:2px 0 6px">Enter your % for each day's mixed set (last 7 days shown).</div>
+    <div class="sub" style="margin:2px 0 6px">Enter your % from each day's 30 questions (last 7 days shown). Topics from days under ${UKMLA_WEAK_PCT}% are added to the ${fmtDate(UKMLA_RECAP_DATE)} recap.</div>
     ${inputs || '<div class="sub">Scores can be entered from the first revision day.</div>'}
     ${weakHtml}
   </div>`;
@@ -5775,7 +5773,6 @@ function renderUkmlaSummary() {
 renderUkmlaPlan();
 renderUkmlaSummary();
 renderUkmlaScores();
-loadPassmedCategories();
 loadLiveCalendar();
 renderUkmlaCatchup();
 renderUkmlaCompleted();
@@ -7159,10 +7156,24 @@ async function refreshBestEfforts() {
 // 5k / 10k / half from the last 90 days. The headline uses the longest of
 // those (most like the race); a weekly snapshot builds the trend line.
 const HM_GOAL_SEC = 90 * 60;
-function getHmRace() { try { return JSON.parse(localStorage.getItem('hm_race')) || null; } catch { return null; } }
+// Race calendar. Built-in races plus any added in the app (hm_race, synced);
+// the countdown and long-run note use the next race that hasn't happened yet.
+const HM_RACES = [
+  { date: '2027-03-21', name: 'Swansea Half Marathon' },
+  { date: '2027-10-03', name: 'Manchester Half Marathon' },
+];
+function getHmRaces() {
+  let extra = null; try { extra = JSON.parse(localStorage.getItem('hm_race')); } catch {}
+  const all = [...HM_RACES, ...(extra && extra.date && !HM_RACES.some(r => r.date === extra.date) ? [extra] : [])];
+  return all.sort((a, b) => a.date.localeCompare(b.date));
+}
+function getHmRace() {
+  const today = new Date().toLocaleDateString('en-CA');
+  return getHmRaces().find(r => r.date >= today) || null;
+}
 function setHmRace() {
-  const cur = getHmRace() || {};
-  const d = window.prompt('Half marathon date (YYYY-MM-DD):', cur.date || '2027-03-');
+  const cur = {};
+  const d = window.prompt('Race date (YYYY-MM-DD):', '');
   if (d === null) return;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d.trim())) { alert('Please use YYYY-MM-DD'); return; }
   const n = window.prompt('Race name (optional):', cur.name || '');
@@ -7207,11 +7218,12 @@ function renderHmPredictor() {
   }
   const log = _hmPredLog();
   const weeks = Object.keys(log).sort().slice(-12);
+  const later = getHmRaces().filter(r => race && r.date > race.date);
   let countdown;
   if (race && race.date) {
     const days = Math.ceil((new Date(race.date + 'T09:00:00') - new Date()) / 864e5);
     countdown = days >= 0
-      ? `<div style="font-size:22px;font-weight:800">${days} days</div><div class="sub">${Math.floor(days / 7)} weeks to ${escHtml(race.name || 'race day')} · ${fmtDate(race.date)} <a href="javascript:void(0)" onclick="setHmRace()" style="color:#A6937F">edit</a></div>`
+      ? `<div style="font-size:22px;font-weight:800">${days} days</div><div class="sub">${Math.floor(days / 7)} weeks to ${escHtml(race.name || 'race day')} · ${fmtDate(race.date)}</div>${later.map(r => `<div class="sub">Then: ${escHtml(r.name)} · ${fmtDate(r.date)} (${Math.ceil((new Date(r.date + 'T09:00:00') - new Date()) / 864e5)} days)</div>`).join('')}<div class="sub"><a href="javascript:void(0)" onclick="setHmRace()" style="color:#A6937F">add another race</a></div>`
       : `<div class="sub">${escHtml(race.name || 'Race')} was on ${fmtDate(race.date)}. <a href="javascript:void(0)" onclick="setHmRace()" style="color:#A6937F">Set next race</a></div>`;
   } else {
     countdown = `<div class="sub">No race date set. <button onclick="setHmRace()" style="background:none;border:1px solid #F0E1D2;border-radius:8px;padding:3px 8px;font-size:11px;cursor:pointer;color:#7A6656">Set race date</button></div>`;
