@@ -1086,25 +1086,6 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 <div class="card" id="run-pb-club"></div>
 </div>
 
-<!-- §7c PB PROGRESSION -->
-<div class="section">
-<div class="card">
-  <div class="lbl">PB Progression</div>
-  <div class="cht" style="height:160px"><canvas id="pb-chart"></canvas></div>
-  <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center">
-    <select id="pb-log-dist" style="border:1px solid #F0E1D2;border-radius:6px;padding:5px 8px;font-size:12px;font-family:inherit">
-      <option value="dist_5k">5km</option>
-      <option value="dist_10k">10km</option>
-      <option value="hm">Half Marathon</option>
-    </select>
-    <input id="pb-log-min" type="number" min="0" placeholder="min" style="width:55px;border:1px solid #F0E1D2;border-radius:6px;padding:5px 8px;font-size:12px">
-    <span>:</span>
-    <input id="pb-log-sec" type="number" min="0" max="59" placeholder="sec" style="width:55px;border:1px solid #F0E1D2;border-radius:6px;padding:5px 8px;font-size:12px">
-    <button onclick="logNewPB()" style="background:#6366f1;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer">Log PB</button>
-  </div>
-</div>
-</div>
-
 <!-- RUN PACE TREND -->
 <div class="section">
 <div class="card">
@@ -6839,7 +6820,6 @@ const PB_KNOWN = {
   'Half Marathon': { time: 3600 + 35 * 60 + 14,   date: '2026-06-07' },
 };
 const PB_EFFORT_NAME = { '5km': '5k', '10km': '10k', 'Half Marathon': 'Half-Marathon', 'Marathon': 'Marathon' };
-const PB_LOG_KEY = { '5km': 'dist_5k', '10km': 'dist_10k', 'Half Marathon': 'hm' };
 function _bestEffortsCache() { try { return JSON.parse(localStorage.getItem('strava_best_efforts')) || {}; } catch { return {}; } }
 function getRunPB(label) {
   const cands = [];
@@ -6883,33 +6863,11 @@ async function refreshBestEfforts() {
       } catch { break; }
     }
     localStorage.setItem('strava_best_efforts', JSON.stringify(cache));
-    _logNewPBs();
     if (typeof renderPBs === 'function') renderPBs();
     if (typeof renderRunningPBs === 'function') renderRunningPBs(_acts);
     if (typeof renderPRTracker === 'function') renderPRTracker();
-    if (typeof buildPBChart === 'function') buildPBChart();
     if (typeof renderTrainingTodo === 'function') renderTrainingTodo(); // run paces follow the 5km PB
   } finally { _bestEffortsRunning = false; }
-}
-// Adds an entry to the PB progression log whenever a faster time turns up.
-function _logNewPBs() {
-  const log = getPBLog();
-  let changed = false;
-  Object.entries(PB_LOG_KEY).forEach(([label, key]) => {
-    const pb = getRunPB(label);
-    if (!pb) return;
-    const logged = log.map(e => e[key]).filter(v => v != null);
-    const bestLogged = logged.length ? Math.min(...logged) : Infinity;
-    if (pb.time < bestLogged) {
-      log.push({ date: pb.date || new Date().toLocaleDateString('en-CA'), dist_5k: null, dist_10k: null, hm: null, [key]: pb.time });
-      changed = true;
-    }
-  });
-  if (changed) {
-    log.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-    localStorage.setItem('pb_log', JSON.stringify(log));
-    syncPush('pb_log', log);
-  }
 }
 const PBS = [
   { label: '5km', goal: '19:00', baseline: '25:00', unit: 'time' },
@@ -7760,8 +7718,7 @@ function renderLiftPBs() {
 // Mirrors the Strength PBs table, but auto-computed from real Strava runs
 // instead of manual entry: for each target race distance, finds the fastest
 // run within a tolerance band of that distance, both all-time and in the last
-// 90 days. (The separate PB Progression chart below still relies on manually
-// logged race times — this is a parallel, zero-effort version sourced from acts.)
+// 90 days.
 const RUNNING_PB_TARGETS = [
   { label: '5km', meters: 5000, tolerance: 0.04 },
   { label: '10km', meters: 10000, tolerance: 0.03 },
@@ -7943,58 +7900,6 @@ function renderRunList(acts) {
   }).join('')||'<div style="color:#bbb;padding:10px 0;font-size:13px">No runs recorded yet.</div>');
 }
 
-// ── PB Progression ───────────────────────────────────────────────────────────
-const PB_LOG_SEED = [{ date: '2026-06-14', dist_5k: 1196, dist_10k: 2626, hm: 5714 }];
-
-function getPBLog() {
-  try {
-    const log = JSON.parse(localStorage.getItem('pb_log'));
-    if (Array.isArray(log) && log.length) return log;
-  } catch {}
-  localStorage.setItem('pb_log', JSON.stringify(PB_LOG_SEED));
-  return PB_LOG_SEED;
-}
-
-let _pbChart = null;
-function buildPBChart() {
-  rmSkel('pb-chart');
-  const log = [...getPBLog()].sort((a,b)=>new Date(a.date)-new Date(b.date));
-  if (_pbChart) { _pbChart.destroy(); _pbChart = null; }
-  _pbChart = new Chart(document.getElementById('pb-chart'), {
-    type: 'line',
-    data: {
-      labels: log.map(e=>fmtDate(e.date)),
-      datasets: [
-        {label:'5km', data:log.map(e=>e.dist_5k), borderColor:'#3b82f6', backgroundColor:'#3b82f600', spanGaps:true, pointRadius:4, tension:0.3},
-        {label:'10km', data:log.map(e=>e.dist_10k), borderColor:'#8b5cf6', backgroundColor:'#8b5cf600', spanGaps:true, pointRadius:4, tension:0.3},
-        {label:'HM', data:log.map(e=>e.hm), borderColor:'#06b6d4', backgroundColor:'#06b6d400', spanGaps:true, pointRadius:4, tension:0.3},
-      ]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { position:'bottom', labels:{boxWidth:8,font:{size:10}} } },
-      scales: {
-        y: { reverse:true, grid:{color:'#FBF1E7'}, ticks:{callback:v=>fmtMMSS(v), font:{size:10}} },
-        x: { grid:{display:false}, ticks:{font:{size:10}} }
-      }
-    }
-  });
-}
-
-function logNewPB() {
-  const dist = document.getElementById('pb-log-dist').value;
-  const min = +document.getElementById('pb-log-min').value || 0;
-  const sec = +document.getElementById('pb-log-sec').value || 0;
-  const total = min*60+sec;
-  if (!total) return;
-  const log = getPBLog();
-  log.push({ date: new Date().toLocaleDateString('en-CA'), dist_5k: null, dist_10k: null, hm: null, [dist]: total });
-  localStorage.setItem('pb_log', JSON.stringify(log));
-  syncPush('pb_log', log);
-  document.getElementById('pb-log-min').value = '';
-  document.getElementById('pb-log-sec').value = '';
-  buildPBChart();
-}
 
 // ── §9 Swimming ──────────────────────────────────────────────────────────────
 function buildSwimFreq(acts) {
@@ -11009,11 +10914,10 @@ async function main() {
       renderPBs();
       buildPaceChart(acts);
       renderRunList(acts);
-      buildPBChart();
       renderRunningPBs(acts);
       renderRunHRZones();
     } else {
-      pendingCharts['train-running'] = () => { renderPBs(); buildPaceChart(acts); renderRunList(acts); buildPBChart(); renderRunningPBs(acts); renderRunHRZones(); };
+      pendingCharts['train-running'] = () => { renderPBs(); buildPaceChart(acts); renderRunList(acts); renderRunningPBs(acts); renderRunHRZones(); };
     }
 
     if (initialised['train-cycling']) {
@@ -11071,7 +10975,6 @@ function applySyncUpdates(updated) {
   if (updated.includes('weight_goal')) safe(() => { renderWeightGoalRow(); buildWhoopWeightChart(); });
   if (updated.includes('macro_targets')) safe(renderMacrosCard);
   if (updated.includes('monthly_km_goal')) safe(() => renderMonthlyGoal(_acts));
-  if (updated.includes('pb_log')) safe(buildPBChart);
   if (updated.includes('tasks_priority')) safe(() => { renderTasks(); if (typeof renderHabits === 'function') renderHabits(); });
   if (updated.includes('shopping_items')) safe(renderShopping);
   if (updated.includes('notes_data')) safe(renderNotes);
