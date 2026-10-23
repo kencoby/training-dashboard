@@ -13386,6 +13386,9 @@ function calcOttawa() {
   };
   // Running shoes stay out of everyday outfit suggestions.
   const outfitItems = occ => activeItems().filter(i => !i.stravaGearId || occ === 'Running');
+  // Items allowed for an occasion: those tagged for it, plus untagged items.
+  // Anything tagged only for other occasions (e.g. a Home tee) is left out.
+  const eligibleItems = occ => outfitItems(occ).filter(i => { const t = occasionsOf(i); return !t.length || t.includes(occ); });
 
   // Strava gear distance (km) for linked shoes. One call to /athlete returns
   // every shoe with its total distance. Strava's gear ids carry a "g" prefix
@@ -13509,7 +13512,7 @@ function calcOttawa() {
   const describeFit = i => [thicknessOf(i) && (thicknessOf(i) === 'thick' ? 'Thick' : 'Light'), i.sleeves && (i.sleeves === 'long' ? 'long-sleeved' : 'short-sleeved')].filter(Boolean).join(', ');
 
   // ── suggestion ───────────────────────────────────────────────────────────
-  const SUG_KEY = 'wardrobe_suggestions';
+  const SUG_KEY = 'wardrobe_suggestions_v2'; // v2: cleared old picks made before occasion filtering
   const getSug = key => { const all = load(SUG_KEY, {}); return all && typeof all === 'object' ? all[key] || null : null; };
   const putSug = (key, v) => {
     const all = load(SUG_KEY, {}); const keep = {};
@@ -13519,13 +13522,12 @@ function calcOttawa() {
   function occasion() { const o = load('wardrobe_occasion', 'Casual'); const m = OLD_OCCASION[o] || o; return OCCASIONS.includes(m) ? m : 'Casual'; }
 
   function ruleSuggest(occ, w, exclude = []) {
-    const list = outfitItems(occ), idx = wearIndex(), tw = targetWarmth(w);
+    const list = eligibleItems(occ), idx = wearIndex(), tw = targetWarmth(w);
     const sporty = SPORTY.includes(occ);
     const score = it => {
       let s = 0;
       const tags = occasionsOf(it);
-      if (tags.includes(occ)) s += 3;
-      else if (tags.length) s -= 1.5; // tagged, but for something else
+      if (tags.includes(occ)) s += 3; // tagged for it beats untagged
       if (sporty && it.category === 'Activewear') s += 3;
       s -= Math.abs(itemWarmth(it) - tw) * 0.8;
       const last = idx[it.id] && idx[it.id].last;
@@ -13557,11 +13559,12 @@ function calcOttawa() {
 
   async function aiSuggest(occ, w, exclude = []) {
     const idx = wearIndex();
-    const list = outfitItems(occ).map(i => ({ id: i.id, name: i.name, category: i.category, colour: i.colour || '', thickness: thicknessOf(i) || undefined, sleeves: i.sleeves || undefined, warmth: itemWarmth(i), goodFor: occasionsOf(i), lastWorn: (idx[i.id] && idx[i.id].last) || 'never' }));
+    const list = eligibleItems(occ).map(i => ({ id: i.id, name: i.name, category: i.category, colour: i.colour || '', thickness: thicknessOf(i) || undefined, sleeves: i.sleeves || undefined, warmth: itemWarmth(i), goodFor: occasionsOf(i), lastWorn: (idx[i.id] && idx[i.id].last) || 'never' }));
     const prompt = `You are picking today's outfit from the user's own wardrobe. Use ONLY item ids from the list.
 Occasion: ${occ}. Today is ${today()}.
 Weather in Swansea: ${w ? `now ${w.now}°C, high ${w.max}°C, low ${w.min}°C, ${w.rain}% chance of rain, wind ${w.wind} km/h` : 'unknown'}.
 Thickness is light/thick, sleeves short/long (tops only); warmth is a 1–5 summary of those. goodFor lists the occasions each item suits.
+Every item listed is allowed for this occasion (items tagged only for other occasions have been removed); never invent ids.
 Pick a sensible complete outfit (typically a top, bottoms and shoes, plus outerwear if it's cold or likely to rain). Prefer items not worn recently and colours that go together.${exclude.length ? `\nThe user asked for an alternative: avoid repeating these ids where possible: ${exclude.join(', ')}.` : ''}
 Reply with JSON only: {"itemIds": ["id", ...], "reason": "one or two short sentences, referring to the weather and occasion"}.
 Wardrobe: ${JSON.stringify(list)}`;
