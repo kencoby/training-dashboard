@@ -13356,7 +13356,8 @@ function calcOttawa() {
   // Where each item lives.
   const LOCATIONS = [
     ['Desk', ['Desk – drawer 1', 'Desk – drawer 2', 'Desk – drawer 3']],
-    ['Cupboard', ['Cupboard – hanging', 'Cupboard – drawer 1', 'Cupboard – drawer 2', 'Cupboard – small drawer 1', 'Cupboard – small drawer 2']],
+    ['Cupboard', ['Cupboard – hanging', 'Cupboard – drawer 1', 'Cupboard – drawer 2']],
+    ['Bedside table', ['Bedside table – drawer 1', 'Bedside table – drawer 2']],
     ['Chest of drawers', ['Chest of drawers – drawer 1', 'Chest of drawers – drawer 2', 'Chest of drawers – drawer 3']],
   ];
   const DAY = 864e5;
@@ -13382,6 +13383,8 @@ function calcOttawa() {
     const builtIn = Object.fromEntries(RUNNING_SHOES.map(s => [s.id, s]));
     // An edited shoe keeps its built-in photo and Strava link unless replaced.
     const merged = stored.map(i => builtIn[i.id] ? { photoSrc: builtIn[i.id].photoSrc, stravaGearId: builtIn[i.id].stravaGearId, ...i } : i);
+    // The two small drawers moved from the cupboard to the bedside table (Oct 2026).
+    merged.forEach(i => { const m = /^Cupboard – small drawer (\d)$/.exec(i.location || ''); if (m) i.location = `Bedside table – drawer ${m[1]}`; });
     return [...merged, ...RUNNING_SHOES.filter(s => !have.has(s.id))];
   };
   // Running shoes stay out of everyday outfit suggestions.
