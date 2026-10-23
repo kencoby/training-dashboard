@@ -13353,10 +13353,10 @@ function calcOttawa() {
   const OLD_OCCASION = { 'Smart / night out': 'Smart', 'Placement': 'Smart casual' };
   const occasionsOf = i => [...new Set((i.occasions || []).map(o => OLD_OCCASION[o] || o).filter(o => OCCASIONS.includes(o)))];
   const SPORTY = ['Gym', 'Running', 'Football'];
-  // Where each item lives (3 drawers per unit).
+  // Where each item lives.
   const LOCATIONS = [
     ['Desk', ['Desk – drawer 1', 'Desk – drawer 2', 'Desk – drawer 3']],
-    ['Cupboard', ['Cupboard – hanging', 'Cupboard – drawer 1', 'Cupboard – drawer 2', 'Cupboard – drawer 3']],
+    ['Cupboard', ['Cupboard – hanging', 'Cupboard – drawer 1', 'Cupboard – drawer 2', 'Cupboard – small drawer 1', 'Cupboard – small drawer 2']],
     ['Chest of drawers', ['Chest of drawers – drawer 1', 'Chest of drawers – drawer 2', 'Chest of drawers – drawer 3']],
   ];
   const DAY = 864e5;
