@@ -11025,6 +11025,7 @@ async function main() {
 
     recomputeAllStreaks(); // Strava activities (cardio/strength) just arrived — stale streaks were computed before _acts existed
     refreshBestEfforts(); // background: picks up new PBs from Strava best efforts
+    if (typeof window.wdFetchGearKm === 'function') window.wdFetchGearKm(); // shoe mileage, now the token is fresh
     renderHabits();
     renderHomeGoals();
 
@@ -12957,24 +12958,28 @@ function calcOttawa() {
   // Running shoes stay out of everyday outfit suggestions.
   const outfitItems = () => activeItems().filter(i => !i.stravaGearId);
 
-  // Strava gear distance (km) for linked shoes, fetched once per load.
+  // Strava gear distance (km) for linked shoes. One call to /athlete returns
+  // every shoe with its total distance. Strava's gear ids carry a "g" prefix
+  // there ("g27251126"), so ids are compared without it. Retries on the next
+  // render until it succeeds (the token may still be refreshing on load).
   let _gearKm = load('strava_gear_km', {});
-  let _gearFetched = false;
+  let _gearDone = false, _gearBusy = false;
   async function fetchGearKm() {
-    if (_gearFetched) return; _gearFetched = true;
+    if (_gearDone || _gearBusy) return;
     const tokens = typeof getTokens === 'function' ? getTokens() : null;
     if (!tokens || !tokens.access_token) return;
-    const ids = [...new Set(items().map(i => i.stravaGearId).filter(Boolean))];
-    let changed = false;
-    await Promise.all(ids.map(async id => {
-      try {
-        const res = await fetch(`${API}/strava-auth?action=proxy&path=${encodeURIComponent('/gear/' + id)}&access_token=${encodeURIComponent(tokens.access_token)}`);
-        const g = await res.json();
-        if (res.ok && g && typeof g.distance === 'number') { _gearKm[id] = Math.round(g.distance / 1000); changed = true; }
-      } catch {}
-    }));
-    if (changed) { try { localStorage.setItem('strava_gear_km', JSON.stringify(_gearKm)); } catch {} renderGrid(); }
+    _gearBusy = true;
+    try {
+      const res = await fetch(`${API}/strava-auth?action=proxy&path=${encodeURIComponent('/athlete')}&access_token=${encodeURIComponent(tokens.access_token)}`);
+      const a = await res.json();
+      if (!res.ok || !a || !Array.isArray(a.shoes)) return;
+      a.shoes.forEach(s => { if (s && s.id != null && typeof s.distance === 'number') _gearKm[String(s.id).replace(/^g/, '')] = Math.round(s.distance / 1000); });
+      _gearDone = true;
+      try { localStorage.setItem('strava_gear_km', JSON.stringify(_gearKm)); } catch {}
+      renderGrid();
+    } catch {} finally { _gearBusy = false; }
   }
+  window.wdFetchGearKm = fetchGearKm;
   const gearKm = it => (it && it.stravaGearId && _gearKm[it.stravaGearId] != null) ? _gearKm[it.stravaGearId] : null;
   const activeItems = () => items().filter(i => !i.archived);
   const wears = () => load('wardrobe_wears', {});
@@ -13193,7 +13198,7 @@ Wardrobe: ${JSON.stringify(list)}`;
     const shown = list.filter(i => filter === 'All' || i.category === filter).sort((a, b) => CATS.indexOf(a.category) - CATS.indexOf(b.category) || a.name.localeCompare(b.name));
     g.innerHTML = shown.length ? shown.map(it => {
       const x = idx[it.id];
-      return `<button class="wd-item" onclick="wdOpenItem('${it.id}')">${photoHtml(it)}<div class="wd-item-body"><div class="wd-item-name">${esc(it.name)}</div><div class="wd-item-meta">${gearKm(it) != null ? `${gearKm(it).toLocaleString()} km on Strava` : it.stravaGearId ? 'Mileage loading…' : x ? `${x.count}× · last ${fmtD(x.last)}` : 'Not worn yet'}</div></div></button>`;
+      return `<button class="wd-item" onclick="wdOpenItem('${it.id}')">${photoHtml(it)}<div class="wd-item-body"><div class="wd-item-name">${esc(it.name)}</div><div class="wd-item-meta">${gearKm(it) != null ? `${gearKm(it).toLocaleString()} km on Strava` : it.stravaGearId ? 'Mileage from Strava…' : x ? `${x.count}× · last ${fmtD(x.last)}` : 'Not worn yet'}</div></div></button>`;
     }).join('') : `<div class="card fx-card" style="grid-column:1/-1"><div class="fx-empty">No clothes added yet. Tap <b>＋ Add item</b> and take a photo; I'll fill in the details for you to check.</div></div>`;
     const cnt = $('wd-count'); if (cnt) cnt.textContent = `${list.length} item${list.length === 1 ? '' : 's'}`;
   }
