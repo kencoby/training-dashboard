@@ -46,7 +46,9 @@ async function runWorkersAI(env, userMessage, image, wantJson) {
     catch (e) {
       // Meta's licence must be accepted once per account before first use.
       if (!/agree|licen[cs]e/i.test(e.message || '')) throw e;
-      await env.AI.run(CF_VISION_MODEL, { prompt: 'agree' });
+      // Cloudflare answers the 'agree' request with error 5016 even when it
+      // succeeds ("Thank you for agreeing…"), so that error is expected.
+      try { await env.AI.run(CF_VISION_MODEL, { prompt: 'agree' }); } catch (e2) { if (!/thank you for agreeing/i.test(e2.message || '')) throw e2; }
       out = await run();
     }
     return out.response || '';
