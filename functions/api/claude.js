@@ -61,7 +61,11 @@ export async function onRequest(context) {
   if (request.method !== 'POST') return json(405, { error: 'Method not allowed' });
 
   const apiKey = env.GEMINI_API_KEY;
-  if (!env.AI && !apiKey) return json(500, { error: 'No AI configured: add a Workers AI binding named AI (or GEMINI_API_KEY)' });
+  // Gemini is only used if explicitly turned on (USE_GEMINI=1); otherwise a
+  // missing binding says so plainly instead of surfacing Gemini billing errors.
+  if (!env.AI && !(apiKey && env.USE_GEMINI === '1')) {
+    return json(503, { error: 'Cloudflare AI isn\'t connected yet: add a Workers AI binding named "AI" to the Production environment in Cloudflare Pages, then redeploy' });
+  }
 
   let prompt, ctx, image, json_;
   try {
