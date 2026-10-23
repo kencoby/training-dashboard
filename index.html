@@ -1822,6 +1822,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
   <div class="section">
     <h2>Your clothes</h2>
     <div class="wd-chips" id="wd-filters"></div>
+    <div class="wd-chips" id="wd-occ-filters" style="margin-top:-4px"></div>
     <div class="wd-grid" id="wd-grid"></div>
   </div>
   <div class="section">
@@ -13423,7 +13424,7 @@ function calcOttawa() {
   const activeItems = () => items().filter(i => !i.archived);
   const wears = () => load('wardrobe_wears', {});
   const byId = () => Object.fromEntries(items().map(i => [i.id, i]));
-  let filter = 'All';
+  let filter = 'All', occFilter = 'Any occasion';
 
   // ── wear stats ───────────────────────────────────────────────────────────
   function wearIndex() {
@@ -13671,11 +13672,18 @@ Wardrobe: ${JSON.stringify(list)}`;
   function renderGrid() {
     const g = $('wd-grid'), f = $('wd-filters'); if (!g || !f) return;
     const list = activeItems(), idx = wearIndex();
-    const counts = {}; list.forEach(i => counts[i.category] = (counts[i.category] || 0) + 1);
+    // Occasion filter (second row) narrows the list first; category counts follow it.
+    const occCounts = {}; list.forEach(i => occasionsOf(i).forEach(o => occCounts[o] = (occCounts[o] || 0) + 1));
+    const occs = ['Any occasion', ...OCCASIONS.filter(o => occCounts[o])];
+    if (!occs.includes(occFilter)) occFilter = 'Any occasion';
+    const byOcc = list.filter(i => occFilter === 'Any occasion' || occasionsOf(i).includes(occFilter));
+    const counts = {}; byOcc.forEach(i => counts[i.category] = (counts[i.category] || 0) + 1);
     const cats = ['All', ...CATS.filter(c => counts[c])];
     if (!cats.includes(filter)) filter = 'All';
     f.innerHTML = list.length ? cats.map(c => `<button class="wd-chip${c === filter ? ' on' : ''}" onclick="wdFilter('${c}')">${esc(c)}${c === 'All' ? '' : ` · ${counts[c]}`}</button>`).join('') : '';
-    const shown = list.filter(i => filter === 'All' || i.category === filter).sort((a, b) => CATS.indexOf(a.category) - CATS.indexOf(b.category) || a.name.localeCompare(b.name));
+    const of = $('wd-occ-filters');
+    if (of) of.innerHTML = list.length && occs.length > 1 ? occs.map(o => `<button class="wd-chip${o === occFilter ? ' on' : ''}" style="font-size:12px;padding:5px 11px" onclick="wdOccFilter('${o}')">${esc(o)}${o === 'Any occasion' ? '' : ` · ${occCounts[o]}`}</button>`).join('') : '';
+    const shown = byOcc.filter(i => filter === 'All' || i.category === filter).sort((a, b) => CATS.indexOf(a.category) - CATS.indexOf(b.category) || a.name.localeCompare(b.name));
     g.innerHTML = shown.length ? shown.map(it => {
       const x = idx[it.id];
       return `<button class="wd-item" onclick="wdOpenItem('${it.id}')">${photoHtml(it)}<div class="wd-item-body"><div class="wd-item-name">${esc(it.name)}</div><div class="wd-item-meta">${gearKm(it) != null ? `${gearKm(it).toLocaleString()} km on Strava` : it.stravaGearId ? 'Mileage from Strava…' : `${describeFit(it) ? esc(describeFit(it)) + ' · ' : ''}${x ? `${x.count}× · last ${fmtD(x.last)}` : 'Not worn yet'}`}</div>${it.location ? `<div class="wd-item-meta">📍 ${esc(it.location)}</div>` : ''}</div></button>`;
@@ -13721,6 +13729,7 @@ Wardrobe: ${JSON.stringify(list)}`;
   window.wdSetOccasion = o => { localStorage.setItem('wardrobe_occasion', JSON.stringify(o)); renderToday(); };
   window.wdAnother = () => suggest(true);
   window.wdFilter = c => { filter = c; renderGrid(); };
+  window.wdOccFilter = o => { occFilter = o; renderGrid(); };
   function logWear(date, ids, occ) {
     const all = wears();
     (all[date] = all[date] || []).push({ items: ids, occasion: occ, at: Date.now() });
