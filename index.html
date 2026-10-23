@@ -13571,7 +13571,7 @@ Occasion: ${occ}. Today is ${today()}.
 Weather in Swansea: ${w ? `now ${w.now}°C, high ${w.max}°C, low ${w.min}°C, ${w.rain}% chance of rain, wind ${w.wind} km/h` : 'unknown'}.
 Thickness is light/thick, sleeves short/long (tops only); warmth is a 1–5 summary of those. goodFor lists the occasions each item suits.
 Every item listed is allowed for this occasion (items tagged only for other occasions have been removed); never invent ids.
-Pick a sensible complete outfit (typically a top, bottoms and shoes, plus outerwear if it's cold or likely to rain). Prefer items not worn recently and colours that go together.${exclude.length ? `\nThe user asked for an alternative: avoid repeating these ids where possible: ${exclude.join(', ')}.` : ''}
+Pick ONE complete outfit: exactly one top (category Tops or Sport tops), exactly one bottom (Bottoms or Sport bottoms), one pair of shoes, and at most one outerwear item (only if it's cold or likely to rain) — never two items from the same group. Prefer items not worn recently and colours that go together.${exclude.length ? `\nThe user asked for an alternative: avoid repeating these ids where possible: ${exclude.join(', ')}.` : ''}
 Reply with JSON only: {"itemIds": ["id", ...], "reason": "one or two short sentences, referring to the weather and occasion"}.
 Wardrobe: ${JSON.stringify(list)}`;
     const r = await askAI(prompt);
@@ -13579,6 +13579,19 @@ Wardrobe: ${JSON.stringify(list)}`;
     const ids = [...new Set((r.itemIds || []).filter(id => valid.has(id)))];
     if (!ids.length) throw new Error('AI returned no usable items');
     return { itemIds: ids, reason: String(r.reason || '').slice(0, 400), source: 'ai' };
+  }
+
+  // An outfit holds at most one item per slot: one top, one bottom, one pair
+  // of shoes, one outer layer, one accessory. Sport and regular tops share the
+  // top slot (likewise bottoms).
+  const SLOT_OF = { 'Tops': 'top', 'Sport tops': 'top', 'Bottoms': 'bottom', 'Sport bottoms': 'bottom', 'Shoes': 'shoes', 'Outerwear': 'outer', 'Accessories': 'accessory', 'Other': 'other' };
+  const REQUIRED_SLOTS = ['top', 'bottom', 'shoes'];
+  function tidyOutfit(ids, fallbackIds) {
+    const map = byId(), used = new Set(), out = [];
+    ids.forEach(id => { const it = map[id]; const slot = it && SLOT_OF[it.category]; if (slot && !used.has(slot)) { used.add(slot); out.push(id); } });
+    // fill any missing essentials from the rule-based pick
+    (fallbackIds || []).forEach(id => { const it = map[id]; const slot = it && SLOT_OF[it.category]; if (slot && REQUIRED_SLOTS.includes(slot) && !used.has(slot)) { used.add(slot); out.push(id); } });
+    return out;
   }
 
   let _busy = false, _wxGaveUp = false;
@@ -13590,8 +13603,13 @@ Wardrobe: ${JSON.stringify(list)}`;
     _busy = true; renderToday();
     const exclude = force && cached ? cached.itemIds : [];
     let s;
-    try { s = await aiSuggest(occ, w, exclude); }
-    catch (e) { console.warn('AI outfit suggestion failed, using rules', e); s = ruleSuggest(occ, w, exclude); }
+    const rules = ruleSuggest(occ, w, exclude);
+    try {
+      s = await aiSuggest(occ, w, exclude);
+      s.itemIds = tidyOutfit(s.itemIds, rules.itemIds);
+      if (!s.itemIds.length) throw new Error('nothing usable');
+    }
+    catch (e) { console.warn('AI outfit suggestion failed, using rules', e); s = { ...rules, itemIds: tidyOutfit(rules.itemIds) }; }
     putSug(key, { key, ...s, at: Date.now() });
     _busy = false; renderToday();
   }
