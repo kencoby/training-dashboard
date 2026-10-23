@@ -1,5 +1,8 @@
 // AI backend: Google Gemini (free tier)
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+// gemini-2.0-flash was shut down (Oct 2026); 3.8 Flash is Google's current
+// stable Flash model. Set GEMINI_MODEL in Cloudflare Pages to switch without a code change.
+const DEFAULT_MODEL = 'gemini-3.8-flash';
+const geminiUrl = model => `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
 const CORS = {
   'Content-Type': 'application/json',
@@ -39,17 +42,20 @@ export async function onRequest(context) {
   }
 
   try {
-    const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+    const res = await fetch(`${geminiUrl(env.GEMINI_MODEL || DEFAULT_MODEL)}?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts }],
-        generationConfig: { maxOutputTokens: 1024, ...(json_ ? { responseMimeType: 'application/json' } : {}) }
+        // Newer models can spend part of the budget thinking before answering,
+        // so leave more room than the old 1024.
+        generationConfig: { maxOutputTokens: 4096, ...(json_ ? { responseMimeType: 'application/json' } : {}) }
       })
     });
     const data = await res.json();
     if (!res.ok) return json(res.status, { error: data.error?.message || 'Gemini API error' });
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    // Join every answer part (skipping any thought parts) rather than just the first.
+    const text = (data.candidates?.[0]?.content?.parts || []).filter(p => p && p.text && !p.thought).map(p => p.text).join('') || '';
     return json(200, { text });
   } catch (err) {
     return json(500, { error: err.message });
