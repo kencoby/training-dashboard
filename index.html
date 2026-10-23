@@ -12929,6 +12929,12 @@ function calcOttawa() {
   const CATS = ['Tops', 'Bottoms', 'Outerwear', 'Shoes', 'Activewear', 'Accessories', 'Other'];
   const CAT_EMOJI = { Tops: '👕', Bottoms: '👖', Outerwear: '🧥', Shoes: '👟', Activewear: '🏃', Accessories: '🧢', Other: '🧺' };
   const OCCASIONS = ['Placement', 'Casual', 'Gym', 'Football', 'Smart / night out'];
+  // Where each item lives (3 drawers per unit).
+  const LOCATIONS = [
+    ['Desk', ['Desk – drawer 1', 'Desk – drawer 2', 'Desk – drawer 3']],
+    ['Cupboard', ['Cupboard – hanging', 'Cupboard – drawer 1', 'Cupboard – drawer 2', 'Cupboard – drawer 3']],
+    ['Chest of drawers', ['Chest of drawers – drawer 1', 'Chest of drawers – drawer 2', 'Chest of drawers – drawer 3']],
+  ];
   const OCC_FORMALITY = { 'Placement': 4, 'Casual': 2, 'Gym': 1, 'Football': 1, 'Smart / night out': 4 };
   const DAY = 864e5;
   const $ = id => document.getElementById(id);
@@ -13177,7 +13183,7 @@ Wardrobe: ${JSON.stringify(list)}`;
     else {
       const its = s.itemIds.map(id => map[id]).filter(Boolean);
       const worn = (wears()[today()] || []).some(o => o.occasion === occ && s.itemIds.every(id => (o.items || []).includes(id)));
-      body = `<div class="wd-outfit">${its.map(it => `<div>${photoHtml(it)}<div class="wd-cap">${esc(it.name)}<span>${esc(it.category)}</span></div></div>`).join('')}</div>
+      body = `<div class="wd-outfit">${its.map(it => `<div>${photoHtml(it)}<div class="wd-cap">${esc(it.name)}<span>${esc(it.location ? '📍 ' + it.location : it.category)}</span></div></div>`).join('')}</div>
         <div class="wd-reason">${esc(s.reason)}</div>
         ${s.source === 'rules' ? '<div class="fx-note" style="margin-top:4px">AI suggestion unavailable, so this was picked by simple rules.</div>' : ''}
         <div class="wd-actions">
@@ -13217,7 +13223,7 @@ Wardrobe: ${JSON.stringify(list)}`;
     const shown = list.filter(i => filter === 'All' || i.category === filter).sort((a, b) => CATS.indexOf(a.category) - CATS.indexOf(b.category) || a.name.localeCompare(b.name));
     g.innerHTML = shown.length ? shown.map(it => {
       const x = idx[it.id];
-      return `<button class="wd-item" onclick="wdOpenItem('${it.id}')">${photoHtml(it)}<div class="wd-item-body"><div class="wd-item-name">${esc(it.name)}</div><div class="wd-item-meta">${gearKm(it) != null ? `${gearKm(it).toLocaleString()} km on Strava` : it.stravaGearId ? 'Mileage from Strava…' : `${describeFit(it) ? esc(describeFit(it)) + ' · ' : ''}${x ? `${x.count}× · last ${fmtD(x.last)}` : 'Not worn yet'}`}</div></div></button>`;
+      return `<button class="wd-item" onclick="wdOpenItem('${it.id}')">${photoHtml(it)}<div class="wd-item-body"><div class="wd-item-name">${esc(it.name)}</div><div class="wd-item-meta">${gearKm(it) != null ? `${gearKm(it).toLocaleString()} km on Strava` : it.stravaGearId ? 'Mileage from Strava…' : `${describeFit(it) ? esc(describeFit(it)) + ' · ' : ''}${x ? `${x.count}× · last ${fmtD(x.last)}` : 'Not worn yet'}`}</div>${it.location ? `<div class="wd-item-meta">📍 ${esc(it.location)}</div>` : ''}</div></button>`;
     }).join('') : `<div class="card fx-card" style="grid-column:1/-1"><div class="fx-empty">No clothes added yet. Tap <b>＋ Add item</b> and take a photo; I'll fill in the details for you to check.</div></div>`;
     const cnt = $('wd-count'); if (cnt) cnt.textContent = `${list.length} item${list.length === 1 ? '' : 's'}`;
   }
@@ -13299,6 +13305,7 @@ Wardrobe: ${JSON.stringify(list)}`;
         <div class="wd-field"><label>Category</label><select id="wd-cat" onchange="wdCatChanged()">${CATS.map(c => `<option${c === it.category ? ' selected' : ''}>${c}</option>`).join('')}</select></div>
         <div class="wd-field"><label>Colour</label><input type="text" id="wd-colour" value="${esc(it.colour)}" placeholder="e.g. navy"></div>
       </div>
+      <div class="wd-field"><label>Stored in</label><select id="wd-loc"><option value="">Not set</option>${LOCATIONS.map(([g, opts]) => `<optgroup label="${esc(g)}">${opts.map(o => `<option${o === it.location ? ' selected' : ''}>${esc(o)}</option>`).join('')}</optgroup>`).join('')}</select></div>
       <div class="wd-2col">
         <div class="wd-field" id="wd-f-thick" style="${HAS_THICKNESS.includes(it.category) ? '' : 'display:none'}"><label>Thickness</label>${toggle('thickness', thicknessOf(it), [['light', 'Light'], ['thick', 'Thick']])}</div>
         <div class="wd-field" id="wd-f-sleeves" style="${HAS_SLEEVES.includes(it.category) ? '' : 'display:none'}"><label>Sleeves</label>${toggle('sleeves', it.sleeves || null, [['short', 'Short'], ['long', 'Long']])}</div>
@@ -13346,6 +13353,7 @@ Reply with JSON only: {"name": "short name with colour, e.g. 'Navy merino jumper
     if (!name) { st.className = 'wd-status err'; st.textContent = 'Give it a name first.'; $('wd-name').focus(); return; }
     const scaleVal = k => { const el = document.querySelector(`.wd-scale[data-name="${k}"]`); const on = el && el.querySelector('button.on'); return on ? +on.textContent : 3; };
     const it = { ..._draft.item, name, category: $('wd-cat').value, colour: $('wd-colour').value.trim(),
+      location: $('wd-loc').value || null,
       thickness: HAS_THICKNESS.includes($('wd-cat').value) ? toggleVal('thickness') : null,
       sleeves: HAS_SLEEVES.includes($('wd-cat').value) ? toggleVal('sleeves') : null,
       formality: scaleVal('formality'),
