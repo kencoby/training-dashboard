@@ -1063,6 +1063,12 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 <div class="g4" id="pb-cards"></div>
 </div>
 
+<!-- §7-shoes RUNNING SHOES (same shoes as the Wardrobe tab, with Strava mileage) -->
+<div class="section">
+<h2>Running shoes</h2>
+<div class="wd-grid" id="run-shoes"></div>
+</div>
+
 <!-- §7a HEART RATE ZONES (reference table, from threshold HR) -->
 <div class="section">
 <div class="card">
@@ -12987,7 +12993,7 @@ function calcOttawa() {
       a.shoes.forEach(s => { if (s && s.id != null && typeof s.distance === 'number') _gearKm[String(s.id).replace(/^g/, '')] = Math.round(s.distance / 1000); });
       _gearDone = true;
       try { localStorage.setItem('strava_gear_km', JSON.stringify(_gearKm)); } catch {}
-      renderGrid();
+      renderGrid(); renderRunShoes();
     } catch {} finally { _gearBusy = false; }
   }
   window.wdFetchGearKm = fetchGearKm;
@@ -13246,7 +13252,26 @@ Wardrobe: ${JSON.stringify(list)}`;
     }).join('') : '<div class="fx-empty">No outfits logged yet. Use "I wore this" on today\'s suggestion, or log what you actually wore.</div>';
   }
 
-  function wdRender() { renderToday(); renderStats(); renderGrid(); renderHistory(); fetchGearKm(); }
+  // Running shoes card on Training → Running: photo, Strava km, which runs
+  // each pair is picked for (SHOE_FOR_RUN), and tapping opens the item.
+  const SHOE_KEY_BY_ID = { 'shoe-ghost17': 'ghost', 'shoe-superblast': 'superblast' };
+  function renderRunShoes() {
+    const el = $('run-shoes'); if (!el) return;
+    const shoes = activeItems().filter(i => i.stravaGearId);
+    const usedFor = id => {
+      const key = SHOE_KEY_BY_ID[id];
+      if (!key) return id === 'shoe-adiospro4' ? 'Races' : '';
+      const runs = Object.entries(typeof SHOE_FOR_RUN !== 'undefined' ? SHOE_FOR_RUN : {}).filter(([, v]) => v.shoe === key).map(([t]) => ({ 'Easy Run': 'Easy runs', 'Long Run': 'Long runs', 'Tempo Run': 'Tempo', 'Intervals': 'Speed / intervals', 'Speed Run': 'Speed / intervals' }[t] || t));
+      return [...new Set(runs)].join(', ');
+    };
+    el.innerHTML = shoes.length ? shoes.map(it => `<button class="wd-item" onclick="wdOpenItem('${it.id}')">${photoHtml(it)}<div class="wd-item-body"><div class="wd-item-name">${esc(it.name)}</div>
+      <div class="wd-item-meta">${gearKm(it) != null ? `${gearKm(it).toLocaleString()} km` : 'Mileage from Strava…'}</div>
+      ${usedFor(it.id) ? `<div class="wd-item-meta">${esc(usedFor(it.id))}</div>` : ''}</div></button>`).join('')
+      : '<div class="card"><div class="sub">No running shoes in the Wardrobe.</div></div>';
+  }
+  window.renderRunShoes = renderRunShoes;
+
+  function wdRender() { renderToday(); renderStats(); renderGrid(); renderHistory(); renderRunShoes(); fetchGearKm(); }
   window.wdRender = wdRender;
 
   // ── actions ──────────────────────────────────────────────────────────────
