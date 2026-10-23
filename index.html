@@ -636,6 +636,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 <h2>Weight Trend — 60 Days</h2>
 <div class="card">
   <div id="weight-goal-row" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px"></div>
+  <div id="weight-rate" style="margin-bottom:10px"></div>
   <div class="cht-sm"><canvas id="whoop-weight-chart"></canvas></div>
 </div>
 </div>
@@ -807,6 +808,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
   </div>
   <div id="cal-grid"></div>
   <div class="sub" id="cal-summary" style="margin-top:10px;font-weight:600;color:#555"></div>
+  <div id="cal-clashes"></div>
   <div id="session-popover" style="display:none;position:fixed;background:#fff;border:1px solid #F0E1D2;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.15);padding:8px;z-index:1000"></div>
   <div id="activity-insight-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:2000;align-items:center;justify-content:center" onclick="if(event.target===this) closeActivityInsight()">
     <div id="activity-insight-modal" style="background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.25);padding:20px;max-width:420px;width:90%;max-height:80vh;overflow-y:auto"></div>
@@ -1056,6 +1058,18 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 </div><!-- /sub-tab-train-strength -->
 
 <div class="sub-tab-pane" id="sub-tab-train-running">
+
+<!-- §7-race HALF MARATHON COUNTDOWN + PREDICTOR -->
+<div class="section">
+<h2>Half marathon</h2>
+<div class="card" id="hm-predictor"></div>
+</div>
+
+<!-- §7-volume WEEKLY DISTANCE + LONG RUN BUILD-UP -->
+<div class="section">
+<h2>Weekly distance &amp; long runs</h2>
+<div class="card" id="run-volume"></div>
+</div>
 
 <!-- §7 PERSONAL BESTS -->
 <div class="section">
@@ -1493,6 +1507,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 <h2>📖 UKMLA Revision Plan</h2>
 <div class="sub" style="margin-bottom:12px">Exam: Monday 23 Nov 2026. Every condition in the GMC MLA content map is covered by 14 Nov, leaving the final week for mocks and review. Tap a day to expand it, then tick off each section as you go.</div>
 <div id="ukmla-summary" style="margin-bottom:14px"></div>
+<div id="ukmla-scores" style="margin-bottom:14px"></div>
 <div id="ukmla-catchup" style="margin-bottom:14px"></div>
 <div id="ukmla-days"></div>
 <div id="ukmla-completed" style="margin-top:14px"></div>
@@ -2534,7 +2549,8 @@ const SYNC_KEYS = [
   'notes_data',
   'mood_log', 'habit_streaks', 'habit_reset_date',
   'weight_goal', 'cst_grades', 'audit_cycle', 'ukmla_progress', 'macro_targets',
-  'wardrobe_items', 'wardrobe_wears'
+  'wardrobe_items', 'wardrobe_wears',
+  'hm_race', 'hm_prediction_log', 'ukmla_scores'
 ];
 
 function getSyncMeta() {
@@ -3840,7 +3856,56 @@ function renderWeightGoalRow() {
     el.innerHTML = `<span class="sub">Goal: <strong style="color:#4A3B2E">${goal}kg</strong></span>
       <button onclick="promptWeightGoal()" style="background:none;border:1px solid #F0E1D2;border-radius:8px;padding:3px 8px;font-size:11px;cursor:pointer;color:#7A6656">Edit</button>`;
   }
+  renderWeightRate();
 }
+// ── Weekly weight-loss rate ─────────────────────────────────────────────────
+// Compares this week's 7-day average weight with the previous week's. Losing
+// faster than ~0.75% of body weight a week tends to cost running speed and
+// strength, so that's flagged; ~0.25–0.75%/week is the target band.
+function _weightSeriesKey() {
+  return (_healthData && _healthData.body_mass) ? 'body_mass' : 'weight_body_mass';
+}
+function _avgWeightEnding(endDate, days = 7) {
+  const vals = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date(endDate); d.setDate(d.getDate() - i);
+    const v = _healthValueOnDate(_weightSeriesKey(), d.toLocaleDateString('en-CA'));
+    if (v != null) vals.push(v);
+  }
+  return vals.length >= 3 ? { avg: vals.reduce((a, b) => a + b, 0) / vals.length, n: vals.length } : null;
+}
+function computeWeightRate(endDate) {
+  if (!_healthData) return null;
+  const end = endDate ? new Date(endDate) : new Date(); end.setHours(12, 0, 0, 0);
+  const prevEnd = new Date(end); prevEnd.setDate(prevEnd.getDate() - 7);
+  const now = _avgWeightEnding(end), prev = _avgWeightEnding(prevEnd);
+  if (!now || !prev) return now ? { now: now.avg, prev: null } : null;
+  const kgPerWk = now.avg - prev.avg;                // negative = losing
+  const pctPerWk = kgPerWk / prev.avg * 100;
+  let status, color;
+  if (pctPerWk <= -0.75) { status = 'Losing fast — risks speed and strength. Consider eating a little more.'; color = 'var(--danger)'; }
+  else if (pctPerWk <= -0.25) { status = 'On track — a steady rate that protects training.'; color = 'var(--accent-text)'; }
+  else if (pctPerWk < 0.25) { status = 'Roughly stable this week.'; color = 'var(--text-muted)'; }
+  else { status = 'Up this week — check intake against your 2,183 kcal target.'; color = '#b45309'; }
+  const goal = getWeightGoal();
+  const weeksToGoal = (goal != null && kgPerWk < -0.05 && now.avg > goal) ? Math.ceil((now.avg - goal) / -kgPerWk) : null;
+  return { now: now.avg, prev: prev.avg, kgPerWk, pctPerWk, status, color, goal, weeksToGoal };
+}
+function renderWeightRate() {
+  const el = document.getElementById('weight-rate');
+  if (!el) return;
+  const r = computeWeightRate();
+  if (!r) { el.innerHTML = ''; return; }
+  if (r.prev == null) { el.innerHTML = `<div class="sub">7-day average ${r.now.toFixed(1)}kg — need another week of weigh-ins for a weekly rate.</div>`; return; }
+  const sign = r.kgPerWk > 0 ? '+' : '';
+  el.innerHTML = `<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:baseline">
+      <div><div class="sub">7-day average</div><div style="font-size:18px;font-weight:800">${r.now.toFixed(1)}kg</div></div>
+      <div><div class="sub">Change vs last week</div><div style="font-size:18px;font-weight:800;color:${r.color}">${sign}${r.kgPerWk.toFixed(2)}kg <span style="font-size:12px;font-weight:600">(${sign}${r.pctPerWk.toFixed(2)}%)</span></div></div>
+      ${r.weeksToGoal ? `<div><div class="sub">At this rate</div><div style="font-size:18px;font-weight:800">${r.weeksToGoal} wk<span style="font-size:12px;font-weight:600"> to ${r.goal}kg</span></div></div>` : ''}
+    </div>
+    <div style="font-size:12px;color:${r.color};margin-top:4px">${escHtml(r.status)} <span style="color:#aaa">Target band: lose 0.25–0.75% a week.</span></div>`;
+}
+
 function promptWeightGoal() {
   const current = getWeightGoal();
   const input = window.prompt('Goal weight (kg):', current != null ? current : '');
@@ -4004,6 +4069,100 @@ try { gcalEvents = JSON.parse(localStorage.getItem('gcal_events')) || []; } catc
 // synchronously during initial script execution — declaring it later caused
 // a "Cannot access '_healthData' before initialization" TDZ error, which
 // halted the whole script (and broke every tab, not just the one reading it).
+// ── Live calendar (Apps Script → /api/gcal-intake → /api/gcal-data) ─────────
+// All of Phil's Google calendars, past 7 days + next 6 weeks, synced hourly by
+// apps-script/calendar-sync.gs. HCA bank shifts come from an imported calendar
+// with titles like "Long Day - …", "Late - …" and "Fulfilment Type : Bank".
+let _liveCal = [];
+const SHIFT_RE = /^(early|late|long day|night|day|twilight|mid)\b/i;
+function _calKind(e) {
+  if (/runna/i.test(e.calendar || '')) return 'training';
+  if (SHIFT_RE.test(e.title || '') || /fulfilment type/i.test(e.description || '') || /^hca$/i.test(e.calendar || '')) return 'shift';
+  if (/placement|clinic|ward|theatre|teaching|lecture|tutorial|osce|exam|uni\b|pbl|sim(ulation)?\b/i.test(e.title || '')) return 'placement';
+  return 'other';
+}
+async function loadLiveCalendar() {
+  try {
+    const r = await fetch('/api/gcal-data');
+    if (!r.ok) return;
+    const j = await r.json();
+    const evs = (j && Array.isArray(j.events)) ? j.events : [];
+    // Old probe format (summary/ISO times) is ignored; only the sync script's format is used.
+    _liveCal = evs.filter(e => e && e.date && e.title).map(e => ({ ...e, kind: _calKind(e) }));
+    window._liveCalSyncedAt = j.updatedAt || null;
+    if (typeof renderTrainingCalendar === 'function') renderTrainingCalendar(_acts);
+    if (typeof renderUkmlaPlan === 'function') renderUkmlaPlan();
+    if (typeof renderDailyBriefing === 'function') renderDailyBriefing();
+  } catch {}
+}
+const _toMin = t => { if (!t) return null; const [hh, mm] = t.split(':').map(Number); return hh * 60 + (mm || 0); };
+// Timed events on a date (live calendar + placement seed), excluding training imports.
+function getDayEvents(ds) {
+  const live = _liveCal.filter(e => e.kind !== 'training' && !e.allDay && e.start && (e.date === ds || (e.endDate && e.date < ds && e.endDate >= ds)))
+    .map(e => {
+      // overnight events: clip to the part on this date
+      const s = e.date === ds ? _toMin(e.start) : 0;
+      const en = (e.endDate && e.endDate > ds) ? 24 * 60 : _toMin(e.end);
+      return { title: e.title, kind: e.kind, s, e: en, calendar: e.calendar };
+    });
+  const seed = (gcalEvents || []).filter(e => e.date === ds && e.start && e.end)
+    .map(e => ({ title: e.title, kind: 'placement', s: _toMin(e.start), e: _toMin(e.end) }));
+  return [...live, ...seed].filter(x => x.s != null && x.e != null && x.e > x.s).sort((a, b) => a.s - b.s);
+}
+const _hm = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+
+// ── Study time around shifts ─────────────────────────────────────────────────
+// Free time = 07:00–22:00 minus calendar events (shifts get 30 min travel
+// either side), minus ~1 h per training session and ~2 h for meals/admin.
+// Plan need = ~25 min per topic + 60 min for the mixed question set.
+const STUDY_DAY = { start: 7 * 60, end: 22 * 60, mealsAdmin: 120, perSession: 60, perTopic: 25, questionSet: 60 };
+function computeStudyCapacity(ds) {
+  const evs = getDayEvents(ds).map(e => e.kind === 'shift' ? { ...e, s: e.s - 30, e: e.e + 30 } : e);
+  // merge intervals clipped to the waking window
+  const iv = evs.map(e => [Math.max(STUDY_DAY.start, e.s), Math.min(STUDY_DAY.end, e.e)]).filter(([a, b]) => b > a).sort((a, b) => a[0] - b[0]);
+  let busy = 0, cur = null;
+  iv.forEach(([a, b]) => { if (!cur || a > cur[1]) { if (cur) busy += cur[1] - cur[0]; cur = [a, b]; } else cur[1] = Math.max(cur[1], b); });
+  if (cur) busy += cur[1] - cur[0];
+  // getTodaysSessions can't run before the training template is defined
+  // further down the script (first render on load), so fall back to 0.
+  let sessions = 0;
+  try { sessions = getTodaysSessions(new Date(ds + 'T12:00:00')).length; } catch {}
+  const free = Math.max(0, (STUDY_DAY.end - STUDY_DAY.start) - busy - sessions * STUDY_DAY.perSession - STUDY_DAY.mealsAdmin);
+  const day = (typeof UKMLA_REVISION_PLAN !== 'undefined') ? UKMLA_REVISION_PLAN.find(d => d.date === ds) : null;
+  let need = 0;
+  if (day) {
+    const groups = (typeof ukmlaGroups === 'function') ? ukmlaGroups(day) : day.groups;
+    const topics = groups.filter(g => g.subject).reduce((s, g) => s + g.items.length, 0);
+    const hasSet = groups.some(g => !g.subject);
+    need = topics * STUDY_DAY.perTopic + (hasSet ? STUDY_DAY.questionSet : 0);
+  }
+  const shift = getDayEvents(ds).find(e => e.kind === 'shift');
+  return { free, need, heavy: need > 0 && need > free, busy, sessions, shift, hasCal: _liveCal.length > 0 };
+}
+const _fmtHrs = m => { const h = Math.floor(m / 60), mm = Math.round(m % 60 / 15) * 15; return mm === 60 ? `${h + 1}h` : `${h}h${mm ? String(mm).padStart(2, '0') : ''}`; };
+
+// ── Training / shift clash checker ──────────────────────────────────────────
+// Flags: any hard session on a shift of 8h+; any session on a 12h+ shift day;
+// an AM session when a shift or placement starts before 08:00.
+function getClashes(ds) {
+  const out = [];
+  let sessions = [];
+  try { sessions = getTodaysSessions(new Date(ds + 'T12:00:00')); } catch { return out; }
+  if (!sessions.length) return out;
+  const evs = getDayEvents(ds);
+  const shifts = evs.filter(e => e.kind === 'shift');
+  const longest = shifts.reduce((b, e) => (!b || e.e - e.s > b.e - b.s) ? e : b, null);
+  const len = longest ? longest.e - longest.s : 0;
+  const early = evs.find(e => (e.kind === 'shift' || e.kind === 'placement') && e.s < 8 * 60);
+  sessions.forEach(({ slot, session }) => {
+    const hard = session.intensity === 'hard' || ['Long Run', 'Speed Run', 'Intervals', 'Tempo Run', 'Legs (Heavy)'].includes(session.type);
+    if (longest && len >= 12 * 60) out.push({ slot, session, why: `${_hm(longest.s)}–${_hm(longest.e)} shift (${_fmtHrs(len)}) — move or drop ${session.type}` });
+    else if (longest && len >= 8 * 60 && hard) out.push({ slot, session, why: `${_fmtHrs(len)} shift (${_hm(longest.s)}–${_hm(longest.e)}) — swap ${session.type} to an easier day` });
+    else if (early && slot === 'am') out.push({ slot, session, why: `${early.title.split(' - ')[0]} starts ${_hm(early.s)} — AM ${session.type} would need to be before 06:30` });
+  });
+  return out;
+}
+
 let _healthData = null;
 
 // ── Signoffs & Training accordions ───────────────────────────────────────────
@@ -5352,8 +5511,78 @@ const UKMLA_REVISION_PLAN = [
   }
 ];
 
+// ── Passmedicine scores + weak areas ────────────────────────────────────────
+// A % per revision day (ukmla_scores). Topics from days scoring under 65%
+// (lowest first), plus any Passmedicine categories under 60% from the last
+// category snapshot, become "weak areas", which are added to the recap day.
+const UKMLA_RECAP_DATE = '2026-11-21';
+const UKMLA_WEAK_PCT = 65;
+function getUkmlaScores() { try { return JSON.parse(localStorage.getItem('ukmla_scores')) || {}; } catch { return {}; } }
+function setUkmlaScore(date, val) {
+  const s = getUkmlaScores();
+  const n = parseFloat(val);
+  if (val === '' || isNaN(n)) delete s[date]; else s[date] = Math.max(0, Math.min(100, Math.round(n)));
+  localStorage.setItem('ukmla_scores', JSON.stringify(s));
+  syncPush('ukmla_scores', s);
+  renderUkmlaScores();
+  const recap = UKMLA_REVISION_PLAN.find(d => d.date === UKMLA_RECAP_DATE);
+  if (recap) renderUkmlaDay(UKMLA_RECAP_DATE);
+}
+let _passmedCats = null;
+async function loadPassmedCategories() {
+  try {
+    const r = await fetch(`/api/sync?key=passmed_category_snapshots`);
+    if (!r.ok) return;
+    const j = await r.json();
+    const arr = j && (j.data || j);
+    if (Array.isArray(arr) && arr.length) { _passmedCats = arr[arr.length - 1]; renderUkmlaScores(); }
+  } catch {}
+}
+function getUkmlaWeakTopics() {
+  const scores = getUkmlaScores();
+  const days = UKMLA_REVISION_PLAN.filter(d => scores[d.date] != null && scores[d.date] < UKMLA_WEAK_PCT)
+    .sort((a, b) => scores[a.date] - scores[b.date]);
+  const topics = [];
+  days.forEach(d => d.groups.forEach(g => {
+    if (g.subject && /High Yield/.test(g.subject)) g.items.forEach(it => topics.push({ text: it, from: `${scores[d.date]}% on ${fmtDate(d.date)}` }));
+  }));
+  const cats = (_passmedCats && _passmedCats.categories || []).filter(c => c.you < 60).sort((a, b) => a.you - b.you)
+    .map(c => ({ text: `${c.name} (Passmedicine category)`, from: `${c.you}% vs ${c.avg}% average` }));
+  return [...topics.slice(0, 8), ...cats.slice(0, 4)];
+}
+function ukmlaGroups(day) {
+  if (day.date !== UKMLA_RECAP_DATE) return day.groups;
+  const weak = getUkmlaWeakTopics();
+  return weak.length ? [...day.groups, { subject: 'Your weak areas (from scores)', items: weak.map(w => w.text) }] : day.groups;
+}
+function renderUkmlaScores() {
+  const el = document.getElementById('ukmla-scores');
+  if (!el) return;
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const scores = getUkmlaScores();
+  const days = UKMLA_REVISION_PLAN.filter(d => d.date <= todayStr && d.date >= '2026-10-20' && ukmlaFlatItems(d).length > 1);
+  const recent = days.slice(-7).reverse();
+  const scored = days.filter(d => scores[d.date] != null);
+  const avg = scored.length ? Math.round(scored.reduce((s, d) => s + scores[d.date], 0) / scored.length) : null;
+  const weak = getUkmlaWeakTopics();
+  const inputs = recent.map(d => `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px">
+      <span style="flex:1">${fmtDate(d.date)} — ${escHtml(d.label)}</span>
+      <input type="number" min="0" max="100" placeholder="%" value="${scores[d.date] ?? ''}" onchange="setUkmlaScore('${d.date}', this.value)"
+        style="width:64px;border:1px solid #F0E1D2;border-radius:6px;padding:4px 6px;font-size:13px;text-align:right${scores[d.date] != null && scores[d.date] < UKMLA_WEAK_PCT ? ';color:#b91c1c;font-weight:700' : ''}">
+    </div>`).join('');
+  const weakHtml = weak.length
+    ? `<div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:#A6937F;margin:10px 0 4px">Weak areas → added to ${fmtDate(UKMLA_RECAP_DATE)} recap</div>`
+      + weak.map(w => `<div style="font-size:13px;padding:2px 0">• ${escHtml(w.text)} <span style="color:#aaa;font-size:11px">${escHtml(w.from)}</span></div>`).join('')
+    : `<div class="sub" style="margin-top:8px">Days under ${UKMLA_WEAK_PCT}% will show here and be added to the ${fmtDate(UKMLA_RECAP_DATE)} recap.</div>`;
+  el.innerHTML = `<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:baseline"><div class="lbl" style="margin:0">Passmedicine scores</div>${avg != null ? `<span class="sub">Average ${avg}% over ${scored.length} day${scored.length === 1 ? '' : 's'}</span>` : ''}</div>
+    <div class="sub" style="margin:2px 0 6px">Enter your % for each day's mixed set (last 7 days shown).</div>
+    ${inputs || '<div class="sub">Scores can be entered from the first revision day.</div>'}
+    ${weakHtml}
+  </div>`;
+}
 function ukmlaFlatItems(day) {
-  return day.groups.flatMap(g => g.items);
+  return ukmlaGroups(day).flatMap(g => g.items);
 }
 function getUkmlaProgress() {
   try { return JSON.parse(localStorage.getItem('ukmla_progress')) || {}; } catch { return {}; }
@@ -5388,7 +5617,7 @@ function renderUkmlaDay(dateStr) {
   const progress = getUkmlaProgress();
   const arr = progress[dateStr] || [];
   let idx = 0;
-  bodyEl.innerHTML = day.groups.map(g => {
+  bodyEl.innerHTML = ukmlaGroups(day).map(g => {
     const itemsHtml = g.items.map(item => {
       const i = idx++;
       const checked = !!arr[i];
@@ -5400,6 +5629,13 @@ function renderUkmlaDay(dateStr) {
     return (g.subject ? `<div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:#A6937F;margin:10px 0 2px">${escHtml(g.subject)}</div>` : '') + itemsHtml;
   }).join('');
   set('ukmla-meta-' + dateStr, (() => { const { done, total } = ukmlaDayDoneCount(day, progress); return `${done} / ${total}`; })());
+  const capEl = document.getElementById('ukmla-meta-' + dateStr);
+  if (capEl && typeof _liveCal !== 'undefined' && _liveCal.length) {
+    const c = computeStudyCapacity(dateStr);
+    if (c.hasCal) capEl.innerHTML += c.heavy
+      ? ` · <span style="color:#b45309;font-weight:700" title="Plan needs ~${_fmtHrs(c.need)}; ~${_fmtHrs(c.free)} free after calendar, training and meals">⚠ ~${_fmtHrs(c.free)} free, needs ~${_fmtHrs(c.need)}</span>`
+      : ` · <span style="color:#A6937F" title="~${_fmtHrs(c.free)} free after calendar, training and meals">~${_fmtHrs(c.free)} free</span>`;
+  }
 }
 function renderUkmlaPlan() {
   const el = document.getElementById('ukmla-days');
@@ -5429,7 +5665,7 @@ function ukmlaPastIncompleteByDay(progress, todayStr) {
       const arr = progress[day.date] || [];
       let idx = 0;
       const items = [];
-      day.groups.forEach(g => {
+      ukmlaGroups(day).forEach(g => {
         g.items.forEach(item => {
           const i = idx++;
           if (!arr[i]) items.push({ idx: i, subject: g.subject, text: item });
@@ -5477,7 +5713,7 @@ function ukmlaCompletedByDay(progress) {
       const arr = progress[day.date] || [];
       let idx = 0;
       const items = [];
-      day.groups.forEach(g => {
+      ukmlaGroups(day).forEach(g => {
         g.items.forEach(item => {
           const i = idx++;
           if (arr[i]) items.push({ idx: i, subject: g.subject, text: item });
@@ -5537,6 +5773,9 @@ function renderUkmlaSummary() {
 }
 renderUkmlaPlan();
 renderUkmlaSummary();
+renderUkmlaScores();
+loadPassmedCategories();
+loadLiveCalendar();
 renderUkmlaCatchup();
 renderUkmlaCompleted();
 
@@ -5731,6 +5970,20 @@ const SHOE_FOR_RUN = {
 function getRunShoe(type) {
   const s = SHOE_FOR_RUN[type];
   return s ? { ...RUN_SHOES[s.shoe], why: s.why } : null;
+}
+
+// Approximate total distance of each session (warm-up, reps, jog recoveries
+// and cool-down included), used for planned weekly km. Estimates, not exact.
+const RUN_WORKOUT_KM = {
+  'Easy Run': { '5 km easy': 5, '6 km easy + strides': 6.5, '40 min easy': 7, '5 km easy, hilly or off-road': 5 },
+  'Intervals': { '6 × 800 m': 10, '5 × 1 km': 10.2, '4 × 1200 m': 9.8, 'Pyramid 400–800–1200–800–400': 8.5 },
+  'Tempo Run': { '3 × 10 min tempo': 11.4, '20 min continuous tempo': 8.3, '2 × 15 min tempo': 11.2, '4 × 2 km tempo': 12.3, '5 × 1.6 km cruise intervals': 12.2 },
+  'Long Run': { '12 km easy': 12, '14 km easy': 14, '14 km, last 3 km at half-marathon pace': 14, '16 km easy': 16 },
+  'Speed Run': { '6 × 800 m': 10, '10 × 200 m': 7.5, '5 × 1 km': 10.2, '6 × 400 m': 7.9, '4 × 1200 m': 9.8, '8 × 30 s hill sprints': 5 },
+};
+function plannedRunKm(type, dateStr) {
+  const w = getRunStructure(type, dateStr);
+  return w ? ((RUN_WORKOUT_KM[type] || {})[w.title] || null) : null;
 }
 
 // Shown in the readiness swap box when a hard run should be made easier.
@@ -5986,7 +6239,13 @@ function renderTrainingTodo() {
       <span style="font-size:10px;color:#A6937F">${slot.toUpperCase()}</span>${stravaTag}
     </div>${noteHtml}${structHtml}${swapHtml}`;
   });
-  el.innerHTML = `<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #FBF1E7">${hdr}${rows.join('')}</div>`;
+  // Hard run days: fuel them, and take the calorie deficit on easy days instead.
+  const HARD_RUNS = ['Long Run', 'Speed Run', 'Intervals', 'Tempo Run'];
+  const hardRun = sessions.find(({ session }) => HARD_RUNS.includes(session.type));
+  const fuelHtml = hardRun
+    ? `<div style="background:#FFF7E6;border-radius:8px;padding:8px 10px;margin:6px 0 2px;font-size:11px;color:#7A5A1E;line-height:1.4">🍝 <b>${escHtml(hardRun.session.type)} today — fuel it.</b> Eat right up to your ${typeof NUTRITION_GOALS !== 'undefined' ? NUTRITION_GOALS.calories.toLocaleString() : ''} kcal target (carbs before, protein after) and make the deficit on easy days instead.</div>`
+    : '';
+  el.innerHTML = `<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #FBF1E7">${hdr}${rows.join('')}${fuelHtml}</div>`;
 }
 
 // Applies a Next-Best-Workout swap tapped from the Home "Today's Training"
@@ -6008,6 +6267,25 @@ function toggleTrainingTodo(slot, checked) {
   syncPush('calendar_overrides', buildCalendarOverridesObj());
   renderTrainingCalendar(_acts);
   renderTrainingTodo();
+}
+
+// Clashes over the next 14 days, listed under the training calendar.
+function renderClashList() {
+  const el = document.getElementById('cal-clashes');
+  if (!el) return;
+  if (!_liveCal.length) {
+    el.innerHTML = `<div class="sub" style="margin-top:8px;color:#bbb">Shift clash checking needs your calendar — run the calendar-sync Apps Script once to connect it.</div>`;
+    return;
+  }
+  const items = [];
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(); d.setDate(d.getDate() + i);
+    const ds = d.toLocaleDateString('en-CA');
+    getClashes(ds).forEach(c => items.push({ ds, ...c }));
+  }
+  el.innerHTML = items.length
+    ? `<div style="margin-top:10px;padding:8px 10px;background:#FFF7E6;border-radius:8px"><div style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">⚠ Clashes in the next 2 weeks</div>${items.map(c => `<div style="font-size:12px;padding:2px 0"><strong>${fmtDate(c.ds)}</strong> · ${c.session.emoji} ${escHtml(c.session.type)}: ${escHtml(c.why)}</div>`).join('')}</div>`
+    : `<div class="sub" style="margin-top:8px">✓ No training clashes with shifts in the next 2 weeks.</div>`;
 }
 
 // ── Calendar render ──────────────────────────────────────────────────────────
@@ -6103,8 +6381,12 @@ function renderTrainingCalendar(acts) {
     const extraPillsHtml = r.extraSlots.map(e =>
       pill(e.session, e.done, r.isPast, false, e.skipped, r.dateStr, e.slot, e.session?.tag, !e.done && !e.skipped)
     ).join('') + `<span class="badge b-grey" style="font-size:11px;font-weight:600;cursor:pointer;border:1px dashed #E8D8C6" onclick="toggleAddExtraPopover(event,'${r.dateStr}','extra${r.extraSlots.length}')">+ Add</span>`;
+    const clashes = (!r.isPast && typeof getClashes === 'function') ? getClashes(r.dateStr) : [];
+    const shiftEv = (typeof getDayEvents === 'function') ? getDayEvents(r.dateStr).find(e => e.kind === 'shift') : null;
+    const shiftTag = shiftEv ? `<span class="badge b-grey" style="font-size:10px;font-weight:600" title="${escHtml(shiftEv.title)}">🏥 ${escHtml(shiftEv.title.split(' - ')[0])} ${_hm(shiftEv.s)}–${_hm(shiftEv.e)}</span>` : '';
+    const clashTag = clashes.length ? `<span class="badge b-amber" style="font-size:10px;font-weight:700" title="${escHtml(clashes.map(c => c.why).join(' | '))}">⚠ clash</span>` : '';
     return `<div class="row" style="${style}">
-      <div style="font-size:12px;font-weight:700;min-width:80px;color:${r.isToday?'#1d4ed8':'#999'}">${r.tmpl.day.slice(0,3)} ${dateLabel}</div>
+      <div style="font-size:12px;font-weight:700;min-width:80px;color:${r.isToday?'#1d4ed8':'#999'}">${r.tmpl.day.slice(0,3)} ${dateLabel}${shiftTag || clashTag ? `<div style="display:flex;flex-direction:column;gap:3px;margin-top:4px;align-items:flex-start">${shiftTag}${clashTag}</div>` : ''}</div>
       <div style="display:flex;flex-direction:column;gap:4px;flex:1">
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           ${pill(r.am, r.amDone, r.isPast, false, r.amSkipped, r.dateStr, 'am', r.am?.tag, r.amOverride && !r.amDone && !r.amSkipped)}
@@ -6122,6 +6404,8 @@ function renderTrainingCalendar(acts) {
     ? `Week summary: ${done} / ${total} sessions done this week`
     : `${total} sessions planned — tap any session to change it for this week only`);
   renderTrainingTodo();
+  if (typeof renderRunVolume === 'function') renderRunVolume();
+  renderClashList();
 }
 
 // ── Session tap popover — cascading multi-step ───────────────────────────────
@@ -6869,17 +7153,175 @@ async function refreshBestEfforts() {
     if (typeof renderTrainingTodo === 'function') renderTrainingTodo(); // run paces follow the 5km PB
   } finally { _bestEffortsRunning = false; }
 }
+// ── Half-marathon countdown + predicted time ───────────────────────────────
+// Prediction uses Riegel's formula (T2 = T1 × (21.0975/d1)^1.06) on the best
+// 5k / 10k / half from the last 90 days. The headline uses the longest of
+// those (most like the race); a weekly snapshot builds the trend line.
+const HM_GOAL_SEC = 90 * 60;
+function getHmRace() { try { return JSON.parse(localStorage.getItem('hm_race')) || null; } catch { return null; } }
+function setHmRace() {
+  const cur = getHmRace() || {};
+  const d = window.prompt('Half marathon date (YYYY-MM-DD):', cur.date || '2027-03-');
+  if (d === null) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d.trim())) { alert('Please use YYYY-MM-DD'); return; }
+  const n = window.prompt('Race name (optional):', cur.name || '');
+  const v = { date: d.trim(), name: (n || '').trim() };
+  localStorage.setItem('hm_race', JSON.stringify(v));
+  syncPush('hm_race', v);
+  renderHmPredictor();
+}
+function getRecentBest(label, days = 90) {
+  const cut = new Date(); cut.setDate(cut.getDate() - days);
+  const cutStr = cut.toLocaleDateString('en-CA');
+  const c = [];
+  const k = PB_KNOWN[label]; if (k && k.date >= cutStr) c.push(k);
+  const en = PB_EFFORT_NAME[label];
+  Object.values(_bestEffortsCache()).forEach(e => { const t = e && e.efforts && e.efforts[en]; if (t && e.date >= cutStr) c.push({ time: t, date: e.date }); });
+  if (typeof computeRunningPBs === 'function' && _acts) {
+    const d = computeRunningPBs(_acts).dists.find(x => x.label === label);
+    if (d && d.current && !d.isLastKnown) c.push(d.current);
+  }
+  return c.length ? c.reduce((b, x) => x.time < b.time ? x : b) : null;
+}
+function predictHalf() {
+  const dist = { '5km': 5, '10km': 10, 'Half Marathon': 21.0975 };
+  const preds = Object.keys(dist).map(label => {
+    const b = getRecentBest(label);
+    return b ? { label, from: b, sec: b.time * Math.pow(21.0975 / dist[label], 1.06) } : null;
+  }).filter(Boolean);
+  if (!preds.length) return null;
+  return { headline: preds[preds.length - 1], all: preds };
+}
+function _hmPredLog() { try { return JSON.parse(localStorage.getItem('hm_prediction_log')) || {}; } catch { return {}; } }
+function renderHmPredictor() {
+  const el = document.getElementById('hm-predictor');
+  if (!el) return;
+  const race = getHmRace();
+  const p = predictHalf();
+  // weekly snapshot (one per ISO week)
+  if (p) {
+    const wk = getISOWeek(new Date()), log = _hmPredLog();
+    const sec = Math.round(p.headline.sec);
+    if (log[wk] !== sec) { log[wk] = sec; localStorage.setItem('hm_prediction_log', JSON.stringify(log)); syncPush('hm_prediction_log', log); }
+  }
+  const log = _hmPredLog();
+  const weeks = Object.keys(log).sort().slice(-12);
+  let countdown;
+  if (race && race.date) {
+    const days = Math.ceil((new Date(race.date + 'T09:00:00') - new Date()) / 864e5);
+    countdown = days >= 0
+      ? `<div style="font-size:22px;font-weight:800">${days} days</div><div class="sub">${Math.floor(days / 7)} weeks to ${escHtml(race.name || 'race day')} · ${fmtDate(race.date)} <a href="javascript:void(0)" onclick="setHmRace()" style="color:#A6937F">edit</a></div>`
+      : `<div class="sub">${escHtml(race.name || 'Race')} was on ${fmtDate(race.date)}. <a href="javascript:void(0)" onclick="setHmRace()" style="color:#A6937F">Set next race</a></div>`;
+  } else {
+    countdown = `<div class="sub">No race date set. <button onclick="setHmRace()" style="background:none;border:1px solid #F0E1D2;border-radius:8px;padding:3px 8px;font-size:11px;cursor:pointer;color:#7A6656">Set race date</button></div>`;
+  }
+  let pred = '<div class="sub">No 5k, 10k or half in the last 90 days to predict from.</div>';
+  if (p) {
+    const gap = p.headline.sec - HM_GOAL_SEC;
+    const gapTxt = gap <= 0 ? `<span style="color:var(--accent-text)">${_fmtPbTime(-gap)} under your 1:30 goal</span>` : `<span style="color:#b45309">${_fmtPbTime(gap)} off your 1:30 goal</span>`;
+    pred = `<div style="font-size:22px;font-weight:800">${_fmtPbTime(p.headline.sec)}</div>
+      <div class="sub">Predicted from your ${p.headline.label} of ${_fmtPbTime(p.headline.from.time)} (${fmtDate(p.headline.from.date)}) · ${gapTxt}</div>
+      ${p.all.length > 1 ? `<div class="sub" style="margin-top:2px">Other predictions: ${p.all.filter(x => x !== p.headline).map(x => `${_fmtPbTime(x.sec)} from ${x.label}`).join(' · ')}</div>` : ''}`;
+  }
+  const trend = weeks.length >= 2
+    ? `<div style="margin-top:10px"><div class="sub">Predicted time by week (lower is faster)</div>${_sparkSvg(weeks.map(w => -log[w]), '#3b82f6')}<div style="display:flex;justify-content:space-between;font-size:10px;color:#bbb"><span>wk ${weeks[0].slice(5)}: ${_fmtPbTime(log[weeks[0]])}</span><span>wk ${weeks[weeks.length-1].slice(5)}: ${_fmtPbTime(log[weeks[weeks.length-1]])}</span></div></div>`
+    : '<div class="sub" style="margin-top:8px">A weekly trend line appears after two weeks of predictions.</div>';
+  el.innerHTML = `<div class="g2" style="gap:12px"><div><div class="lbl">Countdown</div>${countdown}</div><div><div class="lbl">Predicted finish</div>${pred}</div></div>${trend}`;
+}
+
+// ── Weekly distance & long-run build-up ─────────────────────────────────────
+// Past weeks: actual Strava run km and longest run. This week and the next
+// two: planned km from the training calendar (overrides included). Any week
+// more than 10% above the week before is flagged — the usual safe ramp.
+function _plannedWeek(wsDate) {
+  let km = 0, longKm = 0, missing = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(wsDate); d.setDate(d.getDate() + i);
+    const ds = d.toLocaleDateString('en-CA');
+    const ov = getOverrides(ds);
+    ['am', 'pm', 'eve', ...extraKeys(ov)].forEach(slot => {
+      const s = getSessionForSlot(ds, slot);
+      if (!s || s.tag !== 'run') return;
+      const k = plannedRunKm(s.type, ds);
+      if (k == null) { missing++; return; }
+      km += k; if (k > longKm) longKm = k;
+    });
+  }
+  return { km, longKm, missing };
+}
+function _actualWeek(wsDate) {
+  const start = wsDate.toLocaleDateString('en-CA');
+  const e = new Date(wsDate); e.setDate(e.getDate() + 6);
+  const end = e.toLocaleDateString('en-CA');
+  const runs = (_acts || []).filter(a => a.sport_type === 'Run' && a.start_local && a.start_local.slice(0, 10) >= start && a.start_local.slice(0, 10) <= end);
+  const kms = runs.map(a => (a.summary.distance || 0) / 1000);
+  return { km: kms.reduce((s, x) => s + x, 0), longKm: kms.length ? Math.max(...kms) : 0, n: runs.length };
+}
+function computeRunVolume() {
+  const ws0 = weekStart();
+  const weeks = [];
+  for (let off = -5; off <= 2; off++) {
+    const ws = new Date(ws0); ws.setDate(ws.getDate() + 7 * off);
+    const act = off <= 0 ? _actualWeek(ws) : null;
+    const plan = off >= 0 ? _plannedWeek(ws) : null;
+    weeks.push({ off, ws, act, plan, km: off < 0 ? act.km : plan.km, longKm: off < 0 ? act.longKm : plan.longKm });
+  }
+  weeks.forEach((w, i) => {
+    const prev = weeks[i - 1];
+    w.jump = prev && prev.km > 0 ? (w.km - prev.km) / prev.km : null;
+    w.flag = w.jump != null && w.jump > 0.10 && w.km - prev.km > 2;
+  });
+  return weeks;
+}
+function renderRunVolume() {
+  const el = document.getElementById('run-volume');
+  if (!el) return;
+  const weeks = computeRunVolume();
+  const maxKm = Math.max(1, ...weeks.map(w => Math.max(w.km, w.act ? w.act.km : 0)));
+  const rows = weeks.map(w => {
+    const lbl = w.off === 0 ? 'This week' : w.off === 1 ? 'Next week' : `w/c ${w.ws.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
+    const isPlan = w.off >= 0;
+    const main = w.off === 0 ? `${w.act.km.toFixed(1)} / ~${w.plan.km.toFixed(0)} km` : isPlan ? `~${w.km.toFixed(0)} km planned` : `${w.km.toFixed(1)} km`;
+    const pct = Math.round((w.off === 0 ? w.act.km : w.km) / maxKm * 100);
+    const planPct = w.off === 0 ? Math.round(w.plan.km / maxKm * 100) : 0;
+    const flag = w.flag ? `<span style="color:#b45309;font-size:11px;font-weight:700;margin-left:6px">▲ +${Math.round(w.jump * 100)}% on the week before</span>` : '';
+    return `<div style="padding:6px 0;border-bottom:1px solid #FAF3EC">
+      <div style="display:flex;justify-content:space-between;font-size:12px"><span style="font-weight:700">${lbl}</span><span>${main}${flag}</span></div>
+      <div style="position:relative;background:#FBF1E7;border-radius:99px;height:6px;margin:4px 0">
+        ${planPct ? `<div style="position:absolute;inset:0 auto 0 0;width:${planPct}%;background:#dbeafe;border-radius:99px"></div>` : ''}
+        <div style="position:absolute;inset:0 auto 0 0;width:${pct}%;background:${isPlan && w.off > 0 ? '#bfdbfe' : '#3b82f6'};border-radius:99px"></div>
+      </div>
+      <div class="sub">Long run: ${w.longKm ? (isPlan && w.off > 0 ? '~' : '') + w.longKm.toFixed(1) + ' km' : '—'}${w.off === 0 && w.plan.longKm ? ` (planned ~${w.plan.longKm.toFixed(0)} km)` : ''}</div>
+    </div>`;
+  }).join('');
+  const race = getHmRace();
+  const longs = weeks.filter(w => w.off < 0).map(w => w.longKm);
+  const longestRecent = longs.length ? Math.max(...longs) : 0;
+  const raceNote = race && race.date
+    ? `<div class="sub" style="margin-top:8px">Longest run in the last 5 weeks: <strong>${longestRecent.toFixed(1)} km</strong>. For a half, most plans peak at about 18–20 km two to three weeks before race day (${fmtDate(race.date)}).</div>`
+    : '';
+  el.innerHTML = rows + raceNote + `<div class="sub" style="margin-top:6px;color:#bbb">Planned km are estimates from each session (warm-up, reps and cool-down). Weeks more than 10% up on the week before are flagged.</div>`;
+}
+
 const PBS = [
   { label: '5km', goal: '19:00', baseline: '25:00', unit: 'time' },
   { label: '10km', goal: '42:00', baseline: '55:00', unit: 'time' },
   { label: 'Half Marathon', goal: '1:30:00', baseline: '1:50:00', unit: 'time' },
 ];
 
+// Lift PB cards: `current` is the fallback; the live value comes from Hevy
+// (/api/hevy-pbs → _strengthPBData) when it has loaded.
 const LIFT_PBS = [
   { label: 'Bench Press', current: 115, goal: 120, baseline: 60, unit: 'kg' },
   { label: 'Squat',       current: 125, goal: 150, baseline: 60, unit: 'kg' },
   { label: 'Deadlift',    current: 120, goal: 160, baseline: 60, unit: 'kg' },
 ];
+function _sparkSvg(vals, color) {
+  if (!vals || vals.length < 2) return '';
+  const w = 120, hgt = 28, mn = Math.min(...vals), mx = Math.max(...vals), rng = (mx - mn) || 1;
+  const pts = vals.map((v, i) => `${(i / (vals.length - 1) * w).toFixed(1)},${(hgt - 3 - (v - mn) / rng * (hgt - 6)).toFixed(1)}`).join(' ');
+  return `<svg viewBox="0 0 ${w} ${hgt}" width="100%" height="${hgt}" preserveAspectRatio="none" style="display:block;margin-top:6px"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+}
 
 // ── Strength PBs / 500kg Club ─────────────────────────────────────────────
 // Per-session heaviest weight_kg logged for each main lift, sourced from Hevy
@@ -6983,6 +7425,7 @@ async function loadStrengthPBs() {
     const data = await res.json();
     if (!data || !Array.isArray(data.lifts)) throw new Error('bad shape');
     _strengthPBData = { ...data, live: true };
+    if (typeof renderLiftPBs === 'function') renderLiftPBs();
   } catch (e) {
     _strengthPBData = { ...computeStrengthPBs(), live: false };
   }
@@ -7677,6 +8120,8 @@ const timeToSec = t => {
 };
 
 function renderPBs() {
+  if (typeof renderHmPredictor === 'function') renderHmPredictor();
+  if (typeof renderRunVolume === 'function') renderRunVolume();
   PBS.forEach(pb => { const r = getRunPB(pb.label); if (r) pb.current = _fmtPbTime(r.time); });
   setH('pb-cards', PBS.map(pb=>{
     let pct;
@@ -7700,16 +8145,26 @@ function renderPBs() {
 }
 
 function renderLiftPBs() {
+  const live = (typeof _strengthPBData !== 'undefined' && _strengthPBData && _strengthPBData.live) ? _strengthPBData : null;
   setH('lift-pb-cards', LIFT_PBS.map(pb=>{
-    let pct=(pb.current-pb.baseline)/(pb.goal-pb.baseline)*100;
+    const l = live && live.lifts.find(x => x.label === pb.label);
+    const cur = (l && l.allTime) ? l.allTime.weight : pb.current;
+    let pct=(cur-pb.baseline)/(pb.goal-pb.baseline)*100;
     pct=Math.max(0,Math.min(100,pct));
+    const e = l && l.e1rm;
+    const hist = e && e.history ? e.history.slice(-12) : [];
+    const e1rmLine = e && e.recent != null
+      ? `<div class="sub" style="margin-top:4px">Est. 1RM now: <strong>${e.recent}kg</strong>${e.best != null && e.best !== e.recent ? ` · best ${e.best}kg` : ''}</div>`
+      : (e && e.best != null ? `<div class="sub" style="margin-top:4px">Est. 1RM best: <strong>${e.best}kg</strong> (none in last 90 days)</div>` : '');
     return `<div class="card">
-      <div class="lbl">${pb.label}</div>
-      <div class="big">${pb.current}${pb.unit}</div>
+      <div class="lbl">${pb.label}${l ? ' <span style="font-weight:500;color:#aaa;text-transform:none;letter-spacing:0">· Hevy</span>' : ''}</div>
+      <div class="big">${cur}${pb.unit}</div>
       <div style="background:#FBF1E7;border-radius:99px;height:4px;overflow:hidden;margin:8px 0">
         <div style="background:#3b82f6;height:100%;width:${pct.toFixed(0)}%"></div>
       </div>
       <div class="sub">Goal: ${pb.goal}${pb.unit}</div>
+      ${e1rmLine}
+      ${hist.length >= 2 ? `${_sparkSvg(hist.map(x => x.e1rm), '#3b82f6')}<div style="display:flex;justify-content:space-between;font-size:10px;color:#bbb"><span>${hist[0].month}</span><span>est. 1RM by month</span><span>${hist[hist.length-1].month}</span></div>` : ''}
     </div>`;
   }).join(''));
 }
@@ -8261,6 +8716,20 @@ function renderDailyBriefing() {
     sections.push(`<div style="${sectionStyle}"><div style="${labelStyle}">🏋️ Training</div><div style="font-size:13px;color:#A6937F">Rest day 😴</div></div>`);
   }
 
+  // ── Study time + clashes (needs the live calendar) ───────────────────────
+  if (typeof computeStudyCapacity === 'function' && typeof UKMLA_REVISION_PLAN !== 'undefined' && UKMLA_REVISION_PLAN.some(d => d.date === todayDateStr)) {
+    const c = computeStudyCapacity(todayDateStr);
+    const shiftTxt = c.shift ? `${escHtml(c.shift.title.split(' - ')[0])} shift ${_hm(c.shift.s)}–${_hm(c.shift.e)}. ` : '';
+    const body = c.hasCal
+      ? `<div style="${rowStyle}">📚 <span>${shiftTxt}~<strong>${_fmtHrs(c.free)}</strong> free for study; today's plan needs ~${_fmtHrs(c.need)}${c.heavy ? ' — <strong style="color:#b45309">too much, move a topic</strong>' : ''}.</span></div>`
+      : `<div style="${rowStyle}">📚 <span>Plan needs ~${_fmtHrs(c.need)} today. <span style="color:#aaa">Connect your calendar (calendar-sync script) to see free time around shifts.</span></span></div>`;
+    sections.push(`<div style="${sectionStyle}"><div style="${labelStyle}">📚 Study</div>${body}</div>`);
+  }
+  if (typeof getClashes === 'function') {
+    const cl = getClashes(todayDateStr);
+    if (cl.length) sections.push(`<div style="${sectionStyle}"><div style="${labelStyle}">⚠️ Clash</div>${cl.map(x => `<div style="${rowStyle}"><span>${escHtml(x.why)}</span></div>`).join('')}</div>`);
+  }
+
   // ── Placement ─────────────────────────────────────────────────────────────
   const placementDay = PLACEMENT_SCHEDULE[todayDateStr];
   if (placementDay) {
@@ -8308,11 +8777,48 @@ function renderDailyBriefing() {
     }
     const habitPct = habitPossible > 0 ? Math.round(100 * habitDone / habitPossible) : null;
 
-    let recapHtml = `<div style="${labelStyle}">📊 This Week</div>`;
-    recapHtml += `<div style="${rowStyle}">🏃 <span>${wkActs.length} training session${wkActs.length !== 1 ? 's' : ''} logged</span></div>`;
+    // Planned sessions done (calendar, incl. overrides) and run km
+    let planned = 0, doneN = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(viewDate); d.setDate(d.getDate() - 6 + i);
+      const ds = d.toLocaleDateString('en-CA');
+      const man = getManual(ds);
+      getTodaysSessions(d).forEach(({ slot, session }) => {
+        planned++;
+        if (man[slot] === 'done' || man[`${slot}_todo`] === true || sessionDone(session, _acts, ds)) doneN++;
+      });
+    }
+    const runKm = wkActs.filter(a => a.sport_type === 'Run').reduce((s, a) => s + (a.summary.distance || 0) / 1000, 0);
+    const wr = (typeof computeWeightRate === 'function') ? computeWeightRate(viewDate) : null;
+    // UKMLA: items ticked and average score for this week's plan days
+    const prog = getUkmlaProgress(), scores = (typeof getUkmlaScores === 'function') ? getUkmlaScores() : {};
+    let uDone = 0, uTotal = 0; const wkScores = [];
+    UKMLA_REVISION_PLAN.filter(d => d.date >= wkStartStr && d.date <= todayDateStr).forEach(d => {
+      const c = ukmlaDayDoneCount(d, prog); uDone += c.done; uTotal += c.total;
+      if (scores[d.date] != null) wkScores.push(scores[d.date]);
+    });
+    // Next week
+    const nws = new Date(viewDate); nws.setDate(nws.getDate() + 1);
+    const nextPlan = (typeof _plannedWeek === 'function') ? _plannedWeek(nws) : null;
+    let nextSessions = 0, nextClashes = 0, nextShifts = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(nws); d.setDate(d.getDate() + i);
+      const ds = d.toLocaleDateString('en-CA');
+      nextSessions += getTodaysSessions(d).length;
+      if (typeof getClashes === 'function') nextClashes += getClashes(ds).length;
+      if (typeof getDayEvents === 'function' && getDayEvents(ds).some(e => e.kind === 'shift')) nextShifts++;
+    }
+
+    let recapHtml = `<div style="${labelStyle}">📊 Weekly review</div>`;
+    recapHtml += `<div style="${rowStyle}">🏃 <span>Training: <strong>${doneN}/${planned}</strong> planned sessions done · ${runKm.toFixed(1)} km run</span></div>`;
+    if (wr && wr.prev != null) recapHtml += `<div style="${rowStyle}">⚖️ <span>Weight: ${wr.now.toFixed(1)}kg 7-day avg, <strong style="color:${wr.color}">${wr.kgPerWk > 0 ? '+' : ''}${wr.kgPerWk.toFixed(2)}kg</strong> on last week</span></div>`;
+    if (uTotal) recapHtml += `<div style="${rowStyle}">📚 <span>UKMLA: <strong>${uDone}/${uTotal}</strong> items done${wkScores.length ? ` · avg Passmedicine <strong>${Math.round(wkScores.reduce((a, b) => a + b, 0) / wkScores.length)}%</strong>` : ''}</span></div>`;
     if (avgSleep) recapHtml += `<div style="${rowStyle}">😴 <span>Avg sleep: <strong>${avgSleep}h</strong></span></div>`;
     if (bestStreak >= 2) recapHtml += `<div style="${rowStyle}">🔥 <span>Best habit streak: <strong>${bestStreak} days</strong></span></div>`;
     if (habitPct != null) recapHtml += `<div style="${rowStyle}">✅ <span>Habits completed: <strong>${habitPct}%</strong></span></div>`;
+    recapHtml += `<div style="${labelStyle};margin-top:10px">🗓 Next week</div>`;
+    recapHtml += `<div style="${rowStyle}">🏃 <span>${nextSessions} sessions planned${nextPlan ? ` · ~${nextPlan.km.toFixed(0)} km running, long run ~${nextPlan.longKm.toFixed(0)} km` : ''}</span></div>`;
+    if (nextShifts) recapHtml += `<div style="${rowStyle}">🏥 <span>${nextShifts} shift day${nextShifts !== 1 ? 's' : ''}${nextClashes ? ` · <strong style="color:#b45309">${nextClashes} clash${nextClashes !== 1 ? 'es' : ''}</strong> — see the training calendar` : ' · no clashes'}</span></div>`;
     sections.push(`<div style="${sectionStyle}">${recapHtml}</div>`);
   }
 
@@ -8955,6 +9461,7 @@ async function fetchHealthData() {
       renderWhoopSleep();
       renderWhoopStrain();
       renderWhoopMonitor();
+      renderWeightRate();
       if (initialised['whoop-fitness']) renderFitnessSubTab();
       else pendingCharts['whoop-fitness'] = renderFitnessSubTab;
       renderDailyBriefing();
@@ -10965,6 +11472,8 @@ function applySyncUpdates(updated) {
     renderTrainingTodo();
   });
   if (updated.includes('daily_habits')) safe(renderHabits);
+  if (updated.includes('hm_race') || updated.includes('hm_prediction_log')) safe(renderHmPredictor);
+  if (updated.includes('ukmla_scores')) safe(() => { renderUkmlaScores(); renderUkmlaPlan(); });
   if (updated.includes('wardrobe_items') || updated.includes('wardrobe_wears')) safe(() => { if (typeof wdRender === 'function') wdRender(); });
   if (updated.includes('habit_reset_date') || updated.includes('habit_log') || updated.includes('habit_streaks')) safe(() => {
     recomputeAllStreaks();
