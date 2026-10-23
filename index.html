@@ -12942,14 +12942,17 @@ function calcOttawa() {
   // wardrobe_items under the same id, which then takes over. This avoids
   // writing to the synced list before the remote copy has been pulled.
   const RUNNING_SHOES = [
-    { id: 'shoe-ghost17',    name: 'Brooks Ghost 17',         stravaGearId: '27251126', notes: 'Easy runs · size 10' },
-    { id: 'shoe-superblast', name: 'ASICS Superblast',        stravaGearId: '34388082', notes: 'Speed, tempo and long runs' },
-    { id: 'shoe-adiospro4',  name: 'Adidas Adizero Adios Pro 4', stravaGearId: '31561635', notes: 'Race shoe · size 10.5' },
-  ].map(s => ({ category: 'Shoes', colour: '', warmth: 3, formality: 1, occasions: ['Gym'], ...s }));
+    { id: 'shoe-ghost17',    name: 'Brooks Ghost 17',         stravaGearId: '27251126', photoSrc: 'img/shoes/ghost17.jpg', colour: 'Navy', notes: 'Easy runs · size 10' },
+    { id: 'shoe-superblast', name: 'ASICS Superblast',        stravaGearId: '34388082', photoSrc: 'img/shoes/superblast.jpg', colour: 'Lime / teal', notes: 'Speed, tempo and long runs' },
+    { id: 'shoe-adiospro4',  name: 'Adidas Adizero Adios Pro 4', stravaGearId: '31561635', photoSrc: 'img/shoes/adiospro4.jpg', colour: 'White', notes: 'Race shoe · size 10.5' },
+  ].map(s => ({ category: 'Shoes', warmth: 3, formality: 1, occasions: ['Gym'], ...s }));
   const items = () => {
     const stored = load('wardrobe_items', []).filter(i => i && i.id);
     const have = new Set(stored.map(i => i.id));
-    return [...stored, ...RUNNING_SHOES.filter(s => !have.has(s.id))];
+    const builtIn = Object.fromEntries(RUNNING_SHOES.map(s => [s.id, s]));
+    // An edited shoe keeps its built-in photo and Strava link unless replaced.
+    const merged = stored.map(i => builtIn[i.id] ? { photoSrc: builtIn[i.id].photoSrc, stravaGearId: builtIn[i.id].stravaGearId, ...i } : i);
+    return [...merged, ...RUNNING_SHOES.filter(s => !have.has(s.id))];
   };
   // Running shoes stay out of everyday outfit suggestions.
   const outfitItems = () => activeItems().filter(i => !i.stravaGearId);
@@ -12993,6 +12996,7 @@ function calcOttawa() {
   function photoHtml(it) {
     const em = CAT_EMOJI[it && it.category] || '🧺';
     if (it && it.photoId) return `<div class="wd-photo"><img loading="lazy" src="${photoUrl(it.photoId)}" alt="" onerror="this.parentNode.textContent='${em}'"></div>`;
+    if (it && it.photoSrc) return `<div class="wd-photo" style="background:#fff"><img loading="lazy" src="${esc(it.photoSrc)}" alt="" onerror="this.parentNode.textContent='${em}'"></div>`;
     return `<div class="wd-photo">${em}</div>`;
   }
   // Downscale to ≤1024px JPEG before upload/tagging: phone photos are 3–10 MB.
