@@ -34,6 +34,10 @@ function extractJson(text) {
   return start >= 0 && end > start ? s.slice(start, end + 1) : s;
 }
 
+// Workers AI sometimes parses a JSON-looking reply itself and returns an
+// object in `response` instead of a string — turn it back into text.
+const asText = r => (r == null ? '' : typeof r === 'string' ? r : JSON.stringify(r));
+
 async function runWorkersAI(env, userMessage, image, wantJson) {
   const system = wantJson
     ? 'Reply with a single valid JSON object only — no explanation, no markdown.'
@@ -51,10 +55,10 @@ async function runWorkersAI(env, userMessage, image, wantJson) {
       try { await env.AI.run(CF_VISION_MODEL, { prompt: 'agree' }); } catch (e2) { if (!/thank you for agreeing/i.test(e2.message || '')) throw e2; }
       out = await run();
     }
-    return out.response || '';
+    return asText(out.response);
   }
   const out = await env.AI.run(CF_TEXT_MODEL, { messages, max_tokens: 1024 });
-  return out.response || '';
+  return asText(out.response);
 }
 
 export async function onRequest(context) {
