@@ -1,7 +1,8 @@
 // AI backend: Google Gemini (free tier)
-// gemini-2.0-flash was shut down (Oct 2026); 3.8 Flash is Google's current
-// stable Flash model. Set GEMINI_MODEL in Cloudflare Pages to switch without a code change.
-const DEFAULT_MODEL = 'gemini-3.8-flash';
+// gemini-2.0-flash was shut down (Oct 2026). 'gemini-flash-latest' is
+// Google's alias for the newest Flash model, so retirements don't break this
+// again. Set GEMINI_MODEL in Cloudflare Pages to pin a specific model.
+const DEFAULT_MODEL = 'gemini-flash-latest';
 const geminiUrl = model => `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
 const CORS = {
@@ -42,9 +43,10 @@ export async function onRequest(context) {
   }
 
   try {
-    const res = await fetch(`${geminiUrl(env.GEMINI_MODEL || DEFAULT_MODEL)}?key=${apiKey}`, {
+    const res = await fetch(geminiUrl(env.GEMINI_MODEL || DEFAULT_MODEL), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      // Key in the header (works for both old "AIza…" and new "AQ.…" keys).
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify({
         contents: [{ parts }],
         // Newer models can spend part of the budget thinking before answering,
