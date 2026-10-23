@@ -12930,11 +12930,11 @@ function calcOttawa() {
   const CAT_EMOJI = { Tops: '👕', Bottoms: '👖', Outerwear: '🧥', Shoes: '👟', Activewear: '🏃', Accessories: '🧢', Other: '🧺' };
   // "Good for" tags — also the occasion picker for today's outfit. These
   // replaced the old 1–5 formality score (Oct 2026). Older tags are mapped
-  // on read: Smart / night out → Smart, Football → Gym, Placement → Smart casual.
-  const OCCASIONS = ['Gym', 'Running', 'Home', 'Casual', 'Smart casual', 'Smart'];
-  const OLD_OCCASION = { 'Smart / night out': 'Smart', 'Football': 'Gym', 'Placement': 'Smart casual' };
+  // on read: Smart / night out → Smart, Placement → Smart casual.
+  const OCCASIONS = ['Gym', 'Running', 'Football', 'Home', 'Casual', 'Smart casual', 'Smart'];
+  const OLD_OCCASION = { 'Smart / night out': 'Smart', 'Placement': 'Smart casual' };
   const occasionsOf = i => [...new Set((i.occasions || []).map(o => OLD_OCCASION[o] || o).filter(o => OCCASIONS.includes(o)))];
-  const SPORTY = ['Gym', 'Running'];
+  const SPORTY = ['Gym', 'Running', 'Football'];
   // Where each item lives (3 drawers per unit).
   const LOCATIONS = [
     ['Desk', ['Desk – drawer 1', 'Desk – drawer 2', 'Desk – drawer 3']],
