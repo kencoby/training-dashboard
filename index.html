@@ -12922,7 +12922,7 @@ function calcOttawa() {
 // Wardrobe tab — catalogue, today's outfit, wear tracking.
 // Data: synced keys wardrobe_items (array) and wardrobe_wears ({date: [outfit]}).
 // Photos: stored in Phil's Google Drive via /api/wardrobe-photo.
-// Tagging + suggestions: Gemini via /api/claude, with a rule-based fallback
+// Tagging + suggestions: Cloudflare Workers AI (or Gemini) via /api/claude, with a rule-based fallback
 // for suggestions so the card still works when the AI call fails.
 // ═══════════════════════════════════════════════════════════════════════════
 (function () {

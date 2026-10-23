@@ -15,13 +15,53 @@ function json(status, body) {
   return new Response(JSON.stringify(body), { status, headers: CORS });
 }
 
+// Cloudflare Workers AI (used when the Pages project has an AI binding named
+// "AI"): free allowance of 10,000 Neurons/day. Photos go to a Llama vision
+// model, text to Llama 3.3 70B.
+const CF_VISION_MODEL = '@cf/meta/llama-3.2-11b-vision-instruct';
+const CF_TEXT_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+
+function b64ToBytes(b64) {
+  const bin = atob(b64);
+  const out = new Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+// Pull the JSON object out of a reply that may have extra words or ``` fences.
+function extractJson(text) {
+  const s = String(text || '');
+  const start = s.indexOf('{'), end = s.lastIndexOf('}');
+  return start >= 0 && end > start ? s.slice(start, end + 1) : s;
+}
+
+async function runWorkersAI(env, userMessage, image, wantJson) {
+  const system = wantJson
+    ? 'Reply with a single valid JSON object only — no explanation, no markdown.'
+    : 'You are a concise, practical assistant.';
+  const messages = [{ role: 'system', content: system }, { role: 'user', content: userMessage }];
+  if (image) {
+    const run = () => env.AI.run(CF_VISION_MODEL, { messages, image: b64ToBytes(image.data), max_tokens: 1024 });
+    let out;
+    try { out = await run(); }
+    catch (e) {
+      // Meta's licence must be accepted once per account before first use.
+      if (!/agree|licen[cs]e/i.test(e.message || '')) throw e;
+      await env.AI.run(CF_VISION_MODEL, { prompt: 'agree' });
+      out = await run();
+    }
+    return out.response || '';
+  }
+  const out = await env.AI.run(CF_TEXT_MODEL, { messages, max_tokens: 1024 });
+  return out.response || '';
+}
+
 export async function onRequest(context) {
   const { request, env } = context;
   if (request.method === 'OPTIONS') return json(200, {});
   if (request.method !== 'POST') return json(405, { error: 'Method not allowed' });
 
   const apiKey = env.GEMINI_API_KEY;
-  if (!apiKey) return json(500, { error: 'GEMINI_API_KEY not configured' });
+  if (!env.AI && !apiKey) return json(500, { error: 'No AI configured: add a Workers AI binding named AI (or GEMINI_API_KEY)' });
 
   let prompt, ctx, image, json_;
   try {
@@ -40,6 +80,16 @@ export async function onRequest(context) {
       return json(400, { error: 'image must be { mimeType: image/jpeg|png|webp, data: base64 } under ~5 MB' });
     }
     parts.push({ inline_data: { mime_type: image.mimeType, data: image.data } });
+  }
+
+  // Prefer Cloudflare Workers AI when the binding exists; Gemini otherwise.
+  if (env.AI) {
+    try {
+      const text = await runWorkersAI(env, userMessage, image, json_);
+      return json(200, { text: json_ ? extractJson(text) : text });
+    } catch (err) {
+      return json(502, { error: `Cloudflare AI: ${err.message}` });
+    }
   }
 
   try {
