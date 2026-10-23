@@ -12928,14 +12928,19 @@ function calcOttawa() {
 (function () {
   const CATS = ['Tops', 'Bottoms', 'Outerwear', 'Shoes', 'Activewear', 'Accessories', 'Other'];
   const CAT_EMOJI = { Tops: '👕', Bottoms: '👖', Outerwear: '🧥', Shoes: '👟', Activewear: '🏃', Accessories: '🧢', Other: '🧺' };
-  const OCCASIONS = ['Casual', 'Gym', 'Football', 'Smart / night out'];
+  // "Good for" tags — also the occasion picker for today's outfit. These
+  // replaced the old 1–5 formality score (Oct 2026). Older tags are mapped
+  // on read: Smart / night out → Smart, Football → Gym, Placement → Smart casual.
+  const OCCASIONS = ['Gym', 'Running', 'Home', 'Casual', 'Smart casual', 'Smart'];
+  const OLD_OCCASION = { 'Smart / night out': 'Smart', 'Football': 'Gym', 'Placement': 'Smart casual' };
+  const occasionsOf = i => [...new Set((i.occasions || []).map(o => OLD_OCCASION[o] || o).filter(o => OCCASIONS.includes(o)))];
+  const SPORTY = ['Gym', 'Running'];
   // Where each item lives (3 drawers per unit).
   const LOCATIONS = [
     ['Desk', ['Desk – drawer 1', 'Desk – drawer 2', 'Desk – drawer 3']],
     ['Cupboard', ['Cupboard – hanging', 'Cupboard – drawer 1', 'Cupboard – drawer 2', 'Cupboard – drawer 3']],
     ['Chest of drawers', ['Chest of drawers – drawer 1', 'Chest of drawers – drawer 2', 'Chest of drawers – drawer 3']],
   ];
-  const OCC_FORMALITY = { 'Casual': 2, 'Gym': 1, 'Football': 1, 'Smart / night out': 4 };
   const DAY = 864e5;
   const $ = id => document.getElementById(id);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -12952,7 +12957,7 @@ function calcOttawa() {
     { id: 'shoe-ghost17',    name: 'Brooks Ghost 17',         stravaGearId: '27251126', photoSrc: 'img/shoes/ghost17.jpg', colour: 'Navy', notes: 'Easy runs · size 10' },
     { id: 'shoe-superblast', name: 'ASICS Superblast',        stravaGearId: '34388082', photoSrc: 'img/shoes/superblast.jpg', colour: 'Lime / teal', notes: 'Speed, tempo and long runs' },
     { id: 'shoe-adiospro4',  name: 'Adidas Adizero Adios Pro 4', stravaGearId: '31561635', photoSrc: 'img/shoes/adiospro4.jpg', colour: 'White', notes: 'Race shoe · size 10.5' },
-  ].map(s => ({ category: 'Shoes', formality: 1, occasions: ['Gym'], ...s }));
+  ].map(s => ({ category: 'Shoes', occasions: ['Running'], ...s }));
   const items = () => {
     const stored = load('wardrobe_items', []).filter(i => i && i.id);
     const have = new Set(stored.map(i => i.id));
@@ -12962,7 +12967,7 @@ function calcOttawa() {
     return [...merged, ...RUNNING_SHOES.filter(s => !have.has(s.id))];
   };
   // Running shoes stay out of everyday outfit suggestions.
-  const outfitItems = () => activeItems().filter(i => !i.stravaGearId);
+  const outfitItems = occ => activeItems().filter(i => !i.stravaGearId || occ === 'Running');
 
   // Strava gear distance (km) for linked shoes. One call to /athlete returns
   // every shoe with its total distance. Strava's gear ids carry a "g" prefix
@@ -13089,17 +13094,18 @@ function calcOttawa() {
     Object.keys(all || {}).forEach(k => { if (k.startsWith(today() + '|')) keep[k] = all[k]; });
     keep[key] = v; localStorage.setItem(SUG_KEY, JSON.stringify(keep));
   };
-  function occasion() { const o = load('wardrobe_occasion', 'Casual'); return OCCASIONS.includes(o) ? o : 'Casual'; }
+  function occasion() { const o = load('wardrobe_occasion', 'Casual'); const m = OLD_OCCASION[o] || o; return OCCASIONS.includes(m) ? m : 'Casual'; }
 
   function ruleSuggest(occ, w, exclude = []) {
-    const list = outfitItems(), idx = wearIndex(), tw = targetWarmth(w), tf = OCC_FORMALITY[occ] || 2;
-    const sporty = occ === 'Gym' || occ === 'Football';
+    const list = outfitItems(occ), idx = wearIndex(), tw = targetWarmth(w);
+    const sporty = SPORTY.includes(occ);
     const score = it => {
       let s = 0;
-      if ((it.occasions || []).includes(occ)) s += 3;
+      const tags = occasionsOf(it);
+      if (tags.includes(occ)) s += 3;
+      else if (tags.length) s -= 1.5; // tagged, but for something else
       if (sporty && it.category === 'Activewear') s += 3;
       s -= Math.abs(itemWarmth(it) - tw) * 0.8;
-      s -= Math.abs((it.formality || 2) - tf) * 0.8;
       const last = idx[it.id] && idx[it.id].last;
       s += last ? Math.min(daysAgo(last), 14) / 7 : 2;  // favour things not worn lately
       if (last && daysAgo(last) <= 1) s -= 2;
@@ -13120,7 +13126,7 @@ function calcOttawa() {
       const bottom = best(inCat('Bottoms')); if (bottom) pick.push(bottom);
     }
     const shoes = best(inCat('Shoes')); if (shoes) pick.push(shoes);
-    if (w && ((w.max != null && w.max < 14) || (w.rain || 0) >= 50) && occ !== 'Gym') { const o = best(inCat('Outerwear')); if (o) pick.push(o); }
+    if (w && ((w.max != null && w.max < 14) || (w.rain || 0) >= 50) && !['Gym', 'Home'].includes(occ)) { const o = best(inCat('Outerwear')); if (o) pick.push(o); }
     const why = [];
     if (w) why.push(`${Math.round(w.min)}–${Math.round(w.max)}°C${(w.rain || 0) >= 50 ? `, ${w.rain}% chance of rain` : ''}`);
     why.push(`${occ.toLowerCase()} and favouring things you haven't worn lately`);
@@ -13129,11 +13135,11 @@ function calcOttawa() {
 
   async function aiSuggest(occ, w, exclude = []) {
     const idx = wearIndex();
-    const list = outfitItems().map(i => ({ id: i.id, name: i.name, category: i.category, colour: i.colour || '', thickness: thicknessOf(i) || undefined, sleeves: i.sleeves || undefined, warmth: itemWarmth(i), formality: i.formality || 2, occasions: i.occasions || [], lastWorn: (idx[i.id] && idx[i.id].last) || 'never' }));
+    const list = outfitItems(occ).map(i => ({ id: i.id, name: i.name, category: i.category, colour: i.colour || '', thickness: thicknessOf(i) || undefined, sleeves: i.sleeves || undefined, warmth: itemWarmth(i), goodFor: occasionsOf(i), lastWorn: (idx[i.id] && idx[i.id].last) || 'never' }));
     const prompt = `You are picking today's outfit from the user's own wardrobe. Use ONLY item ids from the list.
 Occasion: ${occ}. Today is ${today()}.
 Weather in Swansea: ${w ? `now ${w.now}°C, high ${w.max}°C, low ${w.min}°C, ${w.rain}% chance of rain, wind ${w.wind} km/h` : 'unknown'}.
-Thickness is light/thick, sleeves short/long (tops only); warmth is a 1–5 summary of those. Formality is 1 (casual) to 5 (formal).
+Thickness is light/thick, sleeves short/long (tops only); warmth is a 1–5 summary of those. goodFor lists the occasions each item suits.
 Pick a sensible complete outfit (typically a top, bottoms and shoes, plus outerwear if it's cold or likely to rain). Prefer items not worn recently and colours that go together.${exclude.length ? `\nThe user asked for an alternative: avoid repeating these ids where possible: ${exclude.join(', ')}.` : ''}
 Reply with JSON only: {"itemIds": ["id", ...], "reason": "one or two short sentences, referring to the weather and occasion"}.
 Wardrobe: ${JSON.stringify(list)}`;
@@ -13272,7 +13278,6 @@ Wardrobe: ${JSON.stringify(list)}`;
   function closeSheet() { const o = $('wd-overlay'); if (o) o.remove(); }
   window.wdClose = closeSheet;
 
-  const scale = (name, val, lo, hi) => `<div class="wd-scale" data-name="${name}">${[1, 2, 3, 4, 5].map(n => `<button type="button" class="${n === val ? 'on' : ''}" onclick="wdScale(this,${n})">${n}</button>`).join('')}</div><div class="wd-scale-cap"><span>${lo}</span><span>${hi}</span></div>`;
   window.wdScale = (btn, n) => { btn.parentNode.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === btn)); btn.parentNode.dataset.val = n; };
   // Two-option picker (tap the selected one again to clear it).
   const toggle = (name, val, opts) => `<div class="wd-scale" data-name="${name}" data-val="${val || ''}">${opts.map(([v, label]) => `<button type="button" data-v="${v}" class="${v === val ? 'on' : ''}" onclick="wdToggle(this)">${label}</button>`).join('')}</div>`;
@@ -13292,7 +13297,7 @@ Wardrobe: ${JSON.stringify(list)}`;
 
   let _draft = null; // { item, image(new photo or null) }
   window.wdOpenItem = id => {
-    const it = id ? byId()[id] : { id: 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: '', category: 'Tops', colour: '', thickness: null, sleeves: null, formality: 2, occasions: [], notes: '' };
+    const it = id ? byId()[id] : { id: 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: '', category: 'Tops', colour: '', thickness: null, sleeves: null, occasions: [], notes: '' };
     if (!it) return;
     _draft = { item: { ...it }, image: null, isNew: !id };
     const x = id ? wearIndex()[id] : null;
@@ -13310,8 +13315,7 @@ Wardrobe: ${JSON.stringify(list)}`;
         <div class="wd-field" id="wd-f-thick" style="${HAS_THICKNESS.includes(it.category) ? '' : 'display:none'}"><label>Thickness</label>${toggle('thickness', thicknessOf(it), [['light', 'Light'], ['thick', 'Thick']])}</div>
         <div class="wd-field" id="wd-f-sleeves" style="${HAS_SLEEVES.includes(it.category) ? '' : 'display:none'}"><label>Sleeves</label>${toggle('sleeves', it.sleeves || null, [['short', 'Short'], ['long', 'Long']])}</div>
       </div>
-      <div class="wd-field"><label>Formality</label>${scale('formality', it.formality || 2, 'Casual', 'Smart')}</div>
-      <div class="wd-field"><label>Good for</label><div class="wd-chips" id="wd-occ" style="margin:0">${OCCASIONS.map(o => `<button type="button" class="wd-chip${(it.occasions || []).includes(o) ? ' on' : ''}" style="background:${(it.occasions || []).includes(o) ? '' : '#F2F2F7'}" onclick="this.classList.toggle('on');this.style.background=this.classList.contains('on')?'':'#F2F2F7'">${esc(o)}</button>`).join('')}</div></div>
+      <div class="wd-field"><label>Good for</label><div class="wd-chips" id="wd-occ" style="margin:0">${OCCASIONS.map(o => `<button type="button" class="wd-chip${occasionsOf(it).includes(o) ? ' on' : ''}" style="background:${occasionsOf(it).includes(o) ? '' : '#F2F2F7'}" onclick="this.classList.toggle('on');this.style.background=this.classList.contains('on')?'':'#F2F2F7'">${esc(o)}</button>`).join('')}</div></div>
       <div class="wd-field"><label>Notes</label><textarea id="wd-notes" placeholder="Optional">${esc(it.notes || '')}</textarea></div>
       <div class="wd-footer">${id ? `<button class="wd-btn wd-btn-danger" onclick="wdDeleteItem('${id}')">Delete item</button>` : '<span></span>'}
         <button class="wd-btn wd-btn-primary" id="wd-save" onclick="wdSaveItem()">Save</button></div>`);
@@ -13326,7 +13330,7 @@ Wardrobe: ${JSON.stringify(list)}`;
       $('wd-prev').innerHTML = `<div class="wd-photo"><img src="${img.dataUrl}" alt=""></div>`;
       st.className = 'wd-status'; st.textContent = 'Reading the photo…';
       const r = await askAI(`This is a photo of one clothing item (or footwear/accessory) from someone's wardrobe. Describe it for a wardrobe catalogue.
-Reply with JSON only: {"name": "short name with colour, e.g. 'Navy merino jumper'", "category": one of ${JSON.stringify(CATS)}, "colour": "main colour(s)", "thickness": "light" or "thick" (null for shoes/accessories), "sleeves": "short" or "long" (tops only, otherwise null), "formality": 1-5 (1 = gym/very casual, 5 = formal), "occasions": subset of ${JSON.stringify(OCCASIONS)}}`, img);
+Reply with JSON only: {"name": "short name with colour, e.g. 'Navy merino jumper'", "category": one of ${JSON.stringify(CATS)}, "colour": "main colour(s)", "thickness": "light" or "thick" (null for shoes/accessories), "sleeves": "short" or "long" (tops only, otherwise null), "occasions": the ones it suits, subset of ${JSON.stringify(OCCASIONS)}}`, img);
       if (!$('wd-name')) return; // sheet closed meanwhile
       if (r.name && !$('wd-name').value.trim()) $('wd-name').value = String(r.name).slice(0, 80);
       if (CATS.includes(r.category)) $('wd-cat').value = r.category;
@@ -13337,7 +13341,6 @@ Reply with JSON only: {"name": "short name with colour, e.g. 'Navy merino jumper
         const b = document.querySelector(`.wd-scale[data-name="${k}"] button[data-v="${r[k]}"]`);
         if (b && !b.classList.contains('on')) wdToggle(b);
       });
-      ['formality'].forEach(k => { const n = Math.round(+r[k]); if (n >= 1 && n <= 5) { const b = document.querySelector(`.wd-scale[data-name="${k}"] button:nth-child(${n})`); if (b) wdScale(b, n); } });
       if (Array.isArray(r.occasions)) document.querySelectorAll('#wd-occ .wd-chip').forEach(b => { const on = r.occasions.includes(b.textContent); b.classList.toggle('on', on); b.style.background = on ? '' : '#F2F2F7'; });
       st.textContent = 'Filled in from the photo. Check it, then save.';
     } catch (e) {
@@ -13351,12 +13354,10 @@ Reply with JSON only: {"name": "short name with colour, e.g. 'Navy merino jumper
     const st = $('wd-status'), btn = $('wd-save');
     const name = $('wd-name').value.trim();
     if (!name) { st.className = 'wd-status err'; st.textContent = 'Give it a name first.'; $('wd-name').focus(); return; }
-    const scaleVal = k => { const el = document.querySelector(`.wd-scale[data-name="${k}"]`); const on = el && el.querySelector('button.on'); return on ? +on.textContent : 3; };
     const it = { ..._draft.item, name, category: $('wd-cat').value, colour: $('wd-colour').value.trim(),
       location: $('wd-loc').value || null,
       thickness: HAS_THICKNESS.includes($('wd-cat').value) ? toggleVal('thickness') : null,
       sleeves: HAS_SLEEVES.includes($('wd-cat').value) ? toggleVal('sleeves') : null,
-      formality: scaleVal('formality'),
       occasions: [...document.querySelectorAll('#wd-occ .wd-chip.on')].map(b => b.textContent), notes: $('wd-notes').value.trim(), updatedAt: Date.now() };
     if (_draft.isNew) it.addedAt = Date.now();
     if (_draft.image) {
