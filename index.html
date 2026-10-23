@@ -13344,8 +13344,12 @@ function calcOttawa() {
 // for suggestions so the card still works when the AI call fails.
 // ═══════════════════════════════════════════════════════════════════════════
 (function () {
-  const CATS = ['Tops', 'Bottoms', 'Outerwear', 'Shoes', 'Activewear', 'Accessories', 'Other'];
-  const CAT_EMOJI = { Tops: '👕', Bottoms: '👖', Outerwear: '🧥', Shoes: '👟', Activewear: '🏃', Accessories: '🧢', Other: '🧺' };
+  // 'Activewear' was split into sport tops and bottoms (Oct 2026); old items are
+  // sorted by name on read (shorts/leggings/joggers… → bottoms, else tops).
+  const CATS = ['Tops', 'Bottoms', 'Outerwear', 'Shoes', 'Sport tops', 'Sport bottoms', 'Accessories', 'Other'];
+  const CAT_EMOJI = { Tops: '👕', Bottoms: '👖', Outerwear: '🧥', Shoes: '👟', 'Sport tops': '🎽', 'Sport bottoms': '🩳', Accessories: '🧢', Other: '🧺' };
+  const BOTTOM_RE = /short|legging|jogger|bottom|tight|pant|trouser|skort/i;
+  const fixCategory = i => i.category === 'Activewear' ? { ...i, category: BOTTOM_RE.test(i.name || '') ? 'Sport bottoms' : 'Sport tops' } : i;
   // "Good for" tags — also the occasion picker for today's outfit. These
   // replaced the old 1–5 formality score (Oct 2026). Older tags are mapped
   // on read: Smart / night out → Smart, Placement → Smart casual.
@@ -13382,7 +13386,7 @@ function calcOttawa() {
     const have = new Set(stored.map(i => i.id));
     const builtIn = Object.fromEntries(RUNNING_SHOES.map(s => [s.id, s]));
     // An edited shoe keeps its built-in photo and Strava link unless replaced.
-    const merged = stored.map(i => builtIn[i.id] ? { photoSrc: builtIn[i.id].photoSrc, stravaGearId: builtIn[i.id].stravaGearId, ...i } : i);
+    const merged = stored.map(fixCategory).map(i => builtIn[i.id] ? { photoSrc: builtIn[i.id].photoSrc, stravaGearId: builtIn[i.id].stravaGearId, ...i } : i);
     // The two small drawers moved from the cupboard to the bedside table (Oct 2026).
     merged.forEach(i => { const m = /^Cupboard – small drawer (\d)$/.exec(i.location || ''); if (m) i.location = `Bedside table – drawer ${m[1]}`; });
     return [...merged, ...RUNNING_SHOES.filter(s => !have.has(s.id))];
@@ -13499,16 +13503,16 @@ function calcOttawa() {
   // length (short/long) rather than a 1–5 warmth score. Suggestions still
   // need a number to match against the weather, so it's derived here.
   // Older items saved with only a warmth score read it as light (1–2) or thick (3–5).
-  const HAS_THICKNESS = ['Tops', 'Bottoms', 'Outerwear', 'Activewear'];
-  const HAS_SLEEVES = ['Tops', 'Activewear'];
+  const HAS_THICKNESS = ['Tops', 'Bottoms', 'Outerwear', 'Sport tops', 'Sport bottoms'];
+  const HAS_SLEEVES = ['Tops', 'Sport tops'];
   const thicknessOf = i => i.thickness || (i.warmth != null ? (i.warmth <= 2 ? 'light' : 'thick') : null);
   function itemWarmth(i) {
     const thick = thicknessOf(i) === 'thick';
-    if (i.category === 'Tops' || i.category === 'Activewear') {
+    if (i.category === 'Tops' || i.category === 'Sport tops') {
       const base = i.sleeves === 'long' ? 3 : i.sleeves === 'short' ? 1 : (i.warmth != null ? i.warmth - (thick ? 1 : 0) : 2);
       return Math.max(1, Math.min(5, base + (thick ? 1 : 0)));
     }
-    if (i.category === 'Bottoms') return thick ? 4 : 2;
+    if (i.category === 'Bottoms' || i.category === 'Sport bottoms') return thick ? 4 : 2;
     if (i.category === 'Outerwear') return thick ? 5 : 3;
     return 3;
   }
@@ -13531,7 +13535,7 @@ function calcOttawa() {
       let s = 0;
       const tags = occasionsOf(it);
       if (tags.includes(occ)) s += 3; // tagged for it beats untagged
-      if (sporty && it.category === 'Activewear') s += 3;
+      if (sporty && /^Sport /.test(it.category)) s += 3;
       s -= Math.abs(itemWarmth(it) - tw) * 0.8;
       const last = idx[it.id] && idx[it.id].last;
       s += last ? Math.min(daysAgo(last), 14) / 7 : 2;  // favour things not worn lately
@@ -13543,10 +13547,9 @@ function calcOttawa() {
     const inCat = (...cats) => list.filter(i => cats.includes(i.category));
     const pick = [];
     if (sporty) {
-      const act = inCat('Activewear');
-      const top = best(act.filter(i => /top|shirt|tee|jersey|vest|hoodie/i.test(i.name)).concat(inCat('Tops'))) || best(act);
+      const top = best(inCat('Sport tops')) || best(inCat('Tops'));
       if (top) pick.push(top);
-      const bottom = best(act.filter(i => i !== top && /short|legging|jogger|bottom|tight|pant|trouser/i.test(i.name)).concat(inCat('Bottoms')));
+      const bottom = best(inCat('Sport bottoms')) || best(inCat('Bottoms'));
       if (bottom) pick.push(bottom);
     } else {
       const top = best(inCat('Tops')); if (top) pick.push(top);
