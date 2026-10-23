@@ -2016,6 +2016,7 @@ function normalizeActivity(a) {
       // Strava's Relative Effort (HR-based; null when the activity has no HR) —
       // used by the Cardio Load card.
       relative_effort: (a.suffer_score != null) ? a.suffer_score : null,
+      pr_count: a.pr_count || 0,
       total_calories: Math.round(met * ATHLETE_WEIGHT_KG * hours)
     }
   };
@@ -2057,7 +2058,12 @@ async function loadStravaZones(tokens) {
     const res = await fetch(`${API}/strava-auth?action=proxy&path=${encodeURIComponent('/athlete/zones')}&access_token=${encodeURIComponent(tokens.access_token)}`);
     const data = await res.json();
     const hrZones = data && data.heart_rate && Array.isArray(data.heart_rate.zones) ? data.heart_rate.zones : null;
-    _stravaHRZones = (res.ok && hrZones && hrZones.length === 5) ? hrZones : null;
+    // Only use Strava's zones if they were set by hand in Strava. Its default
+    // zones are % of max HR (Z2 up to ~81% max = 165 bpm for Phil), which is
+    // tempo effort, not easy running — the threshold-HR model below is used
+    // instead in that case.
+    const customHR = !!(data && data.heart_rate && data.heart_rate.custom_zones);
+    _stravaHRZones = (res.ok && customHR && hrZones && hrZones.length === 5) ? hrZones : null;
 
     // Power zones: Strava's 7-zone Coggan-style model (Recovery/Moderate/
     // Tempo/Threshold/VO2Max/Anaerobic/Neuromuscular). FTP isn't returned
@@ -2314,8 +2320,8 @@ function intensity(a) {
   const hr = a.summary.avg_hr;
   if (hr && hr > 0) {
     // Use threshold HR from planner zones if set, else sensible defaults
-    const lthr = (_plannerZones && _plannerZones.thresholdHR) || 170;
-    const easyMax = lthr * 0.83;   // Z1/Z2 boundary
+    const lthr = getThresholdHR();
+    const easyMax = lthr * 0.90;   // top of Z2
     const hardMin = lthr * 0.95;   // Z4+ boundary
     if (hr < easyMax)  return 'easy';
     if (hr >= hardMin) return 'hard';
@@ -2615,7 +2621,6 @@ const TASK_TIERS = ['top', 'critical', 'ondeck', 'someday', 'dashboard'];
 // the one thing shown on the Home dashboard card instead of the old
 // top-3-critical-tasks list.
 const TASK_TIER_COLORS = { top: 'var(--lavender-text)', critical: 'var(--danger)', ondeck: 'var(--text)', someday: 'var(--text-muted)', dashboard: 'var(--text-faint)' };
-const TASK_TIER_ACCENTS = { top: '#F0C766', critical: '#fca5a5', ondeck: '#fcd34d', someday: '#E8D8C6', dashboard: '#c7d2fe' };
 
 function getTasks() { try { return JSON.parse(localStorage.getItem('tasks_priority'))||[]; } catch { return []; } }
 function saveTasks(items) { localStorage.setItem('tasks_priority', JSON.stringify(items)); syncPush('tasks_priority', items); }
@@ -4151,7 +4156,6 @@ renderAccordions();
 // letter grades) — content Phil supplied himself, sourced from medcourse.co.uk
 // and medset.co.uk's CST portfolio guides. Verbatim criteria/evidence copy,
 // not invented: a wrong grade boundary here is worse than no tracker at all.
-const CST_GRADE_ORDER = ['A', 'B', 'C', 'D', 'E'];
 const CST_GRADE_COLORS = {
   A: { fg: '#2D7A47', bg: '#E5F5EA' },
   B: { fg: '#5B8C5A', bg: '#EAF3E7' },
@@ -5628,7 +5632,7 @@ function getCoachNote(type) {
 //     for hills, heat and fatigue; pace doesn't)
 //   • tempo, intervals, reps and race-pace segments → pace (HR lags 15–60 s,
 //     too slow for short reps)
-// HR zones come from getEffectiveHRZones() (real Strava zones when synced,
+// HR zones come from getEffectiveHRZones() (custom Strava zones if set,
 // else %-of-threshold-HR). Paces come from the Planner run threshold pace if
 // set, otherwise from Jack Daniels' VDOT model applied to the 5km PB
 // (get5kPbOverride). Half-marathon pace uses the HM goal in PBS.
@@ -5650,7 +5654,7 @@ function _timeStrToSec(str) {
 function getRunTargets() {
   const zones = getEffectiveHRZones();
   const hrSource = (typeof _stravaHRZones !== 'undefined' && _stravaHRZones) ? 'strava'
-    : (_plannerZones && _plannerZones.thresholdHR) ? 'threshold' : 'default';
+    : (_plannerZones && _plannerZones.thresholdHR) ? 'threshold' : 'estimate';
   const pb = get5kPbOverride();
   const vdot = _vdotFromRace(5000, pb.time);
   const plannerT = _plannerZones && _plannerZones.runThresholdSecPerKm;
@@ -5681,12 +5685,12 @@ const _ivReps = (n, m, pace, rec) => t => [
 ];
 const RUN_WORKOUTS = {
   'Easy Run': [
-    { title: '5 km easy', steps: t => [['5 km continuous', `HR ${t.z2Min}–${t.z2Max} bpm (Z2) — ignore pace`]] },
+    { title: '5 km easy', steps: t => [['5 km continuous', `HR under ${t.z2Max} bpm (Z1–2) — ignore pace`]] },
     { title: '6 km easy + strides', steps: t => [
-      ['6 km continuous', `HR ${t.z2Min}–${t.z2Max} bpm (Z2)`],
+      ['6 km continuous', `HR under ${t.z2Max} bpm (Z1–2)`],
       ['4 × 20 s strides, walk back between', 'Relaxed and quick, not a sprint'],
     ] },
-    { title: '40 min easy', steps: t => [['40 min by time, not distance', `HR ${t.z2Min}–${t.z2Max} bpm (Z2)`]] },
+    { title: '40 min easy', steps: t => [['40 min by time, not distance', `HR under ${t.z2Max} bpm (Z1–2)`]] },
     { title: '5 km easy, hilly or off-road', steps: t => [['5 km on a hilly or soft route', `HR under ${t.z2Max} bpm — walk the steep bits if it climbs above`]] },
   ],
   'Intervals': [
@@ -5705,13 +5709,13 @@ const RUN_WORKOUTS = {
     { title: '5 × 1.6 km cruise intervals', steps: t => [_wu(t), ['5 × 1.6 km, 1 min jog between', `${_paceRange(t.T)} (≈ ${_repTime(t.T, 1600)} each)`], _cd(t)] },
   ],
   'Long Run': [
-    { title: '12 km easy', steps: t => [['12 km continuous', `HR ${t.z2Min}–${t.z2Max} bpm (Z2)`]] },
-    { title: '14 km easy', steps: t => [['14 km continuous', `HR ${t.z2Min}–${t.z2Max} bpm (Z2)`]] },
+    { title: '12 km easy', steps: t => [['12 km continuous', `HR under ${t.z2Max} bpm (Z1–2)`]] },
+    { title: '14 km easy', steps: t => [['14 km continuous', `HR under ${t.z2Max} bpm (Z1–2)`]] },
     { title: '14 km, last 3 km at half-marathon pace', steps: t => [
-      ['First 11 km', `HR ${t.z2Min}–${t.z2Max} bpm (Z2)`],
+      ['First 11 km', `HR under ${t.z2Max} bpm (Z1–2)`],
       ['Last 3 km', `${_paceRange(t.HM)}${t.hmGoal ? ` (goal HM pace, ${t.hmGoal})` : ''}`],
     ] },
-    { title: '16 km easy', steps: t => [['16 km continuous, take fluids/gel after ~60 min', `HR ${t.z2Min}–${t.z2Max} bpm (Z2)`]] },
+    { title: '16 km easy', steps: t => [['16 km continuous, take fluids/gel after ~60 min', `HR under ${t.z2Max} bpm (Z1–2)`]] },
   ],
   // Monday's hard run: alternates short fast reps with longer VO2 intervals.
   'Speed Run': [
@@ -5724,18 +5728,18 @@ const RUN_WORKOUTS = {
   ],
 };
 // Which pair to wear. Ghost 17 = cushioned daily trainer, so it takes the
-// easy mileage; Megablast = light, bouncier max-stack trainer, so it's saved
+// easy mileage; Superblast = light, bouncier max-stack trainer, so it's saved
 // for faster running and the long run. Splitting them also spreads the wear.
 const RUN_SHOES = {
   ghost:     { name: 'Brooks Ghost 17', short: 'Ghost 17' },
-  megablast: { name: 'ASICS Megablast', short: 'Megablast' },
+  superblast: { name: 'ASICS Superblast', short: 'Superblast' },
 };
 const SHOE_FOR_RUN = {
   'Easy Run':  { shoe: 'ghost',     why: 'everyday easy miles' },
-  'Long Run':  { shoe: 'megablast', why: 'lighter and bouncier for the distance' },
-  'Tempo Run': { shoe: 'megablast', why: 'light and responsive at threshold pace' },
-  'Intervals': { shoe: 'megablast', why: 'lightest option for fast reps' },
-  'Speed Run': { shoe: 'megablast', why: 'lightest option for fast reps' },
+  'Long Run':  { shoe: 'superblast', why: 'lighter and bouncier for the distance' },
+  'Tempo Run': { shoe: 'superblast', why: 'light and responsive at threshold pace' },
+  'Intervals': { shoe: 'superblast', why: 'lightest option for fast reps' },
+  'Speed Run': { shoe: 'superblast', why: 'lightest option for fast reps' },
 };
 function getRunShoe(type) {
   const s = SHOE_FOR_RUN[type];
@@ -5765,7 +5769,6 @@ function runStructureHtml(type, dateStr, indentPx, showShoe) {
   const t = getRunTargets();
   const shoe = showShoe ? getRunShoe(type) : null;
   const caveats = [];
-  if (t.hrSource === 'default') caveats.push('HR zones are estimated from a default threshold HR of 170 — set yours in Planner zones.');
   const cav = caveats.length ? `<div style="margin-top:4px;font-style:italic">${escHtml(caveats.join(' '))}</div>` : '';
   return `<div style="margin:2px 0 8px ${indentPx || 0}px;padding:8px 10px;border-left:3px solid var(--accent,#2D7A47);background:var(--surface-hover,#FBF1E7);border-radius:6px;font-size:11px;color:#7A6656;line-height:1.4">
     <div style="font-weight:700;color:var(--text,#2B2118)">${escHtml(w.title)} <span style="font-weight:500;color:#A6937F">· option ${w.idx + 1} of ${w.count}, rotates weekly</span></div>
@@ -6817,11 +6820,95 @@ async function renderS6(acts, tokens) {
 }
 
 // ── §7 Personal Bests ────────────────────────────────────────────────────────
-// TODO: make editable
+// Running PBs are worked out, not typed in: the fastest of
+//   • Strava best efforts (the 5k/10k/half splits Strava finds inside any run),
+//     fetched from the detail of each run that set a PR and cached;
+//   • whole runs of roughly that distance (computeRunningPBs);
+//   • the known PBs below, which predate the loaded history or that Strava
+//     missed (the Swansea Half GPS read 21.007 km, so no half best effort).
+// `current` on each PBS entry is filled from getRunPB() at render time.
+const PB_KNOWN = {
+  '5km':           { time: 19 * 60 + 24,          date: '2026-06-16' },
+  '10km':          { time: 43 * 60 + 46,          date: '2026-06-07' },
+  'Half Marathon': { time: 3600 + 35 * 60 + 14,   date: '2026-06-07' },
+};
+const PB_EFFORT_NAME = { '5km': '5k', '10km': '10k', 'Half Marathon': 'Half-Marathon', 'Marathon': 'Marathon' };
+const PB_LOG_KEY = { '5km': 'dist_5k', '10km': 'dist_10k', 'Half Marathon': 'hm' };
+function _bestEffortsCache() { try { return JSON.parse(localStorage.getItem('strava_best_efforts')) || {}; } catch { return {}; } }
+function getRunPB(label) {
+  const cands = [];
+  if (PB_KNOWN[label]) cands.push({ ...PB_KNOWN[label], source: 'known' });
+  const effortName = PB_EFFORT_NAME[label];
+  Object.values(_bestEffortsCache()).forEach(e => {
+    const t = e && e.efforts && e.efforts[effortName];
+    if (t) cands.push({ time: t, date: e.date, source: 'strava' });
+  });
+  if (typeof computeRunningPBs === 'function' && _acts) {
+    const d = computeRunningPBs(_acts).dists.find(x => x.label === label);
+    if (d && d.allTime) cands.push({ ...d.allTime, source: 'run' });
+  }
+  if (!cands.length) return null;
+  return cands.reduce((b, c) => c.time < b.time ? c : b);
+}
+function _fmtPbTime(sec) {
+  const hh = Math.floor(sec / 3600), mm = Math.floor(sec % 3600 / 60), ss = Math.round(sec % 60);
+  return hh ? `${hh}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}` : `${mm}:${String(ss).padStart(2, '0')}`;
+}
+// Fetch best efforts for runs that set a PR and aren't cached yet, newest
+// first, at most 15 per page load (Strava allows 100 requests / 15 min).
+let _bestEffortsRunning = false;
+async function refreshBestEfforts() {
+  if (_bestEffortsRunning) return; _bestEffortsRunning = true;
+  try {
+    const tokens = getTokens();
+    if (!tokens || !tokens.access_token || !_acts) return;
+    const cache = _bestEffortsCache();
+    const todo = _acts.filter(a => a.sport_type === 'Run' && a.summary && a.summary.pr_count > 0 && !cache[a.id])
+      .sort((a, b) => (b.start_local || '').localeCompare(a.start_local || '')).slice(0, 15);
+    if (!todo.length) return;
+    for (const a of todo) {
+      try {
+        const res = await fetch(`${API}/strava-auth?action=proxy&path=${encodeURIComponent('/activities/' + a.id)}&access_token=${encodeURIComponent(tokens.access_token)}`);
+        if (!res.ok) break; // rate-limited or expired — try again next load
+        const d = await res.json();
+        const efforts = {};
+        (d.best_efforts || []).forEach(be => { if (be && be.name && be.elapsed_time) efforts[be.name] = be.elapsed_time; });
+        cache[a.id] = { date: (a.start_local || '').slice(0, 10), efforts };
+      } catch { break; }
+    }
+    localStorage.setItem('strava_best_efforts', JSON.stringify(cache));
+    _logNewPBs();
+    if (typeof renderPBs === 'function') renderPBs();
+    if (typeof renderRunningPBs === 'function') renderRunningPBs(_acts);
+    if (typeof renderPRTracker === 'function') renderPRTracker();
+    if (typeof buildPBChart === 'function') buildPBChart();
+    if (typeof renderTrainingTodo === 'function') renderTrainingTodo(); // run paces follow the 5km PB
+  } finally { _bestEffortsRunning = false; }
+}
+// Adds an entry to the PB progression log whenever a faster time turns up.
+function _logNewPBs() {
+  const log = getPBLog();
+  let changed = false;
+  Object.entries(PB_LOG_KEY).forEach(([label, key]) => {
+    const pb = getRunPB(label);
+    if (!pb) return;
+    const logged = log.map(e => e[key]).filter(v => v != null);
+    const bestLogged = logged.length ? Math.min(...logged) : Infinity;
+    if (pb.time < bestLogged) {
+      log.push({ date: pb.date || new Date().toLocaleDateString('en-CA'), dist_5k: null, dist_10k: null, hm: null, [key]: pb.time });
+      changed = true;
+    }
+  });
+  if (changed) {
+    log.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    localStorage.setItem('pb_log', JSON.stringify(log));
+    syncPush('pb_log', log);
+  }
+}
 const PBS = [
-  { label: '5km', current: '19:24', goal: '19:00', baseline: '25:00', unit: 'time' },
-  { label: '10km', current: '43:46', goal: '42:00', baseline: '55:00', unit: 'time' },
-  { label: 'Half Marathon', current: '1:35:14', goal: '1:30:00', baseline: '1:50:00', unit: 'time' },
+  { label: '5km', goal: '19:00', baseline: '25:00', unit: 'time' },
+  { label: '10km', goal: '42:00', baseline: '55:00', unit: 'time' },
+  { label: 'Half Marathon', goal: '1:30:00', baseline: '1:50:00', unit: 'time' },
 ];
 
 const LIFT_PBS = [
@@ -7626,6 +7713,7 @@ const timeToSec = t => {
 };
 
 function renderPBs() {
+  PBS.forEach(pb => { const r = getRunPB(pb.label); if (r) pb.current = _fmtPbTime(r.time); });
   setH('pb-cards', PBS.map(pb=>{
     let pct;
     if (pb.unit==='time') {
@@ -7718,11 +7806,14 @@ function _runClubProgress(curSec, baseSec, goalSec) {
   return { pct, remaining };
 }
 
-// Phil's 5km PB (19:24, set before the Strava history this app loads). Used
-// when no manual override is saved in this browser, so every device shows it.
-const KNOWN_5K_PB = { time: 19 * 60 + 24, date: null };
+// 5km PB: a manual entry saved in this browser if it's faster, otherwise the
+// automatic PB from getRunPB().
 function get5kPbOverride() {
-  try { return JSON.parse(localStorage.getItem('run_5k_pb_override')) || KNOWN_5K_PB; } catch { return KNOWN_5K_PB; }
+  const auto = getRunPB('5km');
+  let manual = null;
+  try { manual = JSON.parse(localStorage.getItem('run_5k_pb_override')); } catch {}
+  if (manual && (!auto || manual.time < auto.time)) return manual;
+  return auto ? { time: auto.time, date: auto.date, auto: true } : null;
 }
 function set5kPbOverride(minStr, secStr, dateStr) {
   const m = parseInt(minStr, 10), s = parseInt(secStr || '0', 10);
@@ -7738,6 +7829,19 @@ function clear5kPbOverride() {
 
 function renderRunningPBs(acts) {
   const data = computeRunningPBs(acts || _acts);
+  // Fold in the automatic PBs (Strava best efforts + known PBs) for every distance.
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 90);
+  const cutoffStr = cutoff.toLocaleDateString('en-CA');
+  data.dists.forEach(d => {
+    const pb = getRunPB(d.label);
+    if (pb && (!d.allTime || pb.time < d.allTime.time)) d.allTime = { time: pb.time, date: pb.date };
+    const effortName = PB_EFFORT_NAME[d.label];
+    Object.values(_bestEffortsCache()).forEach(e => {
+      const t = e && e.efforts && e.efforts[effortName];
+      if (t && e.date >= cutoffStr && (!d.current || d.isLastKnown || t < d.current.time)) { d.current = { time: t, date: e.date }; d.isLastKnown = false; }
+    });
+    if (!d.current && d.allTime) { d.current = d.allTime; d.isLastKnown = true; }
+  });
   // Apply manual override if faster than Strava-detected time
   const ov = get5kPbOverride();
   const fiveKData = data.dists.find(d => d.label === '5km');
@@ -7770,7 +7874,7 @@ function renderRunningPBs(acts) {
     </div>${rows}
     <div style="margin-top:8px;padding-top:8px;border-top:1px solid #FAF3EC;font-size:11px;color:#A6937F">
       ${ov
-        ? `Manual 5km PB: <strong>${fmtRaceTime(ov.time)}</strong>${ov.date ? ` (${fmtDate(ov.date)})` : ''} <button onclick="clear5kPbOverride()"${ov === KNOWN_5K_PB ? ' hidden' : ''} style="background:none;border:none;color:#A6937F;text-decoration:underline;cursor:pointer;font-size:11px;padding:0;margin-left:6px">Clear</button>`
+        ? `${ov.auto ? '5km PB' : 'Manual 5km PB'}: <strong>${fmtRaceTime(ov.time)}</strong>${ov.date ? ` (${fmtDate(ov.date)})` : ''} ${ov.auto ? ` <a href="javascript:void(0)" onclick="document.getElementById('pb-override-form').style.display='flex'" style="color:#A6937F;margin-left:6px">Set manually</a>` : `<button onclick="clear5kPbOverride()" style="background:none;border:none;color:#A6937F;text-decoration:underline;cursor:pointer;font-size:11px;padding:0;margin-left:6px">Clear</button>`}`
         : `<a href="javascript:void(0)" onclick="document.getElementById('pb-override-form').style.display='flex'" style="color:#A6937F">Set 5km PB manually</a>`}
       <div id="pb-override-form" style="display:none;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap">
         <input id="pb-override-min" type="number" min="0" placeholder="min" style="width:50px;border:1px solid #F0E1D2;border-radius:6px;padding:4px 6px;font-size:12px">
@@ -9562,20 +9666,6 @@ function renderWhoopStrain() {
   else pendingCharts['whoop-strain'] = buildStrainTrendChart;
 }
 
-// ── Health Monitor ───────────────────────────────────────────────────────
-// Surfaces a handful of background vitals (VO2 max, respiratory rate, blood
-// oxygen, wrist skin temperature) and flags anything that's drifted from its
-// own 30-day baseline — mirroring Whoop's "unusual change" alerts.
-function monitorRow(label, valueText, badgeHtml, tipKey) {
-  const tip = tipKey ? `<button class="info-i" data-t="${tipKey}" style="margin-left:2px">ⓘ</button>` : '';
-  return `<div class="whoop-contrib-row"><span class="wc-label">${label}${tip}</span><span class="wc-value">${valueText}</span>${badgeHtml || ''}</div>`;
-}
-function unusualBadge(isUnusual, unusualText) {
-  return isUnusual
-    ? `<span class="wc-trend" style="background:#fef2f2;color:#c53030">${unusualText || 'Unusual'}</span>`
-    : `<span class="wc-trend" style="background:#e6f4ea;color:#2d7a47">Normal</span>`;
-}
-
 let whoopWeightChart;
 function buildWhoopWeightChart() {
   const canvas = document.getElementById('whoop-weight-chart');
@@ -10934,6 +11024,7 @@ async function main() {
     }
 
     recomputeAllStreaks(); // Strava activities (cardio/strength) just arrived — stale streaks were computed before _acts existed
+    refreshBestEfforts(); // background: picks up new PBs from Strava best efforts
     renderHabits();
     renderHomeGoals();
 
@@ -11440,7 +11531,10 @@ function renderPRTracker() {
   rows.forEach(r => { (bySport[r.t.sport] = bySport[r.t.sport] || []).push(r); });
 
   let html = '';
-  const prOverrides = { 'Run_5 km': { time: '19:24' }, ...JSON.parse(localStorage.getItem('pr_overrides') || '{}') }; // 19:24 = Phil's 5km PB (predates the loaded Strava history)
+  const prOverrides = JSON.parse(localStorage.getItem('pr_overrides') || '{}');
+  // 5 km uses the automatic PB unless a manual time has been set.
+  const pb5 = getRunPB('5km');
+  if (!prOverrides['Run_5 km'] && pb5) prOverrides['Run_5 km'] = { time: _fmtPbTime(pb5.time), auto: true };
 
   Object.entries(bySport).forEach(([sport, sRows]) => {
     html += `<div style="margin-bottom:12px">
@@ -11449,7 +11543,7 @@ function renderPRTracker() {
         const overrideKey = `${sport}_${t.label}`;
         const override = prOverrides[overrideKey];
         const displayTime = override ? override.time : fmtTime(best.summary.moving_time);
-        const isOverridden = !!override;
+        const isOverridden = !!override && !override.auto;
         return `<div style="display:flex;align-items:center;padding:6px 0;border-bottom:1px solid #FFFBF6">
           <div style="font-size:13px;font-weight:600;min-width:70px">${t.label}</div>
           <div style="flex:1">
@@ -11550,11 +11644,12 @@ function renderLoadForecast() {
 // in sync if the percentages or labels ever change.
 function getHRZoneBounds(lthr) {
   return [
-    { label: 'Z1 Recovery',  min: 0,            max: lthr * 0.75, color: '#6b9e7a' },
-    { label: 'Z2 Aerobic',   min: lthr * 0.75,  max: lthr * 0.83, color: '#84cc16' },
-    { label: 'Z3 Tempo',     min: lthr * 0.83,  max: lthr * 0.91, color: '#f59e0b' },
-    { label: 'Z4 Threshold', min: lthr * 0.91,  max: lthr * 0.97, color: '#f97316' },
-    { label: 'Z5 VO₂',      min: lthr * 0.97,  max: Infinity,    color: '#ef4444' },
+    // Joe Friel's running zones (% of lactate-threshold HR).
+    { label: 'Z1 Recovery',  min: 0,            max: lthr * 0.85, color: '#6b9e7a' },
+    { label: 'Z2 Aerobic',   min: lthr * 0.85,  max: lthr * 0.90, color: '#84cc16' },
+    { label: 'Z3 Tempo',     min: lthr * 0.90,  max: lthr * 0.95, color: '#f59e0b' },
+    { label: 'Z4 Threshold', min: lthr * 0.95,  max: lthr * 1.00, color: '#f97316' },
+    { label: 'Z5 VO₂',      min: lthr * 1.00,  max: Infinity,    color: '#ef4444' },
   ];
 }
 
@@ -11564,6 +11659,13 @@ function getHRZoneBounds(lthr) {
 // to real data the moment it's synced, no manual toggle needed.
 const HR_ZONE_LABELS = ['Z1 Recovery', 'Z2 Aerobic', 'Z3 Tempo', 'Z4 Threshold', 'Z5 VO₂'];
 const HR_ZONE_COLORS = ['#6b9e7a', '#84cc16', '#f59e0b', '#f97316', '#ef4444'];
+// Threshold (lactate threshold) HR: the Planner-zones value if set, else
+// 180 bpm, estimated from the Swansea Half (7 Jun 2026, avg HR 177 over
+// 1:35:15 — a half-marathon effort sits just under threshold).
+const DEFAULT_THRESHOLD_HR = 180;
+function getThresholdHR() {
+  return (_plannerZones && _plannerZones.thresholdHR) || DEFAULT_THRESHOLD_HR;
+}
 function getEffectiveHRZones() {
   if (_stravaHRZones && _stravaHRZones.length === 5) {
     return _stravaHRZones.map((z, i) => ({
@@ -11573,8 +11675,7 @@ function getEffectiveHRZones() {
       max: (z.max == null || z.max <= 0) ? Infinity : z.max
     }));
   }
-  const lthr = (_plannerZones && _plannerZones.thresholdHR) || 170;
-  return getHRZoneBounds(lthr);
+  return getHRZoneBounds(getThresholdHR());
 }
 
 function renderHRZoneBreakdown() {
@@ -11637,10 +11738,10 @@ function renderRunHRZones() {
   if (_stravaHRZones && _stravaHRZones.length === 5) {
     note = `<div class="sub" style="margin-top:8px">Synced from your Strava heart rate zones.</div>`;
   } else {
-    const lthr = (_plannerZones && _plannerZones.thresholdHR) || null;
-    note = lthr
-      ? `<div class="sub" style="margin-top:8px">Estimated from your threshold HR of ${lthr} bpm.</div>`
-      : `<div class="sub" style="margin-top:8px;font-style:italic">No Strava zones synced yet — showing zones estimated from a default of 170 bpm. Reconnect Strava (Disconnect, then Connect with Strava again) to sync your real zones.</div>`;
+    const set = _plannerZones && _plannerZones.thresholdHR;
+    note = set
+      ? `<div class="sub" style="margin-top:8px">Estimated from your threshold HR of ${set} bpm.</div>`
+      : `<div class="sub" style="margin-top:8px">Estimated from a threshold HR of ${DEFAULT_THRESHOLD_HR} bpm (from your Swansea Half average HR). Set your own in Planner zones to change it.</div>`;
   }
   setH('run-hr-zones', rows + note);
 }
@@ -12836,7 +12937,42 @@ function calcOttawa() {
   const daysAgo = k => Math.round((new Date(today() + 'T12:00:00') - new Date(k + 'T12:00:00')) / DAY);
   const load = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch { return d; } };
   const store = (k, v) => { localStorage.setItem(k, JSON.stringify(v)); if (typeof syncPush === 'function') syncPush(k, v); };
-  const items = () => load('wardrobe_items', []).filter(i => i && i.id);
+  // Running shoes are built in and linked to Strava gear for mileage. They
+  // only exist in code until edited (photo, notes…) — saving one stores it in
+  // wardrobe_items under the same id, which then takes over. This avoids
+  // writing to the synced list before the remote copy has been pulled.
+  const RUNNING_SHOES = [
+    { id: 'shoe-ghost17',    name: 'Brooks Ghost 17',         stravaGearId: '27251126', notes: 'Easy runs · size 10' },
+    { id: 'shoe-superblast', name: 'ASICS Superblast',        stravaGearId: '34388082', notes: 'Speed, tempo and long runs' },
+    { id: 'shoe-adiospro4',  name: 'Adidas Adizero Adios Pro 4', stravaGearId: '31561635', notes: 'Race shoe · size 10.5' },
+  ].map(s => ({ category: 'Shoes', colour: '', warmth: 3, formality: 1, occasions: ['Gym'], ...s }));
+  const items = () => {
+    const stored = load('wardrobe_items', []).filter(i => i && i.id);
+    const have = new Set(stored.map(i => i.id));
+    return [...stored, ...RUNNING_SHOES.filter(s => !have.has(s.id))];
+  };
+  // Running shoes stay out of everyday outfit suggestions.
+  const outfitItems = () => activeItems().filter(i => !i.stravaGearId);
+
+  // Strava gear distance (km) for linked shoes, fetched once per load.
+  let _gearKm = load('strava_gear_km', {});
+  let _gearFetched = false;
+  async function fetchGearKm() {
+    if (_gearFetched) return; _gearFetched = true;
+    const tokens = typeof getTokens === 'function' ? getTokens() : null;
+    if (!tokens || !tokens.access_token) return;
+    const ids = [...new Set(items().map(i => i.stravaGearId).filter(Boolean))];
+    let changed = false;
+    await Promise.all(ids.map(async id => {
+      try {
+        const res = await fetch(`${API}/strava-auth?action=proxy&path=${encodeURIComponent('/gear/' + id)}&access_token=${encodeURIComponent(tokens.access_token)}`);
+        const g = await res.json();
+        if (res.ok && g && typeof g.distance === 'number') { _gearKm[id] = Math.round(g.distance / 1000); changed = true; }
+      } catch {}
+    }));
+    if (changed) { try { localStorage.setItem('strava_gear_km', JSON.stringify(_gearKm)); } catch {} renderGrid(); }
+  }
+  const gearKm = it => (it && it.stravaGearId && _gearKm[it.stravaGearId] != null) ? _gearKm[it.stravaGearId] : null;
   const activeItems = () => items().filter(i => !i.archived);
   const wears = () => load('wardrobe_wears', {});
   const byId = () => Object.fromEntries(items().map(i => [i.id, i]));
@@ -12922,7 +13058,7 @@ function calcOttawa() {
   function occasion() { return load('wardrobe_occasion', 'Casual'); }
 
   function ruleSuggest(occ, w, exclude = []) {
-    const list = activeItems(), idx = wearIndex(), tw = targetWarmth(w), tf = OCC_FORMALITY[occ] || 2;
+    const list = outfitItems(), idx = wearIndex(), tw = targetWarmth(w), tf = OCC_FORMALITY[occ] || 2;
     const sporty = occ === 'Gym' || occ === 'Football';
     const score = it => {
       let s = 0;
@@ -12959,7 +13095,7 @@ function calcOttawa() {
 
   async function aiSuggest(occ, w, exclude = []) {
     const idx = wearIndex();
-    const list = activeItems().map(i => ({ id: i.id, name: i.name, category: i.category, colour: i.colour || '', warmth: i.warmth || 3, formality: i.formality || 2, occasions: i.occasions || [], lastWorn: (idx[i.id] && idx[i.id].last) || 'never' }));
+    const list = outfitItems().map(i => ({ id: i.id, name: i.name, category: i.category, colour: i.colour || '', warmth: i.warmth || 3, formality: i.formality || 2, occasions: i.occasions || [], lastWorn: (idx[i.id] && idx[i.id].last) || 'never' }));
     const prompt = `You are picking today's outfit from the user's own wardrobe. Use ONLY item ids from the list.
 Occasion: ${occ}. Today is ${today()}.
 Weather in Swansea: ${w ? `now ${w.now}°C, high ${w.max}°C, low ${w.min}°C, ${w.rain}% chance of rain, wind ${w.wind} km/h` : 'unknown'}.
@@ -12979,7 +13115,7 @@ Wardrobe: ${JSON.stringify(list)}`;
     const occ = occasion(), w = weatherNow(), key = today() + '|' + occ;
     const cached = getSug(key);
     if (!force && cached) return renderToday();
-    if (activeItems().length < 2) return renderToday();
+    if (outfitItems().length < 2) return renderToday();
     _busy = true; renderToday();
     const exclude = force && cached ? cached.itemIds : [];
     let s;
@@ -12996,7 +13132,7 @@ Wardrobe: ${JSON.stringify(list)}`;
     const head = `<div class="fx-head"><span style="font-size:16px">✨</span><span>Today's outfit</span></div>`;
     const wx = w ? `<div class="wd-weather"><b>${Math.round(w.now)}°C</b> now · ${Math.round(w.min)}–${Math.round(w.max)}°C · ${w.rain != null ? w.rain + '% rain' : ''}</div>` : `<div class="wd-weather">Weather unavailable right now</div>`;
     const chips = `<div class="wd-chips" style="margin:12px 0 0">${OCCASIONS.map(o => `<button class="wd-chip${o === occ ? ' on' : ''}" onclick="wdSetOccasion('${o}')">${esc(o)}</button>`).join('')}</div>`;
-    if (activeItems().length < 2) {
+    if (outfitItems().length < 2) {
       el.innerHTML = head + wx + `<div class="fx-empty" style="margin-top:10px">Add a few items (at least a top, bottoms and shoes) and I'll suggest an outfit for the weather and what you're doing.</div><div class="wd-actions"><button class="wd-btn wd-btn-primary" onclick="wdOpenItem()">＋ Add your first item</button></div>`;
       return;
     }
@@ -13053,7 +13189,7 @@ Wardrobe: ${JSON.stringify(list)}`;
     const shown = list.filter(i => filter === 'All' || i.category === filter).sort((a, b) => CATS.indexOf(a.category) - CATS.indexOf(b.category) || a.name.localeCompare(b.name));
     g.innerHTML = shown.length ? shown.map(it => {
       const x = idx[it.id];
-      return `<button class="wd-item" onclick="wdOpenItem('${it.id}')">${photoHtml(it)}<div class="wd-item-body"><div class="wd-item-name">${esc(it.name)}</div><div class="wd-item-meta">${x ? `${x.count}× · last ${fmtD(x.last)}` : 'Not worn yet'}</div></div></button>`;
+      return `<button class="wd-item" onclick="wdOpenItem('${it.id}')">${photoHtml(it)}<div class="wd-item-body"><div class="wd-item-name">${esc(it.name)}</div><div class="wd-item-meta">${gearKm(it) != null ? `${gearKm(it).toLocaleString()} km on Strava` : it.stravaGearId ? 'Mileage loading…' : x ? `${x.count}× · last ${fmtD(x.last)}` : 'Not worn yet'}</div></div></button>`;
     }).join('') : `<div class="card fx-card" style="grid-column:1/-1"><div class="fx-empty">No clothes added yet. Tap <b>＋ Add item</b> and take a photo; I'll fill in the details for you to check.</div></div>`;
     const cnt = $('wd-count'); if (cnt) cnt.textContent = `${list.length} item${list.length === 1 ? '' : 's'}`;
   }
@@ -13070,7 +13206,7 @@ Wardrobe: ${JSON.stringify(list)}`;
     }).join('') : '<div class="fx-empty">No outfits logged yet. Use "I wore this" on today\'s suggestion, or log what you actually wore.</div>';
   }
 
-  function wdRender() { renderToday(); renderStats(); renderGrid(); renderHistory(); }
+  function wdRender() { renderToday(); renderStats(); renderGrid(); renderHistory(); fetchGearKm(); }
   window.wdRender = wdRender;
 
   // ── actions ──────────────────────────────────────────────────────────────
@@ -13114,7 +13250,7 @@ Wardrobe: ${JSON.stringify(list)}`;
     openSheet(`<h3>${id ? 'Edit item' : 'Add an item'} <button onclick="wdClose()" aria-label="Close">✕</button></h3>
       <div class="wd-pick"><div id="wd-prev">${photoHtml(it)}</div>
         <div><label class="wd-btn" style="display:inline-block">${it.photoId ? 'Replace photo' : 'Take or choose photo'}<input type="file" accept="image/*" capture="environment" style="display:none" onchange="wdPhoto(this)"></label>
-        <div class="wd-status" id="wd-status">${id ? (x ? `Worn ${x.count}× · last ${fmtD(x.last)}` : 'Not worn yet') : 'Add a photo and I\'ll fill in the details for you to check.'}</div></div></div>
+        <div class="wd-status" id="wd-status">${gearKm(it) != null ? `${gearKm(it).toLocaleString()} km logged on Strava` : id ? (x ? `Worn ${x.count}× · last ${fmtD(x.last)}` : 'Not worn yet') : 'Add a photo and I\'ll fill in the details for you to check.'}</div></div></div>
       <div class="wd-field"><label>Name</label><input type="text" id="wd-name" value="${esc(it.name)}" placeholder="e.g. Navy merino jumper"></div>
       <div class="wd-2col">
         <div class="wd-field"><label>Category</label><select id="wd-cat">${CATS.map(c => `<option${c === it.category ? ' selected' : ''}>${c}</option>`).join('')}</select></div>
@@ -13182,7 +13318,14 @@ Reply with JSON only: {"name": "short name with colour, e.g. 'Navy merino jumper
   window.wdDeleteItem = id => {
     const it = byId()[id]; if (!it) return;
     if (!confirm(`Delete "${it.name}"? Past outfits that included it will show it as removed.`)) return;
-    store('wardrobe_items', load('wardrobe_items', []).filter(x => x.id !== id));
+    if (RUNNING_SHOES.some(s => s.id === id)) {
+      // Built-in shoes would reappear if simply removed, so keep a hidden copy.
+      const all = load('wardrobe_items', []).filter(x => x.id !== id);
+      all.push({ ...it, archived: true, updatedAt: Date.now() });
+      store('wardrobe_items', all);
+    } else {
+      store('wardrobe_items', load('wardrobe_items', []).filter(x => x.id !== id));
+    }
     if (it.photoId) fetch(photoUrl(it.photoId), { method: 'DELETE' }).catch(() => {});
     closeSheet(); localStorage.removeItem(SUG_KEY); wdRender();
   };
