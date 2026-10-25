@@ -431,6 +431,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
           <option value="someday">⚫</option>
           <option value="dashboard">🟣</option>
         </select>
+        <input id="dash-task-date" type="date" title="Top priority for a specific day (optional)" style="border:1px solid #F0E1D2;border-radius:8px;padding:4px 4px;font-size:11px;font-family:inherit;color:#4A3B2E;max-width:112px;flex-shrink:0">
         <input id="dash-task-input" type="text" placeholder="Add task…"
           autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
           onkeydown="if(event.key==='Enter')addTaskFromDash()"
@@ -1530,7 +1531,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
   <div style="width:10px;height:10px;border-radius:50%;background:#B0700A;flex-shrink:0"></div>
   <div style="flex:1">
     <div style="font-size:15px;font-weight:700">🎯 Top Priority</div>
-    <div style="font-size:11px;color:#A6937F">The one thing that matters most today — only one at a time</div>
+    <div style="font-size:11px;color:#A6937F">The one thing that matters most — one per day. Pick a date to plan a day ahead.</div>
   </div>
   <span id="tasks-count-top" style="background:#FFEFC2;color:#B0700A;border-radius:99px;padding:2px 9px;font-size:11px;font-weight:700;min-width:20px;text-align:center"></span>
 </div>
@@ -1540,6 +1541,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
     <input id="tasks-input-top" type="text" placeholder="What's the one thing today?"
       onkeydown="if(event.key==='Enter')addTask('top')"
       style="flex:1;border:1.5px solid #F0C766;border-radius:8px;padding:7px 10px;font-size:13px;outline:none;font-family:inherit">
+    <input id="tasks-date-top" type="date" title="Day (leave empty for today)" style="border:1.5px solid #F0C766;border-radius:8px;padding:5px 6px;font-size:12px;font-family:inherit;color:#4A3B2E;max-width:140px">
     <button onclick="addTask('top')" style="background:#B0700A;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:16px;font-weight:700;cursor:pointer;line-height:1">+</button>
   </div>
 </div>
@@ -2632,12 +2634,17 @@ function saveTasks(items) { localStorage.setItem('tasks_priority', JSON.stringif
 // Shared by addTask() and addTaskFromDash() so the "only one active top
 // task" rule can't be bypassed by adding from the Home quick-add widget.
 // For every other tier this is just a normal push.
-function _addTaskItem(items, text, priority) {
+// Top priority can be set for a specific day (forDate, YYYY-MM-DD) — one per
+// day, so future days can be planned ahead (e.g. laundry on Thursday). An
+// undated top task is the everyday one and is replaced when a new one is added.
+function _addTaskItem(items, text, priority, forDate) {
   if (priority === 'top') {
-    const existing = items.find(t => t.priority === 'top' && !t.done);
+    const existing = items.find(t => t.priority === 'top' && !t.done && (forDate ? t.forDate === forDate : !t.forDate));
     if (existing) { existing.text = text; existing.createdAt = new Date().toISOString(); return; }
   }
-  items.push({ id: 'tk'+Date.now(), text, priority, done: false, createdAt: new Date().toISOString() });
+  const item = { id: 'tk'+Date.now(), text, priority, done: false, createdAt: new Date().toISOString() };
+  if (priority === 'top' && forDate) item.forDate = forDate;
+  items.push(item);
 }
 
 function addTask(priority) {
@@ -2645,7 +2652,9 @@ function addTask(priority) {
   const text = (input?.value||'').trim();
   if (!text) return;
   const items = getTasks();
-  _addTaskItem(items, text, priority);
+  const dateEl = priority === 'top' ? document.getElementById('tasks-date-top') : null;
+  _addTaskItem(items, text, priority, dateEl && dateEl.value ? dateEl.value : null);
+  if (dateEl) dateEl.value = '';
   saveTasks(items);
   if (input) input.value = '';
   renderTasks();
@@ -2653,10 +2662,29 @@ function addTask(priority) {
 
 // Most-recently-created 'top' task, regardless of done state — used to drive
 // the Home dashboard card and the "Top priority" habit-list row.
-function getCurrentTopTask() {
+// The top priority for a day: one set for that date wins; otherwise (today
+// only) the latest undated top task.
+function getTopTaskForDate(ds) {
   const tops = getTasks().filter(t => t.priority === 'top');
-  if (!tops.length) return null;
-  return tops.slice().sort((a, b) => (a.createdAt||'').localeCompare(b.createdAt||'')).pop();
+  const latest = arr => arr.slice().sort((a, b) => (a.createdAt||'').localeCompare(b.createdAt||'')).pop() || null;
+  const dated = latest(tops.filter(t => t.forDate === ds));
+  if (dated) return dated;
+  return ds === new Date().toLocaleDateString('en-CA') ? latest(tops.filter(t => !t.forDate)) : null;
+}
+function getCurrentTopTask() {
+  return getTopTaskForDate(new Date().toLocaleDateString('en-CA'));
+}
+function getUpcomingTopTasks(n = 3) {
+  const today = new Date().toLocaleDateString('en-CA');
+  return getTasks().filter(t => t.priority === 'top' && !t.done && t.forDate && t.forDate > today)
+    .sort((a, b) => a.forDate.localeCompare(b.forDate)).slice(0, n);
+}
+function _topDateLabel(ds) {
+  const today = new Date().toLocaleDateString('en-CA');
+  const tm = new Date(); tm.setDate(tm.getDate() + 1);
+  if (ds === today) return 'Today';
+  if (ds === tm.toLocaleDateString('en-CA')) return 'Tomorrow';
+  return new Date(ds + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
 function toggleTask(id) {
@@ -2685,7 +2713,7 @@ function moveTask(id, dir) {
   if (newPriority === 'top') {
     // Escalating a task into 'top' via the ↑ button is still subject to the
     // one-active-task cap — bump whatever's already there back to Critical.
-    const existing = items.find(x => x.id !== id && x.priority === 'top' && !x.done);
+    const existing = items.find(x => x.id !== id && x.priority === 'top' && !x.done && !x.forDate);
     if (existing) existing.priority = 'critical';
   }
   t.priority = newPriority;
@@ -3095,9 +3123,11 @@ function addTaskFromDash() {
   if (!text) return;
   const priority = prioEl?.value || 'top';
   const items    = getTasks();
-  _addTaskItem(items, text, priority);
+  const dateEl   = document.getElementById('dash-task-date');
+  _addTaskItem(items, text, priority, priority === 'top' && dateEl && dateEl.value ? dateEl.value : null);
   saveTasks(items);
   if (input) input.value = '';
+  if (dateEl) dateEl.value = '';
   renderDashTasks();
   renderTasks();
 }
@@ -3128,8 +3158,11 @@ function renderDashTasks() {
   // 'top' is capped at one active task — this card just shows that one task
   // (replaces the old top-3-critical-tasks list).
   const t = getCurrentTopTask();
+  const upcoming = getUpcomingTopTasks(3);
+  const upHtml = upcoming.length
+    ? `<div style="font-size:11px;color:#A6937F;margin-top:2px">Coming up: ${upcoming.map(u => `<span style="white-space:nowrap">${escHtml(u.text)} · ${_topDateLabel(u.forDate)}</span>`).join(' &nbsp;|&nbsp; ')}</div>` : '';
   if (!t || t.done) {
-    el.innerHTML = `<div style="color:#bbb;padding:8px 0;font-size:13px">Set your top priority below ↓</div>`;
+    el.innerHTML = `<div style="color:#bbb;padding:8px 0;font-size:13px">${t && t.done ? '✓ Today\'s top priority is done' : 'Set your top priority below ↓'}</div>${upHtml}`;
     return;
   }
   el.innerHTML = `
@@ -3141,7 +3174,7 @@ function renderDashTasks() {
       </div>
       <input type="checkbox" onclick="toggleTask('${t.id}');setTimeout(()=>{renderDashTasks();renderTasks();renderHabits();},50)"
         style="width:15px;height:15px;cursor:pointer;flex-shrink:0;accent-color:${TASK_TIER_COLORS.top}">
-    </div>`;
+    </div>${upHtml}`;
 }
 
 function renderTasks() {
@@ -3159,8 +3192,11 @@ function renderTasks() {
     const listEl = document.getElementById(`tasks-list-${priority}`);
     if (!listEl) return;
 
+    const todayKey = new Date().toLocaleDateString('en-CA');
+    const topRank = t => !t.forDate ? 1 : t.forDate === todayKey ? 0 : t.forDate > todayKey ? 2 : 3;
     const sorted = [...tierItems].sort((a, b) => {
       if (a.done !== b.done) return a.done - b.done;
+      if (priority === 'top') { const d = topRank(a) - topRank(b); if (d) return d; if (a.forDate && b.forDate) return a.forDate.localeCompare(b.forDate); }
       if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
       if (a.dueDate) return -1;
       if (b.dueDate) return 1;
@@ -3191,13 +3227,14 @@ function renderTasks() {
             style="width:16px;height:16px;flex-shrink:0;cursor:pointer;accent-color:${color}">
           <span style="flex:1;font-size:13px;user-select:text;${t.done?'text-decoration:line-through;color:#bbb':''}">${escHtml(t.text)}</span>
           ${subBadge}
-          ${taskDueDateChip(t)}
+          ${priority === 'top' && t.forDate ? `<span style="font-size:10px;font-weight:700;border-radius:99px;padding:2px 7px;background:${t.forDate < todayKey && !t.done ? '#fee2e2' : '#FFEFC2'};color:${t.forDate < todayKey && !t.done ? '#b91c1c' : '#B0700A'}">📌 ${_topDateLabel(t.forDate)}</span>` : ''}
+          ${priority === 'top' ? '' : taskDueDateChip(t)}
           ${pi > 0 ? `<button onclick="moveTask('${t.id}',-1)" title="Escalate" style="background:none;border:none;cursor:pointer;color:#A6937F;font-size:14px;padding:2px 3px;line-height:1">↑</button>` : ''}
           ${pi < 3 ? `<button onclick="moveTask('${t.id}',1)" title="Defer" style="background:none;border:none;cursor:pointer;color:#A6937F;font-size:14px;padding:2px 3px;line-height:1">↓</button>` : ''}
-          <span style="position:relative;display:inline-flex;align-items:center">
+          ${priority === 'top' ? '' : `<span style="position:relative;display:inline-flex;align-items:center">
             <button onclick="openTaskDatePicker('${t.id}')" title="Set due date" style="background:none;border:none;cursor:pointer;color:#A6937F;font-size:12px;padding:2px 3px;line-height:1">📅</button>
             <input type="date" id="task-date-${t.id}" value="${t.dueDate||''}" onchange="setTaskDueDate('${t.id}',this.value)" style="position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;border:none;padding:0">
-          </span>
+          </span>`}
           <button onclick="deleteTask('${t.id}')" style="background:none;border:none;cursor:pointer;color:#E8D8C6;font-size:13px;padding:2px 4px;line-height:1">✕</button>
           <button onclick="toggleSubtaskPanel('${t.id}')" title="Subtasks" style="background:none;border:none;cursor:pointer;color:#A6937F;font-size:14px;padding:2px 3px;line-height:1">${subs.length ? '⌄' : '⊕'}</button>
         </div>
@@ -3447,9 +3484,9 @@ function getAutoHabitStateOnDate(dateStr) {
   // based on whichever 'top' task was most recently created.
   const todayStr = new Date().toLocaleDateString('en-CA');
   let topDone = false;
-  if (dateStr === todayStr && typeof getCurrentTopTask === 'function') {
-    const latestTop = getTasks().filter(t => t.priority === 'top').sort((a, b) => (a.createdAt||'').localeCompare(b.createdAt||'')).pop();
-    topDone = !!(latestTop && latestTop.done);
+  if (typeof getTopTaskForDate === 'function') {
+    const tt = getTopTaskForDate(dateStr);
+    topDone = !!(tt && tt.done);
   }
   return {
     'h-steps':    steps  != null && steps  >= 10000,
