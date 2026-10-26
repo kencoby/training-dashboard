@@ -1660,7 +1660,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
       <button onclick="shiftPlanWeek(1)" aria-label="Next week" style="border:1px solid #F0E1D2;background:#fff;border-radius:6px;width:28px;height:28px;cursor:pointer">›</button>
     </div>
   </div>
-  <div class="sub" id="plan-legend" style="margin-bottom:10px">Your calendar plus suggested times for training and revision (dashed). Placement counts as 09:00–14:00 unless a mandatory session runs later (then until it ends + 1h travel); optional teaching doesn't block time.</div>
+  <div class="sub" id="plan-legend" style="margin-bottom:10px">Your calendar plus suggested times for training and revision (dashed). Placement counts as 07:50 (leaving home) to 14:00, unless a mandatory session runs later (then until it ends + 1h travel); optional teaching doesn't block time.</div>
   <div id="plan-days"></div>
 </div>
 </div>
@@ -4178,6 +4178,7 @@ const STUDY_DAY = { start: 7 * 60, end: 22 * 60, mealsAdmin: 120, perSession: 60
 // hour to get home. Optional teaching is shown but doesn't block time. Shifts
 // get 30 min travel either side.
 const PLACEMENT_FREE_FROM = 14 * 60;
+const PLACEMENT_LEAVE_AT = 7 * 60 + 50; // leaves home 07:50 for a 09:00 start
 const _isMainPlacement = e => e.kind === 'placement' && /placement/i.test(e.title || '');
 const _isOptional = e => /\(optional|optional\)|optional,/i.test(e.title || '');
 function getBusyBlocks(ds) {
@@ -4188,7 +4189,7 @@ function getBusyBlocks(ds) {
     if (_isMainPlacement(e)) {
       const lateMand = mandatory.filter(m => m.e > PLACEMENT_FREE_FROM).reduce((mx, m) => Math.max(mx, m.e), 0);
       const end = lateMand ? lateMand + 60 : Math.min(e.e, PLACEMENT_FREE_FROM);
-      out.push({ s: e.s - 30, e: end, title: e.title, kind: 'placement', note: (lateMand ? `until ${_hm(lateMand)} + travel home` : 'free from 14:00') + ' · incl. 30 min travel in' });
+      out.push({ s: Math.min(e.s, PLACEMENT_LEAVE_AT), e: end, title: e.title, kind: 'placement', note: `leave 07:50 · ${lateMand ? `until ${_hm(lateMand)} + travel home` : 'free from 14:00'}` });
     } else if (_isOptional(e)) {
       out.push({ s: e.s, e: e.e, title: e.title, kind: e.kind, optional: true });
     } else if (e.kind === 'shift') {
