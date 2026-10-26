@@ -1670,6 +1670,10 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
       <button onclick="shiftPlanWeek(1)" aria-label="Next week" style="border:1px solid #F0E1D2;background:#fff;border-radius:6px;width:28px;height:28px;cursor:pointer">›</button>
     </div>
   </div>
+  <div id="cal-sync-bar" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+    <button id="cal-sync-btn" onclick="gcalSyncNow()" style="border:1px solid #F0E1D2;background:#fff;border-radius:999px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text)">🔄 Sync calendar now</button>
+    <span id="cal-sync-status" class="sub" style="margin:0"></span>
+  </div>
   <div class="sub" id="plan-legend" style="margin-bottom:10px">Your calendar plus suggested times for training and revision (dashed). Placement counts as 07:50 (leaving home) to 14:00, unless a mandatory session runs later (then until it ends + 1h travel); optional teaching doesn't block time.</div>
   <div id="plan-days"></div>
 </div>
@@ -4257,12 +4261,47 @@ async function loadLiveCalendar() {
     // Old probe format (summary/ISO times) is ignored; only the sync script's format is used.
     _liveCal = evs.filter(e => e && e.date && e.title).map(e => ({ ...e, kind: _calKind(e) }));
     window._liveCalSyncedAt = j.updatedAt || null;
+    if (typeof renderGcalSyncStatus === 'function') renderGcalSyncStatus();
     if (typeof renderTrainingCalendar === 'function') renderTrainingCalendar(_acts);
     if (typeof renderUkmlaPlan === 'function') renderUkmlaPlan();
     if (typeof renderDailyBriefing === 'function') renderDailyBriefing();
     if (typeof renderCalendarTab === 'function') renderCalendarTab();
   } catch {}
 }
+// "Sync now": asks the calendar Apps Script to push fresh events (via
+// /api/gcal-sync), then reloads them. Shows when the calendar last synced.
+function renderGcalSyncStatus(msg, isError) {
+  const el = document.getElementById('cal-sync-status');
+  if (!el) return;
+  if (msg) { el.textContent = msg; el.style.color = isError ? 'var(--danger)' : ''; return; }
+  const t = window._liveCalSyncedAt;
+  if (!t) { el.textContent = 'Not synced yet'; el.style.color = ''; return; }
+  const mins = Math.round((Date.now() - t) / 60000);
+  const ago = mins < 1 ? 'just now' : mins < 60 ? `${mins} min ago` : mins < 48 * 60 ? `${Math.round(mins / 60)} h ago` : `${Math.round(mins / 1440)} days ago`;
+  const when = new Date(t).toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  el.textContent = `Last synced ${when} (${ago})${mins > 120 ? '. Hourly sync looks stuck' : ''}`;
+  el.style.color = mins > 120 ? '#b45309' : '';
+}
+async function gcalSyncNow() {
+  const btn = document.getElementById('cal-sync-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '🔄 Syncing…'; }
+  renderGcalSyncStatus('Asking Google Calendar for your latest events…');
+  try {
+    const r = await fetch('/api/gcal-sync', { method: 'POST' });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok) throw new Error(j.error || `Sync failed (${r.status})`);
+    await loadLiveCalendar();
+    renderGcalSyncStatus();
+    const el = document.getElementById('cal-sync-status');
+    if (el) el.textContent = `Synced ${j.events} events just now`;
+  } catch (e) {
+    renderGcalSyncStatus(e.message, true);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 Sync calendar now'; }
+  }
+}
+setInterval(() => { const el = document.getElementById('cal-sync-status'); if (el && !el.style.color.includes('danger') && !/Syncing|Asking|Synced \d/.test(el.textContent)) renderGcalSyncStatus(); }, 60000);
+
 const _toMin = t => { if (!t) return null; const [hh, mm] = t.split(':').map(Number); return hh * 60 + (mm || 0); };
 // Timed events on a date (live calendar + placement seed), excluding training imports.
 function getDayEvents(ds) {

@@ -17,6 +17,17 @@
  *      That sends your events now and installs an hourly trigger.
  *
  * Run `syncCalendars` any time to send events straight away.
+ *
+ * "Sync now" button on the dashboard's Calendar page (optional)
+ *   4. Deploy → New deployment → type "Web app". Execute as: Me, Who has
+ *      access: Anyone. Deploy and copy the Web app URL (ends in /exec).
+ *   5. In Cloudflare Pages → training-dashboard → Settings → Variables and
+ *      secrets, add GCAL_SCRIPT_URL with that URL, then redeploy.
+ *   The button calls the dashboard, which calls this URL server-side, so the
+ *   URL never reaches the browser. All it can do is run the same sync as the
+ *   hourly trigger (no calendar data is returned), at most once every 20 s.
+ *   After editing this file later: Deploy → Manage deployments → edit →
+ *   New version, so the URL stays the same.
  */
 const DASHBOARD_URL = 'https://training-dashboard-5qr.pages.dev';
 const TZ = 'Europe/London';
@@ -29,6 +40,26 @@ function setup() {
     .forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('syncCalendars').timeBased().everyHours(1).create();
   syncCalendars();
+}
+
+// Called by the dashboard's "Sync now" button (via /api/gcal-sync).
+function doPost() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) return out_({ ok: false, error: 'A sync is already running, try again in a moment' });
+  try {
+    const cache = CacheService.getScriptCache();
+    if (cache.get('manual-sync')) return out_({ ok: false, error: 'Synced a few seconds ago, try again shortly' });
+    cache.put('manual-sync', '1', 20);
+    return out_(syncCalendars());
+  } catch (err) {
+    return out_({ ok: false, error: String(err && err.message || err) });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function out_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
 function syncCalendars() {
@@ -61,5 +92,9 @@ function syncCalendars() {
     payload: JSON.stringify({ date: fmt(now, 'yyyy-MM-dd'), timezone: TZ, events: events }),
     muteHttpExceptions: true,
   });
-  Logger.log('Sent ' + events.length + ' events → ' + res.getResponseCode() + ' ' + res.getContentText().slice(0, 200));
+  const status = res.getResponseCode();
+  Logger.log('Sent ' + events.length + ' events → ' + status + ' ' + res.getContentText().slice(0, 200));
+  return status === 200
+    ? { ok: true, events: events.length }
+    : { ok: false, events: events.length, error: 'Dashboard rejected the update (' + status + '): ' + res.getContentText().slice(0, 200) };
 }
