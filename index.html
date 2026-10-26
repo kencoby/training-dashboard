@@ -2710,16 +2710,74 @@ function _topDateLabel(ds) {
   return new Date(ds + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
+// ── Task timing ───────────────────────────────────────────────────────────
+// Chained chores: ticking one step creates the next, available after the wait
+// (e.g. wash cycle 1h30 → hang to dry → put away next day). The planner only
+// fits a step once it's available, and pencils the next step in after the wait.
+const TASK_CHAINS = [
+  { key: 'laundry', match: /\b(laundry|washing|wash (my )?clothes)\b/i, steps: [
+    { text: 'Put a wash on', dur: 10 },
+    { text: 'Hang clothes to dry', dur: 10, after: 90, why: 'wash cycle' },
+    { text: 'Put clothes away', dur: 10, nextDay: true, why: 'drying on the airer' },
+  ] },
+  { key: 'mealprep', match: /\b(meal ?prep|batch ?cook)/i, steps: [
+    { text: 'Meal prep — cook', dur: 60 },
+    { text: 'Portion meal prep into containers', dur: 15, after: 60, why: 'cooling' },
+  ] },
+];
+const TASK_DUR_GUESS = [[/dish|wash(ing)? up/i, 15], [/hoover|vacuum/i, 20], [/\bbins?\b/i, 5], [/shop|groceries/i, 45], [/clean|tidy/i, 30], [/email|reply|call|book/i, 15], [/form|application|portfolio/i, 45]];
+function _taskChain(t) {
+  if (t.chain) { const c = TASK_CHAINS.find(c => c.key === t.chain); return c ? { chain: c, step: t.step || 0 } : null; }
+  const c = TASK_CHAINS.find(c => c.match.test(t.text || ''));
+  return c ? { chain: c, step: 0 } : null;
+}
+function taskDuration(t) {
+  if (t.durationMin) return t.durationMin;
+  const ch = _taskChain(t);
+  if (ch) return ch.chain.steps[ch.step].dur;
+  const g = TASK_DUR_GUESS.find(([re]) => re.test(t.text || ''));
+  return g ? g[1] : 30;
+}
+const TASK_DUR_STEPS = [5, 10, 15, 20, 30, 45, 60, 90, 120];
+function cycleTaskDuration(id) {
+  const items = getTasks(); const t = items.find(x => x.id === id); if (!t) return;
+  const cur = taskDuration(t);
+  t.durationMin = TASK_DUR_STEPS[(TASK_DUR_STEPS.findIndex(m => m >= cur) + 1) % TASK_DUR_STEPS.length] || 30;
+  saveTasks(items); renderTasks(); _refreshPlan();
+}
+// When can this task next be done? (minutes on ds, or Infinity if not yet that day)
+function taskAvailableOn(t, ds) {
+  if (!t.availableAt) return 0;
+  const a = new Date(t.availableAt), ads = a.toLocaleDateString('en-CA');
+  if (ads < ds) return 0;
+  if (ads > ds) return Infinity;
+  return a.getHours() * 60 + a.getMinutes();
+}
+function _chainFollowUp(items, t) {
+  const ch = _taskChain(t);
+  if (!ch || ch.step + 1 >= ch.chain.steps.length) return;
+  const next = ch.chain.steps[ch.step + 1];
+  if (items.some(x => x.parentId === t.id)) return;
+  const at = new Date();
+  if (next.nextDay) { at.setDate(at.getDate() + 1); at.setHours(0, 0, 0, 0); } else at.setMinutes(at.getMinutes() + (next.after || 0));
+  items.push({ id: 'tk' + Date.now() + 'c', text: next.text, priority: t.priority === 'top' ? 'critical' : t.priority, done: false,
+    createdAt: new Date().toISOString(), chain: ch.chain.key, step: ch.step + 1, parentId: t.id, availableAt: at.toISOString() });
+}
+function _refreshPlan() { try { if (typeof renderDailyBriefing === 'function') renderDailyBriefing(); } catch {} try { if (typeof renderCalendarTab === 'function') renderCalendarTab(); } catch {} }
+
 function toggleTask(id) {
-  const items = getTasks();
+  let items = getTasks();
   const t = items.find(t => t.id === id);
   if (t) {
     t.done = !t.done;
     t.doneAt = t.done ? new Date().toISOString() : null;
     if (t.subtasks && t.subtasks.length) t.subtasks.forEach(s => s.done = t.done);
+    if (t.done) _chainFollowUp(items, t);
+    else items = items.filter(x => !(x.parentId === t.id && !x.done)); // unticked: drop the pending next step
   }
   saveTasks(items);
   renderTasks();
+  _refreshPlan();
 }
 
 function deleteTask(id) {
@@ -3250,6 +3308,8 @@ function renderTasks() {
           <input type="checkbox" ${t.done?'checked':''} onclick="toggleTask('${t.id}')"
             style="width:16px;height:16px;flex-shrink:0;cursor:pointer;accent-color:${color}">
           <span style="flex:1;font-size:13px;user-select:text;${t.done?'text-decoration:line-through;color:#bbb':''}">${escHtml(t.text)}</span>
+          ${!t.done && t.availableAt && new Date(t.availableAt) > new Date() ? `<span style="font-size:10px;font-weight:700;border-radius:99px;padding:2px 7px;background:#F2F2F7;color:#7A6656" title="Next step of a chained chore">⏳ from ${new Date(t.availableAt).toLocaleDateString('en-CA') === todayKey ? new Date(t.availableAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : _topDateLabel(new Date(t.availableAt).toLocaleDateString('en-CA'))}</span>` : ''}
+          ${t.done ? '' : `<button onclick="cycleTaskDuration('${t.id}')" title="How long it takes — tap to change" style="background:#FBF1E7;border:none;border-radius:99px;cursor:pointer;color:#7A6656;font-size:10px;font-weight:700;padding:2px 7px">⏱ ${taskDuration(t)}m</button>`}
           ${subBadge}
           ${priority === 'top' && t.forDate ? `<span style="font-size:10px;font-weight:700;border-radius:99px;padding:2px 7px;background:${t.forDate < todayKey && !t.done ? '#fee2e2' : '#FFEFC2'};color:${t.forDate < todayKey && !t.done ? '#b91c1c' : '#B0700A'}">📌 ${_topDateLabel(t.forDate)}</span>` : ''}
           ${priority === 'top' ? '' : taskDueDateChip(t)}
@@ -4296,11 +4356,15 @@ function _weatherNotes(ds) {
 }
 function todayPlanHtml(ds, isToday, labelStyle, rowStyle) {
   const nowMin = isToday ? new Date().getHours() * 60 + new Date().getMinutes() : 0;
-  // Up to 3 open tasks: the day's top priority first, then critical / due by today.
+  // Every open task that can be done today: top priority, critical and due-today
+  // go in before revision; on-deck/dashboard tasks fill whatever gaps are left.
   const top = (typeof getTopTaskForDate === 'function') ? getTopTaskForDate(ds) : null;
-  const open = getTasks().filter(t => !t.done && t.priority !== 'top' && (t.priority === 'critical' || (t.dueDate && t.dueDate <= ds)));
-  const cand = [...(top && !top.done ? [top] : []), ...open].slice(0, 3);
-  const plan = planDay(ds, { tasks: cand, notBefore: nowMin });
+  const avail = getTasks().filter(t => !t.done && t.priority !== 'someday' && taskAvailableOn(t, ds) !== Infinity
+    && (t.priority !== 'top' || t === top || (top && t.id === top.id)));
+  const rank = t => t.priority === 'top' ? 0 : t.priority === 'critical' ? 1 : (t.dueDate && t.dueDate <= ds) ? 2 : t.priority === 'ondeck' ? 3 : 4;
+  avail.sort((a, b) => rank(a) - rank(b));
+  const cand = avail.filter(t => rank(t) <= 2), fill = avail.filter(t => rank(t) > 2);
+  const plan = planDay(ds, { tasks: cand, fillTasks: fill, notBefore: isToday ? nowMin : 0 });
   const free = plan.free;
   const shown = { ...plan, blocks: plan.blocks.filter(b => !isToday || b.s == null || b.e > nowMin || b.type === 'wake') };
   const wakeVal = _hm(getWakeTime(ds));
@@ -4396,16 +4460,49 @@ function planDay(ds, opts = {}) {
   });
   meals.forEach(([s, e, t]) => blocks.push({ s, e, title: t, type: 'meal' }));
   let free = _freeIntervals([...hard, ...meals.map(m => [m[0], m[1]])], wake);
-  const take = (len, pick) => {
-    const cands = free.filter(([s, e]) => e - s >= len);
+  // Re-plan from now: nothing flexible goes into time that has already passed.
+  const notBefore = opts.notBefore || 0;
+  if (notBefore) free = free.map(([a, b]) => [Math.max(a, notBefore), b]).filter(([a, b]) => b - a >= 10);
+  // Take `len` minutes from a free gap chosen by `pick`, starting no earlier than minStart.
+  const take = (len, pick, minStart = 0) => {
+    const cands = free.map(([s, e]) => [Math.max(s, minStart), e, s, e]).filter(([s, e]) => e - s >= len);
     if (!cands.length) return null;
-    const [s, e] = pick(cands);
-    const start = s;
-    free = free.flatMap(([a, b]) => a === s && b === e ? [[start + len, b]].filter(([x, y]) => y - x >= 20) : [[a, b]]);
+    const got = pick(cands);
+    if (!got) return null;
+    const [start, , os, oe] = got;
+    free = free.flatMap(([a, b]) => a === os && b === oe ? [[a, start], [start + len, b]].filter(([x, y]) => y - x >= (x === a ? 10 : 20)) : [[a, b]]);
     return [start, start + len];
   };
+  // Tasks, at their own length, from when they're available. A chained chore
+  // also pencils in its next step after the wait (e.g. hang the washing 1h30 later).
+  const placeTask = t => {
+    const len = taskDuration(t);
+    const from = Math.max(notBefore, taskAvailableOn(t, ds));
+    const got = take(len, c => c[0], from);
+    if (!got) { blocks.push({ s: null, e: null, title: `${t.priority === 'top' ? '🎯' : '✅'} ${t.text}`, type: 'task-unplaced', task: t, why: taskAvailableOn(t, ds) > 0 ? `available from ${_hm(taskAvailableOn(t, ds))}` : 'no gap left today' }); return; }
+    blocks.push({ s: got[0], e: got[1], title: `${t.priority === 'top' ? '🎯' : '✅'} ${t.text}`, type: 'task', task: t, len });
+    const ch = _taskChain(t);
+    const next = ch && ch.chain.steps[ch.step + 1];
+    if (next && !next.nextDay) {
+      const at = got[1] + (next.after || 0);
+      const n = take(next.dur, c => c[0], at);
+      if (n) blocks.push({ s: n[0], e: n[1], title: `⏳ ${next.text}`, type: 'task-next', note: `after the ${next.why || 'wait'} — appears when you tick the step before` });
+    } else if (next && next.nextDay) {
+      blocks[blocks.length - 1].after = `${next.text.toLowerCase()} tomorrow`;
+    }
+  };
+  // Chores with a wait (put a wash on, start cooking) go first so the wait runs alongside everything else.
+  const _earlyTasks = [...(opts.tasks || []), ...(opts.fillTasks || [])].filter(t => { const ch = _taskChain(t); const n = ch && ch.chain.steps[ch.step + 1]; return n && n.after; });
+  _earlyTasks.forEach(placeTask);
   let sessions = [];
   try { sessions = getTodaysSessions(new Date(ds + 'T12:00:00')); } catch {}
+  // Done sessions drop out, so the rest of the day can move up.
+  try {
+    const man = getManual(ds);
+    const done = sessions.filter(({ slot, session }) => man[slot] === 'done' || man[`${slot}_todo`] === true || sessionDone(session, _acts || [], ds));
+    done.forEach(({ session }) => blocks.push({ s: null, e: null, title: `${session.emoji} ${session.type}`, type: 'done' }));
+    sessions = sessions.filter(x => !done.includes(x));
+  } catch {}
   // Short sleep last night: hard runs become the easy 5 km, heavy legs go lighter.
   const slept = _sleepFor(ds);
   const shortSleep = slept && slept.hrs < 6 ? slept.hrs : null;
@@ -4461,18 +4558,15 @@ function planDay(ds, opts = {}) {
     if (slot) blocks.push({ s: slot[0], e: slot[1], title: `${session.emoji} ${session.type}`, type: 'training', session, rain: isRun ? rainAt(slot[0]) : null });
     else blocks.push({ s: null, e: null, title: `${session.emoji} ${session.type}`, type: 'training-unplaced', session });
   });
-  // Tasks to fit (today's top priority etc.), 30 min each, before revision so they get a slot.
-  const notBefore = opts.notBefore || 0;
-  (opts.tasks || []).forEach(t => {
-    const got = take(30, c => c.find(([s]) => s >= notBefore && s >= PLACEMENT_FREE_FROM) || c.find(([s]) => s >= notBefore) || c[0]);
-    if (got) blocks.push({ s: got[0], e: got[1], title: `${t.priority === 'top' ? '🎯' : '✅'} ${t.text}`, type: 'task' });
-  });
+  (opts.tasks || []).filter(t => !_earlyTasks.includes(t)).forEach(placeTask);
   // revision queue
   const day = (typeof UKMLA_REVISION_PLAN !== 'undefined') ? UKMLA_REVISION_PLAN.find(d => d.date === ds) : null;
   const queue = [];
   if (day) {
     const groups = (typeof ukmlaGroups === 'function') ? ukmlaGroups(day) : day.groups;
-    groups.forEach(g => g.items.forEach(it => queue.push(g.subject ? { text: it, min: STUDY_DAY.perTopic } : { text: it, min: STUDY_DAY.questionSet, set: true })));
+    const ticked = (typeof getUkmlaProgress === 'function' ? getUkmlaProgress()[ds] : null) || [];
+    let fi = 0;
+    groups.forEach(g => g.items.forEach(it => { if (!ticked[fi++]) queue.push(g.subject ? { text: it, min: STUDY_DAY.perTopic } : { text: it, min: STUDY_DAY.questionSet, set: true }); }));
   }
   while (queue.length) {
     const slot0 = free.find(([s, e]) => e - s >= queue[0].min);
@@ -4488,12 +4582,13 @@ function planDay(ds, opts = {}) {
     // short break after a revision block
     free = free.map(([a, b]) => a === got[1] ? [a + 15, b] : [a, b]).filter(([a, b]) => b - a >= 20);
   }
+  (opts.fillTasks || []).filter(t => !_earlyTasks.includes(t)).forEach(t => { const before = blocks.length; placeTask(t); if (blocks[before] && blocks[before].type === 'task-unplaced') blocks.pop(); });
   const shortBy = queue.reduce((s, q) => s + q.min, 0);
   const freeLeft = free.reduce((s, [a, b]) => s + (b - a), 0);
   blocks.sort((a, b) => (a.s ?? 9999) - (b.s ?? 9999));
   return { ds, blocks, shortBy, queueLeft: queue, free, freeLeft, hasCal: _liveCal.length > 0 };
 }
-const PLAN_COLORS = { wake: '#FFFFFF', routine: '#F7F3EE', shift: '#fee2e2', event: '#F2F2F7', optional: '#FAFAFA', meal: '#FFF7E6', training: '#E5F5EA', 'training-unplaced': '#FFF7E6', revision: '#EEE8FF', task: '#E0F2FE' };
+const PLAN_COLORS = { done: '#FFFFFF', 'task-next': '#F2F7FB', 'task-unplaced': '#F7F3EE', wake: '#FFFFFF', routine: '#F7F3EE', shift: '#fee2e2', event: '#F2F2F7', optional: '#FAFAFA', meal: '#FFF7E6', training: '#E5F5EA', 'training-unplaced': '#FFF7E6', revision: '#EEE8FF', task: '#E0F2FE' };
 function planBlocksHtml(plan, opts = {}) {
   const rows = plan.blocks.map(b => {
     const time = b.s == null ? 'no slot' : b.s === b.e ? _hm(b.s) : `${_hm(b.s)}–${_hm(b.e)}`;
@@ -4507,13 +4602,16 @@ function planBlocksHtml(plan, opts = {}) {
     }
     if (b.type === 'training-unplaced') sub = b.why || 'no free slot today — move it to another day';
     if (b.type === 'revision') sub = 'suggested · ' + b.items.map(i => i.set ? '30 questions' : i.text).join(', ');
-    if (b.type === 'task') sub = 'fits here';
+    if (b.type === 'task') sub = [`${b.len} min`, b.after || ''].filter(Boolean).join(' · ');
+    if (b.type === 'task-unplaced') sub = b.why;
+    if (b.type === 'done') return '';
     const faded = b.type === 'optional' ? 'opacity:.55;' : '';
     if (opts.compact) {
       const now = opts.nowMin != null && b.s != null && b.s <= opts.nowMin && b.e > opts.nowMin;
       const plainSub = sub.replace(/<[^>]+>/g, '');
       return `<div class="plan-row" onclick="this.classList.toggle('open')" title="${escHtml(plainSub)}" style="display:flex;gap:8px;align-items:baseline;padding:3px 8px;margin:2px 0;border-radius:6px;background:${PLAN_COLORS[b.type] || '#F2F2F7'};${now ? 'box-shadow:inset 3px 0 0 var(--primary);' : ''}${faded}cursor:pointer">
         <span style="font-size:11px;font-weight:700;color:#7A6656;min-width:72px;flex-shrink:0">${time}</span>
+        ${b.task ? `<input type="checkbox" onclick="event.stopPropagation();toggleTask('${b.task.id}')" title="Done" style="width:13px;height:13px;margin:0;flex-shrink:0;align-self:center;cursor:pointer">` : ''}
         <span style="font-size:12.5px;font-weight:600;flex-shrink:0;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${title}</span>
         ${sub ? `<span class="plan-sub" style="font-size:11px;color:#7A6656;flex:1;min-width:0">${sub.replace(/^suggested · /, '')}</span>` : ''}
       </div>`;
@@ -5923,6 +6021,7 @@ function toggleUkmlaItem(date, idx) {
   arr[idx] = !arr[idx];
   progress[date] = arr;
   saveUkmlaProgress(progress);
+  if (typeof _refreshPlan === 'function') _refreshPlan();
   renderUkmlaDay(date);
   renderUkmlaSummary();
   renderUkmlaCatchup();
@@ -6608,6 +6707,7 @@ function toggleTrainingTodo(slot, checked) {
   syncPush('calendar_overrides', buildCalendarOverridesObj());
   renderTrainingCalendar(_acts);
   renderTrainingTodo();
+  if (typeof _refreshPlan === 'function') _refreshPlan();
 }
 
 // Clashes over the next 14 days, listed under the training calendar.
@@ -9739,6 +9839,8 @@ function syncHeaderLayout() {
   }
 }
 window.addEventListener('resize', syncHeaderLayout);
+setInterval(() => { if (!document.hidden && document.getElementById('tab-dashboard')?.classList.contains('active')) _refreshPlan(); }, 5 * 60 * 1000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) _refreshPlan(); });
 syncHeaderLayout();
 
 const nav = document.querySelector('.tab-nav');
