@@ -2568,6 +2568,7 @@ const SYNC_KEYS = [
   'signoff_mandatory', 'signoff_sa67', 'signoff_clinical', 'signoff_ja1', 'signoff_ja2', 'signoff_ja3',
   'gcal_events',
   'calendar_overrides',
+  'wake_overrides',
   'activity_notes', 'daily_habits', 'habit_log', 'progress_log', 'monthly_km_goal', 'pb_log',
   'tasks_priority',
   'shopping_items',
@@ -4184,7 +4185,44 @@ const STUDY_DAY = { start: 7 * 60, end: 22 * 60, mealsAdmin: 120, perSession: 60
 // hour to get home. Optional teaching is shown but doesn't block time. Shifts
 // get 30 min travel either side.
 const PLACEMENT_FREE_FROM = 14 * 60;
-const PLACEMENT_LEAVE_AT = 7 * 60 + 50; // leaves home 07:50 for a 09:00 start
+const PLACEMENT_LEAVE_AT = 7 * 60 + 40; // leaves home 07:40 for a 09:00 start
+const COMMUTE_HOME = 60;                // an hour to get home after placement
+const MORNING_ROUTINE = 20;             // 10 min breakfast + 10 min shower
+// Wake time: 06:30 on placement/shift days, 08:00 on days off; per-day override
+// set from the plan header (stored in 'wake_overrides' as {date: minutes}).
+const WAKE_WORKDAY = 6 * 60 + 30, WAKE_DAY_OFF = 8 * 60;
+function _wakeOverrides() { try { return JSON.parse(localStorage.getItem('wake_overrides') || '{}'); } catch { return {}; } }
+(function seedWake() { // Phil: up at 07:00 on Mon 26 Oct 2026
+  const o = _wakeOverrides(); if (!o.__seeded26) { o['2026-10-26'] = 7 * 60; o.__seeded26 = 1; localStorage.setItem('wake_overrides', JSON.stringify(o)); }
+})();
+// Last night's sleep for the morning of ds (Apple Health): hours slept and the
+// actual wake time, if the watch recorded one that morning.
+function _sleepFor(ds) {
+  let sd = null;
+  try { sd = (typeof computeSleepForDate === 'function') ? computeSleepForDate(ds) : null; } catch {}
+  if (!sd || !sd.totalSleep) return null;
+  let wakeMin = null;
+  const end = sd.sleepEnd && typeof parseHealthDate === 'function' ? parseHealthDate(sd.sleepEnd) : null;
+  if (end && end.toLocaleDateString('en-CA') === ds && end.getHours() < 13) wakeMin = end.getHours() * 60 + end.getMinutes();
+  return { hrs: sd.totalSleep, wakeMin };
+}
+function getWakeTime(ds) {
+  const sl = _sleepFor(ds);
+  if (sl && sl.wakeMin != null) return sl.wakeMin; // actual wake time wins once recorded
+  const o = _wakeOverrides();
+  if (typeof o[ds] === 'number') return o[ds];
+  let work = false;
+  try { work = getDayEvents(ds).some(e => _isMainPlacement(e) || e.kind === 'shift'); } catch {}
+  return work ? WAKE_WORKDAY : WAKE_DAY_OFF;
+}
+function setWakeTime(ds, hhmm) {
+  const o = _wakeOverrides();
+  if (!hhmm) delete o[ds]; else { const [h, m] = hhmm.split(':').map(Number); o[ds] = h * 60 + m; }
+  localStorage.setItem('wake_overrides', JSON.stringify(o));
+  if (typeof syncPush === 'function') try { syncPush('wake_overrides', o); } catch {}
+  if (typeof renderDailyBriefing === 'function') try { renderDailyBriefing(); } catch {}
+  if (typeof renderCalendarTab === 'function') try { renderCalendarTab(); } catch {}
+}
 const _isMainPlacement = e => e.kind === 'placement' && /placement/i.test(e.title || '');
 const _isOptional = e => /\(optional|optional\)|optional,/i.test(e.title || '');
 function getBusyBlocks(ds) {
@@ -4194,8 +4232,9 @@ function getBusyBlocks(ds) {
   evs.forEach(e => {
     if (_isMainPlacement(e)) {
       const lateMand = mandatory.filter(m => m.e > PLACEMENT_FREE_FROM).reduce((mx, m) => Math.max(mx, m.e), 0);
-      const end = lateMand ? lateMand + 60 : Math.min(e.e, PLACEMENT_FREE_FROM);
-      out.push({ s: Math.min(e.s, PLACEMENT_LEAVE_AT), e: end, title: e.title, kind: 'placement', note: `leave 07:50 · ${lateMand ? `until ${_hm(lateMand)} + travel home` : 'free from 14:00'}` });
+      const finish = lateMand || Math.min(e.e, PLACEMENT_FREE_FROM);
+      const end = finish + COMMUTE_HOME;
+      out.push({ s: Math.min(e.s, PLACEMENT_LEAVE_AT), e: end, title: e.title, kind: 'placement', note: `leave ${_hm(PLACEMENT_LEAVE_AT)} · ${lateMand ? `until ${_hm(lateMand)}` : 'finish 14:00'} · home ${_hm(end)}` });
     } else if (_isOptional(e)) {
       out.push({ s: e.s, e: e.e, title: e.title, kind: e.kind, optional: true });
     } else if (e.kind === 'shift') {
@@ -4209,7 +4248,8 @@ function getBusyBlocks(ds) {
 function computeStudyCapacity(ds) {
   const evs = getBusyBlocks(ds).filter(b => !b.optional);
   // merge intervals clipped to the waking window
-  const iv = evs.map(e => [Math.max(STUDY_DAY.start, e.s), Math.min(STUDY_DAY.end, e.e)]).filter(([a, b]) => b > a).sort((a, b) => a[0] - b[0]);
+  const dayStart = getWakeTime(ds) + MORNING_ROUTINE;
+  const iv = evs.map(e => [Math.max(dayStart, e.s), Math.min(STUDY_DAY.end, e.e)]).filter(([a, b]) => b > a).sort((a, b) => a[0] - b[0]);
   let busy = 0, cur = null;
   iv.forEach(([a, b]) => { if (!cur || a > cur[1]) { if (cur) busy += cur[1] - cur[0]; cur = [a, b]; } else cur[1] = Math.max(cur[1], b); });
   if (cur) busy += cur[1] - cur[0];
@@ -4217,7 +4257,7 @@ function computeStudyCapacity(ds) {
   // further down the script (first render on load), so fall back to 0.
   let sessions = 0;
   try { sessions = getTodaysSessions(new Date(ds + 'T12:00:00')).length; } catch {}
-  const free = Math.max(0, (STUDY_DAY.end - STUDY_DAY.start) - busy - sessions * STUDY_DAY.perSession - STUDY_DAY.mealsAdmin);
+  const free = Math.max(0, (STUDY_DAY.end - dayStart) - busy - sessions * STUDY_DAY.perSession - STUDY_DAY.mealsAdmin);
   const day = (typeof UKMLA_REVISION_PLAN !== 'undefined') ? UKMLA_REVISION_PLAN.find(d => d.date === ds) : null;
   let need = 0;
   if (day) {
@@ -4262,15 +4302,24 @@ function todayPlanHtml(ds, isToday, labelStyle, rowStyle) {
   const cand = [...(top && !top.done ? [top] : []), ...open].slice(0, 3);
   const plan = planDay(ds, { tasks: cand, notBefore: nowMin });
   const free = plan.free;
-  const shown = { ...plan, blocks: plan.blocks.filter(b => !isToday || b.s == null || b.e > nowMin) };
+  const shown = { ...plan, blocks: plan.blocks.filter(b => !isToday || b.s == null || b.e > nowMin || b.type === 'wake') };
+  const wakeVal = _hm(getWakeTime(ds));
   const notes = isToday ? _weatherNotes(ds) : [];
   const shift = plan.blocks.find(b => b.type === 'shift');
   const extras = [];
   if (shift) extras.push(`🏥 ${escHtml(shift.title.split(' - ')[0])} shift today (${escHtml(shift.note || '')}).`);
   if (top && !top.done) extras.push(`🎯 Top priority: <strong>${escHtml(top.text)}</strong>`);
+  if (isToday) {
+    const sl = _sleepFor(ds);
+    if (sl) extras.push(`😴 Slept ${fmtHrsMin(sl.hrs)}${sl.wakeMin != null ? `, up at ${_hm(sl.wakeMin)}` : ''}${sl.hrs < 6 ? ' — hard sessions swapped to easier versions today.' : '.'}`);
+    const t = new Date(ds + 'T12:00:00'); t.setDate(t.getDate() + 1);
+    const tds = t.toLocaleDateString('en-CA');
+    const bed = (getWakeTime(tds) - Math.round(SLEEP_NEED_HOURS * 60) + 1440) % 1440;
+    extras.push(`🛏 Bed by ${_hm(bed)} for ${SLEEP_NEED_HOURS}h before tomorrow's ${_hm(getWakeTime(tds))} wake.`);
+  }
   const spare = free.reduce((s, [a, b]) => s + (b - a), 0);
   if (spare >= 60) extras.push(`⏳ ~${_fmtHrs(spare)} still unplanned${isToday ? ' for the rest of today' : ''} — good for tasks, rest or an extra Anki session.`);
-  return `<div style="${labelStyle}">🗓 ${isToday ? "Today's plan" : 'Plan'} <a href="javascript:void(0)" onclick="switchTab('calendar')" style="float:right;font-weight:600;text-transform:none;letter-spacing:0;color:#A6937F">week view ›</a></div>
+  return `<div style="${labelStyle}">🗓 ${isToday ? "Today's plan" : 'Plan'} <a href="javascript:void(0)" onclick="switchTab('calendar')" style="float:right;font-weight:600;text-transform:none;letter-spacing:0;color:#A6937F">week view ›</a><label style="float:right;margin-right:10px;font-weight:600;text-transform:none;letter-spacing:0;color:#A6937F">⏰ wake <input type="time" value="${wakeVal}" onchange="setWakeTime('${ds}', this.value)" style="border:1px solid #F0E1D2;border-radius:6px;font:inherit;font-size:11px;padding:0 3px;color:#4A3B2E;background:#fff"></label></div>
     ${[...notes, ...extras].map(n => `<div style="${rowStyle};align-items:flex-start"><span>${n}</span></div>`).join('')}
     <div style="margin-top:6px">${planBlocksHtml(shown, { compact: true, nowMin: isToday ? nowMin : null }) || '<div class="sub">Nothing left planned today.</div>'}</div>
     ${!plan.hasCal ? '<div class="sub" style="margin-top:4px;color:#bbb">Calendar not synced — placement, shifts and tutoring are missing from this plan.</div>' : ''}`;
@@ -4313,8 +4362,8 @@ function renderCalendarTab() {
 // remaining gaps in up-to-90-min blocks: the day's topics (~25 min each),
 // then the 30-question set.
 const PLAN_MEALS = [[18 * 60 + 30, 19 * 60 + 15, '🍽 Dinner']];
-function _freeIntervals(busy) {
-  let free = [[STUDY_DAY.start, STUDY_DAY.end]];
+function _freeIntervals(busy, dayStart = STUDY_DAY.start) {
+  let free = [[dayStart, STUDY_DAY.end]];
   busy.forEach(([a, b]) => {
     free = free.flatMap(([s, e]) => b <= s || a >= e ? [[s, e]] : [[s, Math.max(s, a)], [Math.min(e, b), e]].filter(([x, y]) => y - x > 0));
   });
@@ -4328,15 +4377,25 @@ function planDay(ds, opts = {}) {
   const busyBlocks = getBusyBlocks(ds);
   const hard = busyBlocks.filter(b => !b.optional).map(b => [b.s, b.e]);
   const blocks = busyBlocks.map(b => ({ ...b, type: b.kind === 'shift' ? 'shift' : b.optional ? 'optional' : 'event' }));
+  // Wake, then breakfast + shower: just before leaving on placement/shift days, straight after waking otherwise.
+  let wake = getWakeTime(ds);
+  const leave = busyBlocks.filter(b => !b.optional && (b.kind === 'placement' || b.kind === 'shift') && b.s < 12 * 60).reduce((m, b) => Math.min(m, b.s), Infinity);
+  // Early start (e.g. 07:00 long day): wake early enough for breakfast + shower first, unless set or recorded.
+  const wakeFixed = (_sleepFor(ds) || {}).wakeMin != null || typeof _wakeOverrides()[ds] === 'number';
+  if (!wakeFixed && leave !== Infinity && leave - MORNING_ROUTINE - 10 < wake) wake = leave - MORNING_ROUTINE - 10;
+  const routineS = leave !== Infinity && leave - MORNING_ROUTINE >= wake ? leave - MORNING_ROUTINE : wake;
+  blocks.push({ s: wake, e: wake, title: '⏰ Wake up', type: 'wake' });
+  blocks.push({ s: routineS, e: routineS + MORNING_ROUTINE, title: '🥣 Breakfast · 🚿 Shower', type: 'routine' });
+  hard.push([routineS, routineS + MORNING_ROUTINE]);
   // Dinner at 18:30 if free, otherwise the first free 45 min between 17:30 and 21:00.
   const meals = [];
   PLAN_MEALS.forEach(([s, e, t]) => {
     if (!hard.some(([a, b]) => a < e && b > s)) { meals.push([s, e, t]); return; }
-    const gap = _freeIntervals(hard).find(([a, b]) => a >= 17 * 60 + 30 && a <= 21 * 60 && b - a >= 45);
+    const gap = _freeIntervals(hard, wake).find(([a, b]) => a >= 17 * 60 + 30 && a <= 21 * 60 && b - a >= 45);
     if (gap) meals.push([gap[0], gap[0] + 45, t]);
   });
   meals.forEach(([s, e, t]) => blocks.push({ s, e, title: t, type: 'meal' }));
-  let free = _freeIntervals([...hard, ...meals.map(m => [m[0], m[1]])]);
+  let free = _freeIntervals([...hard, ...meals.map(m => [m[0], m[1]])], wake);
   const take = (len, pick) => {
     const cands = free.filter(([s, e]) => e - s >= len);
     if (!cands.length) return null;
@@ -4347,6 +4406,14 @@ function planDay(ds, opts = {}) {
   };
   let sessions = [];
   try { sessions = getTodaysSessions(new Date(ds + 'T12:00:00')); } catch {}
+  // Short sleep last night: hard runs become the easy 5 km, heavy legs go lighter.
+  const slept = _sleepFor(ds);
+  const shortSleep = slept && slept.hrs < 6 ? slept.hrs : null;
+  if (shortSleep != null) {
+    sessions = sessions.map(x => ['Speed Run', 'Intervals', 'Tempo Run'].includes(x.session.type)
+      ? { ...x, session: { ...x.session, type: 'Easy Run', intensity: 'easy', swappedFrom: x.session.type } }
+      : /Heavy/.test(x.session.type) ? { ...x, session: { ...x.session, lighter: true } } : x);
+  }
   const firstBusy = hard.length ? Math.min(...hard.map(b => b[0])) : 24 * 60;
   const wetHours = (typeof _weather !== 'undefined' && _weather && _weather.hourly && _weather.hourly.time)
     ? Object.fromEntries(_weather.hourly.time.map((t, i) => [t, _weather.hourly.precipitation_probability[i]])) : null;
@@ -4358,6 +4425,18 @@ function planDay(ds, opts = {}) {
   const SPEED_RUNS = ['Speed Run', 'Intervals'];
   const isLegs = sess => sess.tag === 'lower' || /\bLegs\b/i.test(sess.type);
   let runEnd = 0;
+  // Speed day with legs: put them back to back (run, then legs) in the earliest slot that fits both.
+  const speedS = sessions.find(x => SPEED_RUNS.includes(x.session.type));
+  const legsS = sessions.find(x => isLegs(x.session));
+  if (!longShift && speedS && legsS) {
+    const rl = _runMinutes(speedS.session.type, ds), ll = 75;
+    const pair = take(rl + ll, c => c[0]);
+    if (pair) {
+      blocks.push({ s: pair[0], e: pair[0] + rl, title: `${speedS.session.emoji} ${speedS.session.type}`, type: 'training', session: speedS.session, rain: rainAt(pair[0]) });
+      blocks.push({ s: pair[0] + rl, e: pair[1], title: `${legsS.session.emoji} ${legsS.session.type}`, type: 'training', session: legsS.session });
+      sessions = sessions.filter(x => x !== speedS && x !== legsS);
+    }
+  }
   sessions.forEach(({ session }) => {
     if (longShift) { blocks.push({ s: null, e: null, title: `${session.emoji} ${session.type}`, type: 'training-unplaced', session, why: 'long shift today — move it or make it a rest day' }); return; }
     const isRun = session.tag === 'run';
@@ -4367,7 +4446,11 @@ function planDay(ds, opts = {}) {
       slot = take(len, c => {
         const morning = c.filter(([s]) => s + len <= firstBusy);
         if (morning.length) return morning[0];
-        if (wetHours) return c.slice().sort((a, b) => (rainAt(a[0]) ?? 50) - (rainAt(b[0]) ?? 50))[0];
+        // Only move to a later slot if it's clearly drier (30+ points) and not late evening.
+        if (wetHours) {
+          const driest = c.filter(([s]) => s + len <= 20 * 60).sort((a, b) => (rainAt(a[0]) ?? 50) - (rainAt(b[0]) ?? 50))[0];
+          if (driest && (rainAt(c[0][0]) ?? 50) - (rainAt(driest[0]) ?? 50) >= 30) return driest;
+        }
         return c[0];
       });
     } else {
@@ -4410,17 +4493,17 @@ function planDay(ds, opts = {}) {
   blocks.sort((a, b) => (a.s ?? 9999) - (b.s ?? 9999));
   return { ds, blocks, shortBy, queueLeft: queue, free, freeLeft, hasCal: _liveCal.length > 0 };
 }
-const PLAN_COLORS = { shift: '#fee2e2', event: '#F2F2F7', optional: '#FAFAFA', meal: '#FFF7E6', training: '#E5F5EA', 'training-unplaced': '#FFF7E6', revision: '#EEE8FF', task: '#E0F2FE' };
+const PLAN_COLORS = { wake: '#FFFFFF', routine: '#F7F3EE', shift: '#fee2e2', event: '#F2F2F7', optional: '#FAFAFA', meal: '#FFF7E6', training: '#E5F5EA', 'training-unplaced': '#FFF7E6', revision: '#EEE8FF', task: '#E0F2FE' };
 function planBlocksHtml(plan, opts = {}) {
   const rows = plan.blocks.map(b => {
-    const time = b.s != null ? `${_hm(b.s)}–${_hm(b.e)}` : 'no slot';
+    const time = b.s == null ? 'no slot' : b.s === b.e ? _hm(b.s) : `${_hm(b.s)}–${_hm(b.e)}`;
     let title = escHtml(b.title);
     let sub = b.note ? escHtml(b.note) : '';
     if (b.type === 'optional') sub = 'optional';
     if (b.type === 'training') {
       const shoe = (typeof getRunShoe === 'function') ? getRunShoe(b.session.type) : null;
       const st = (typeof getRunStructure === 'function') ? getRunStructure(b.session.type, plan.ds) : null;
-      sub = ['suggested', st ? st.title : '', shoe ? `👟 ${shoe.short}` : '', b.rain != null ? `${b.rain}% rain` : ''].filter(Boolean).join(' · ');
+      sub = ['suggested', b.session.swappedFrom ? `instead of ${b.session.swappedFrom} (short sleep)` : '', b.session.lighter ? 'go lighter — short sleep' : '', st ? st.title : '', shoe ? `👟 ${shoe.short}` : '', b.rain != null ? `${b.rain}% rain` : ''].filter(Boolean).join(' · ');
     }
     if (b.type === 'training-unplaced') sub = b.why || 'no free slot today — move it to another day';
     if (b.type === 'revision') sub = 'suggested · ' + b.items.map(i => i.set ? '30 questions' : i.text).join(', ');
