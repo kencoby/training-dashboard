@@ -81,17 +81,27 @@ export async function onRequest(context) {
     const byDate = prior.byDate || {};
 
     if (SUM_METRICS.has(name)) {
-      const sums = {}, lastRaw = {};
+      // Each data point (one per meal for MacroFactor, one per sample for
+      // steps etc.) is stored by its timestamp + source and merged with what's
+      // already there, so a sync that only carries part of a day (e.g. the
+      // meals logged since the last sync) adds to the day instead of
+      // replacing it, and a re-sent point just overwrites itself. The day's
+      // value is the sum of its points. Days stored before this change have
+      // no points yet; the first sync that includes them rebuilds them.
+      const touched = new Set();
       for (const point of (metric.data || [])) {
         const date = dateOnly(point.date);
         if (!date) continue;
         const value = pointValue(point);
         if (value === undefined) continue;
-        sums[date] = (sums[date] || 0) + value;
-        lastRaw[date] = point;
+        const day = byDate[date] && byDate[date].points ? byDate[date] : (touched.has(date) ? byDate[date] : { points: {} });
+        day.points[`${point.date}|${point.source || ''}`] = value;
+        day.raw = point;
+        byDate[date] = day;
+        touched.add(date);
       }
-      for (const date of Object.keys(sums)) {
-        byDate[date] = { value: sums[date], raw: lastRaw[date] };
+      for (const date of touched) {
+        byDate[date].value = Object.values(byDate[date].points).reduce((s, v) => s + v, 0);
       }
     } else {
       for (const point of (metric.data || [])) {
