@@ -2692,6 +2692,7 @@ function toggleTask(id) {
   const t = items.find(t => t.id === id);
   if (t) {
     t.done = !t.done;
+    t.doneAt = t.done ? new Date().toISOString() : null;
     if (t.subtasks && t.subtasks.length) t.subtasks.forEach(s => s.done = t.done);
   }
   saveTasks(items);
@@ -8866,9 +8867,60 @@ function renderDailyBriefing() {
     if (avgSleep) recapHtml += `<div style="${rowStyle}">😴 <span>Avg sleep: <strong>${avgSleep}h</strong></span></div>`;
     if (bestStreak >= 2) recapHtml += `<div style="${rowStyle}">🔥 <span>Best habit streak: <strong>${bestStreak} days</strong></span></div>`;
     if (habitPct != null) recapHtml += `<div style="${rowStyle}">✅ <span>Habits completed: <strong>${habitPct}%</strong></span></div>`;
+    // ── extra review lines ──
+    const wkDays = [...Array(7)].map((_, i) => { const d = new Date(viewDate); d.setDate(d.getDate() - 6 + i); return d.toLocaleDateString('en-CA'); });
+    const hv = k => wkDays.map(ds => _healthValueOnDate(k, ds)).filter(v => v != null);
+    const avgOf = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
+    // 1. calories + protein
+    const kcals = hv('dietary_energy').map(_kjToKcal).filter(v => v > 0), prots = hv('protein');
+    if (kcals.length || prots.length) {
+      const under = kcals.filter(v => v <= NUTRITION_GOALS.calories).length, pTarget = getMacroTargets().protein, pHit = prots.filter(v => v >= pTarget).length;
+      recapHtml += `<div style="${rowStyle}">🍽 <span>Calories: <strong>${under}/${kcals.length}</strong> logged days under ${NUTRITION_GOALS.calories.toLocaleString()} (avg ${Math.round(avgOf(kcals) || 0).toLocaleString()} kcal)${prots.length ? ` · protein <strong>${pHit}/${prots.length}</strong> days at ${pTarget}g+ (avg ${Math.round(avgOf(prots))}g)` : ''}</span></div>`;
+    }
+    // 2. steps
+    const steps = wkDays.map(ds => _healthValueOnDate('step_count', ds) ?? _healthValueOnDate('steps', ds) ?? _healthValueOnDate('step_count_total', ds)).filter(v => v != null);
+    if (steps.length) recapHtml += `<div style="${rowStyle}">👣 <span>Steps: avg <strong>${Math.round(avgOf(steps)).toLocaleString()}</strong>/day · ${steps.filter(v => v >= 10000).length}/${steps.length} days over 10,000</span></div>`;
+    // 3. running progress
+    if (typeof _actualWeek === 'function') {
+      const ws = new Date(wkDays[0] + 'T00:00:00'), pws = new Date(ws); pws.setDate(pws.getDate() - 7);
+      const tw = _actualWeek(ws), lw = _actualWeek(pws), pw = _plannedWeek(ws);
+      const pbLines = ['5km', '10km', 'Half Marathon'].map(l => { const pb = getRunPB(l); return pb && pb.date >= wkDays[0] && pb.date <= wkDays[6] ? `${l} PB ${_fmtPbTime(pb.time)} 🎉` : null; }).filter(Boolean);
+      const log = _hmPredLog(), wkKey = getISOWeek(new Date(wkDays[6] + 'T12:00:00')), prevKey = getISOWeek(new Date(new Date(wkDays[6] + 'T12:00:00').getTime() - 7 * 864e5));
+      const hmNow = log[wkKey], hmPrev = log[prevKey];
+      const hmTxt = hmNow ? ` · predicted half ${_fmtPbTime(hmNow)}${hmPrev ? ` (${hmNow <= hmPrev ? '−' : '+'}${_fmtPbTime(Math.abs(hmNow - hmPrev))})` : ''}` : '';
+      recapHtml += `<div style="${rowStyle}">📈 <span>Running: ${tw.km.toFixed(1)} km vs ${lw.km.toFixed(1)} km last week · long run ${tw.longKm.toFixed(1)} km${pw.longKm ? ` (planned ~${pw.longKm.toFixed(0)})` : ''}${hmTxt}${pbLines.length ? ` · <strong>${pbLines.join(', ')}</strong>` : ''}</span></div>`;
+    }
+    // 4. strength
+    const gym = wkActs.filter(a => a.sport_type === 'WeightTraining').length;
+    const lifts = (typeof _strengthPBData !== 'undefined' && _strengthPBData && _strengthPBData.lifts) ? _strengthPBData.lifts.filter(l => l.e1rm && l.e1rm.recent != null) : [];
+    recapHtml += `<div style="${rowStyle}">🏋️ <span>Strength: <strong>${gym}</strong> gym session${gym !== 1 ? 's' : ''}${lifts.length ? ` · est. 1RM ${lifts.map(l => `${l.label.replace(' Press', '')} ${l.e1rm.recent}kg`).join(', ')}` : ''}</span></div>`;
+    // 5. recovery vs the week before
+    const prevDays = wkDays.map(ds => { const d = new Date(ds + 'T12:00:00'); d.setDate(d.getDate() - 7); return d.toLocaleDateString('en-CA'); });
+    const pv = k => prevDays.map(ds => _healthValueOnDate(k, ds)).filter(v => v != null);
+    const rhr = avgOf(hv('resting_heart_rate')), rhrP = avgOf(pv('resting_heart_rate')), hrv = avgOf(hv('heart_rate_variability')), hrvP = avgOf(pv('heart_rate_variability'));
+    const delta = (a, b, unit) => a != null && b != null ? ` (${a - b >= 0 ? '+' : ''}${Math.round(a - b)}${unit})` : '';
+    if (rhr != null || hrv != null) recapHtml += `<div style="${rowStyle}">❤️ <span>Recovery: ${rhr != null ? `resting HR ${Math.round(rhr)} bpm${delta(rhr, rhrP, '')}` : ''}${rhr != null && hrv != null ? ' · ' : ''}${hrv != null ? `HRV ${Math.round(hrv)} ms${delta(hrv, hrvP, '')}` : ''} vs week before</span></div>`;
+    // 6. UKMLA status
+    const examDays = Math.ceil((REV_EXAM - new Date(viewDate.toDateString())) / 864e5);
+    const behind = ukmlaPastIncompleteByDay(prog, todayDateStr).reduce((s, d) => s + d.items.length, 0);
+    const lowDay = UKMLA_REVISION_PLAN.filter(d => wkDays.includes(d.date) && scores[d.date] != null).sort((a, b) => scores[a.date] - scores[b.date])[0];
+    if (examDays >= 0) recapHtml += `<div style="${rowStyle}">🩺 <span>UKMLA in <strong>${examDays} days</strong> · ${behind ? `<strong style="color:#b45309">${behind} items behind</strong>` : 'on schedule'}${lowDay ? ` · lowest: ${escHtml(lowDay.label)} ${scores[lowDay.date]}%` : ''}</span></div>`;
+    // 7. top priorities
+    const tpDone = wkDays.filter(ds => { const t = getTopTaskForDate(ds); return t && t.done; }).length;
+    recapHtml += `<div style="${rowStyle}">🎯 <span>Top priority done on <strong>${tpDone}/7</strong> days</span></div>`;
+    // 8. tasks
+    const tasks = getTasks();
+    const completed = tasks.filter(t => t.done && t.doneAt && t.doneAt.slice(0, 10) >= wkDays[0] && t.doneAt.slice(0, 10) <= wkDays[6]).length;
+    const overdue = tasks.filter(t => !t.done && t.dueDate && t.dueDate < new Date().toLocaleDateString('en-CA')).length;
+    recapHtml += `<div style="${rowStyle}">✅ <span>Tasks: ${completed} completed this week${overdue ? ` · <strong style="color:#b45309">${overdue} overdue</strong>` : ' · none overdue'}</span></div>`;
+
     recapHtml += `<div style="${labelStyle};margin-top:10px">🗓 Next week</div>`;
     recapHtml += `<div style="${rowStyle}">🏃 <span>${nextSessions} sessions planned${nextPlan ? ` · ~${nextPlan.km.toFixed(0)} km running, long run ~${nextPlan.longKm.toFixed(0)} km` : ''}</span></div>`;
     if (nextShifts) recapHtml += `<div style="${rowStyle}">🏥 <span>${nextShifts} shift day${nextShifts !== 1 ? 's' : ''}${nextClashes ? ` · <strong style="color:#b45309">${nextClashes} clash${nextClashes !== 1 ? 'es' : ''}</strong> — see the training calendar` : ' · no clashes'}</span></div>`;
+    // 9. next week's scheduled top priorities
+    const nextDays = [...Array(7)].map((_, i) => { const d = new Date(nws); d.setDate(d.getDate() + i); return d.toLocaleDateString('en-CA'); });
+    const nextTops = getTasks().filter(t => t.priority === 'top' && !t.done && t.forDate && nextDays.includes(t.forDate)).sort((a, b) => a.forDate.localeCompare(b.forDate));
+    recapHtml += `<div style="${rowStyle}">🎯 <span>${nextTops.length ? `Top priorities: ${nextTops.map(t => `${escHtml(t.text)} · ${_topDateLabel(t.forDate)}`).join(', ')}` : 'No top priorities scheduled yet — set them in Tasks'}</span></div>`;
     sections.push(`<div style="${sectionStyle}">${recapHtml}</div>`);
   }
 
