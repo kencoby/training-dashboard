@@ -100,8 +100,15 @@ export async function onRequest(context) {
         byDate[date] = day;
         touched.add(date);
       }
+      // A point stamped exactly 00:00:00 is a whole-day summary (e.g. a manual
+      // export); other points are individual entries. A day can end up with
+      // both, so take whichever total is larger rather than adding them.
       for (const date of touched) {
-        byDate[date].value = Object.values(byDate[date].points).reduce((s, v) => s + v, 0);
+        let whole = 0, parts = 0;
+        for (const [k, v] of Object.entries(byDate[date].points)) {
+          if (/ 00:00:00/.test(k)) whole += v; else parts += v;
+        }
+        byDate[date].value = Math.max(whole, parts);
       }
     } else {
       for (const point of (metric.data || [])) {
