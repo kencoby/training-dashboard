@@ -4416,6 +4416,7 @@ function todayPlanHtml(ds, isToday, labelStyle, rowStyle) {
     const bed = (getWakeTime(tds) - Math.round(SLEEP_NEED_HOURS * 60) + 1440) % 1440;
     extras.push(`🛏 Bed by ${_hm(bed)} for ${SLEEP_NEED_HOURS}h before tomorrow's ${_hm(getWakeTime(tds))} wake.`);
   }
+  try { const aw = getAutoWeek(new Date(ds + 'T12:00:00')); (aw ? aw.changes : []).filter(c => c.ds === ds || c.to === ds).forEach(c => extras.push(`🔁 ${escHtml(c.text)}`)); } catch {}
   const spare = free.reduce((s, [a, b]) => s + (b - a), 0);
   if (spare >= 60) extras.push(`⏳ ~${_fmtHrs(spare)} still unplanned${isToday ? ' for the rest of today' : ''} — good for tasks, rest or an extra Anki session.`);
   return `<div style="${labelStyle}">🗓 ${isToday ? "Today's plan" : 'Plan'} <a href="javascript:void(0)" onclick="switchTab('calendar')" style="float:right;font-weight:600;text-transform:none;letter-spacing:0;color:#A6937F">week view ›</a><label style="float:right;margin-right:10px;font-weight:600;text-transform:none;letter-spacing:0;color:#A6937F">⏰ wake <input type="time" value="${wakeVal}" onchange="setWakeTime('${ds}', this.value)" style="border:1px solid #F0E1D2;border-radius:6px;font:inherit;font-size:11px;padding:0 3px;color:#4A3B2E;background:#fff"></label></div>
@@ -6297,11 +6298,113 @@ const TRAINING_TEMPLATE_BEFORE_2026_10_23 = [
 // The new week applies from this date; earlier dates keep the old template so
 // past days aren't retroactively marked as missed.
 const TEMPLATE_SWITCH_DATE = '2026-10-23';
-function getTemplateDay(dateOrStr) {
+function getRawTemplateDay(dateOrStr) {
   const d = typeof dateOrStr === 'string' ? new Date(dateOrStr + 'T00:00:00') : dateOrStr;
   const ds = d.toLocaleDateString('en-CA');
   const t = ds < TEMPLATE_SWITCH_DATE ? TRAINING_TEMPLATE_BEFORE_2026_10_23 : TRAINING_TEMPLATE;
   return t[(d.getDay() + 6) % 7];
+}
+// Effective day: the template, rearranged around shifts in the calendar
+// (see getAutoWeek). "Show original plan" on the Training tab bypasses it.
+let _showOriginalPlan = false;
+function getTemplateDay(dateOrStr) {
+  const raw = getRawTemplateDay(dateOrStr);
+  if (_showOriginalPlan) return raw;
+  try {
+    const d = typeof dateOrStr === 'string' ? new Date(dateOrStr + 'T00:00:00') : dateOrStr;
+    const w = getAutoWeek(d);
+    const ds = d.toLocaleDateString('en-CA');
+    if (w && w.days[ds]) return w.days[ds];
+  } catch {}
+  return raw;
+}
+
+// ── Auto-rearranging the training week around shifts ───────────────────────
+// Shifts vary week to week, so rather than flag clashes the week is rearranged:
+//   • shift 10h+  → no training that day; sessions move to other days
+//   • shift 6–10h → one easy session at most (easy run or the lighter gym session)
+// Moved sessions go to the nearest day this week (today onwards) that has room —
+// max one run and one gym session a day, the 2nd only on a day without a shift
+// over 6h — avoiding hard runs on back-to-back days and heavy legs the day before
+// a speed session. A hard run can bump that day's easy run. Days you've edited
+// by hand, and past days, are left alone.
+const SESSION_IMPORTANCE = ['Long Run', 'Speed Run', 'Intervals', 'Tempo Run', 'Legs (Heavy)', 'Push', 'Pull', 'Legs (Lighter)', 'Easy Run'];
+const _HARD_RUNS = ['Long Run', 'Speed Run', 'Intervals', 'Tempo Run'];
+const _sessImp = s => { const i = SESSION_IMPORTANCE.indexOf(s.type); return i < 0 ? 5 : i; };
+const _isGym = s => ['upper', 'lower'].includes(s.tag) || /Push|Pull|Legs/.test(s.type);
+const _isEasyish = s => s.type === 'Easy Run' || /Lighter/.test(s.type);
+let _autoCache = { key: null, val: null };
+function getAutoWeek(d) {
+  if (typeof _liveCal === 'undefined' || !_liveCal.length) return null;
+  const ws = weekStart(d), wsStr = ws.toLocaleDateString('en-CA');
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const key = `${wsStr}|${_liveCal.length}|${todayStr}|${Math.floor(Date.now() / 5000)}`;
+  if (_autoCache.key === key) return _autoCache.val;
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const dd = new Date(ws); dd.setDate(dd.getDate() + i);
+    const ds = dd.toLocaleDateString('en-CA');
+    const raw = getRawTemplateDay(dd);
+    const shifts = getDayEvents(ds).filter(e => e.kind === 'shift');
+    const longest = shifts.reduce((b, e) => (!b || e.e - e.s > b.e - b.s) ? e : b, null);
+    const len = longest ? longest.e - longest.s : 0;
+    const ov = (typeof getOverrides === 'function') ? getOverrides(ds) : {};
+    const frozen = ds < todayStr || Object.keys(ov).length > 0;
+    const cap = len >= 600 ? 0 : len >= 360 ? 1 : 2;
+    days.push({ ds, dd, raw, shift: longest, len, cap, frozen,
+      list: ['am', 'pm', 'eve'].filter(k => raw[k]).map(k => ({ slot: k, s: raw[k] })) });
+  }
+  const changes = [], displaced = [];
+  const label = x => x.dd.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  const shiftTxt = x => x.shift ? `${_fmtHrs(x.len)} shift ${_hm(x.shift.s)}–${_hm(x.shift.e)}` : '';
+  // 1. Take sessions off days that can't hold them.
+  days.forEach(x => {
+    if (x.frozen || x.list.length <= x.cap && (x.cap === 2 || x.list.every(i => _isEasyish(i.s)))) return;
+    const keep = x.cap === 0 ? [] : x.list.filter(i => _isEasyish(i.s)).sort((a, b) => (a.s.tag === 'run' ? 0 : 1) - (b.s.tag === 'run' ? 0 : 1)).slice(0, x.cap);
+    x.list.filter(i => !keep.includes(i)).forEach(i => displaced.push({ from: x, s: i.s }));
+    x.list = keep;
+  });
+  if (!displaced.length) { _autoCache = { key, val: null }; return null; }
+  const hasHardRun = x => x && x.list.some(i => _HARD_RUNS.includes(i.s.type));
+  const idx = x => days.indexOf(x);
+  // 2. Re-home them, most important first.
+  displaced.sort((a, b) => _sessImp(a.s) - _sessImp(b.s));
+  displaced.forEach(({ from, s }) => {
+    const isRun = s.tag === 'run', gym = _isGym(s), hard = _HARD_RUNS.includes(s.type);
+    let best = null;
+    days.forEach(x => {
+      if (x === from || x.frozen || x.cap === 0) return;
+      if (x.cap === 1 && !_isEasyish(s)) return;
+      const runs = x.list.filter(i => i.s.tag === 'run'), gyms = x.list.filter(i => _isGym(i.s));
+      let bump = null, cost = Math.abs(idx(x) - idx(from));
+      if (isRun && runs.length) {
+        if (hard && runs.every(i => i.s.type === 'Easy Run')) { bump = runs[0]; cost += 1; } else return;
+      }
+      if (gym && gyms.length) return;
+      if (x.list.length - (bump ? 1 : 0) >= x.cap) return;
+      const prev = days[idx(x) - 1], next = days[idx(x) + 1];
+      if (hard && (hasHardRun(prev) || hasHardRun(next))) cost += 3;
+      if (/Legs \(Heavy\)/.test(s.type) && next && next.list.some(i => ['Speed Run', 'Intervals'].includes(i.s.type))) cost += 2;
+      if (['Speed Run', 'Intervals'].includes(s.type) && prev && prev.list.some(i => /Legs \(Heavy\)/.test(i.s.type))) cost += 2;
+      if (idx(x) < idx(from)) cost += 0.5; // prefer later over earlier when tied
+      if (!best || cost < best.cost) best = { x, cost, bump };
+    });
+    if (!best) { changes.push({ ds: from.ds, text: `${s.emoji} ${s.type} dropped — ${label(from)} has a ${shiftTxt(from)} and no other day this week has room.` }); return; }
+    if (best.bump) best.x.list = best.x.list.filter(i => i !== best.bump);
+    best.x.list.push({ slot: null, s });
+    changes.push({ ds: from.ds, to: best.x.ds, text: `${s.emoji} ${s.type}: ${label(from)} → ${label(best.x)} (${label(from)} has a ${shiftTxt(from)})${best.bump ? `; ${label(best.x)}'s Easy Run dropped to make room` : ''}.` });
+  });
+  // 3. Rebuild am/pm/eve: runs in the morning slot, gym in the afternoon.
+  const out = {};
+  days.forEach(x => {
+    const day = { day: x.raw.day, am: null, pm: null, eve: null };
+    const runs = x.list.filter(i => i.s.tag === 'run'), rest = x.list.filter(i => i.s.tag !== 'run');
+    [...runs, ...rest].forEach(i => { const k = !day.am && i.s.tag === 'run' ? 'am' : !day.pm ? 'pm' : !day.am ? 'am' : 'eve'; day[k] = i.s; });
+    out[x.ds] = day;
+  });
+  const val = { days: out, changes };
+  _autoCache = { key, val };
+  return val;
 }
 
 // Short "why this session" coach's notes, keyed by the plain session type
@@ -6768,9 +6871,27 @@ function toggleTrainingTodo(slot, checked) {
 }
 
 // Clashes over the next 14 days, listed under the training calendar.
+function toggleOriginalPlan() {
+  _showOriginalPlan = !_showOriginalPlan;
+  renderTrainingCalendar(_acts);
+}
 function renderClashList() {
   const el = document.getElementById('cal-clashes');
   if (!el) return;
+  if (_liveCal.length) {
+    const ws = weekStart(); ws.setDate(ws.getDate() + 7 * _calWeekOffset);
+    const saved = _showOriginalPlan; _showOriginalPlan = false;
+    let auto = null; try { auto = getAutoWeek(ws); } catch {}
+    _showOriginalPlan = saved;
+    const btn = auto && auto.changes.length ? `<button onclick="toggleOriginalPlan()" style="border:1px solid #F0E1D2;background:${_showOriginalPlan ? '#1C1C1E' : '#fff'};color:${_showOriginalPlan ? '#fff' : '#4A3B2E'};border-radius:6px;padding:3px 9px;font-size:11px;font-weight:700;cursor:pointer;float:right">${_showOriginalPlan ? 'Show adjusted plan' : 'Show original plan'}</button>` : '';
+    const moved = auto && auto.changes.length
+      ? `<div style="margin-top:10px;padding:8px 10px;background:#EEF6FF;border-radius:8px">${btn}<div style="font-size:11px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">🔁 ${_showOriginalPlan ? 'Original plan shown — these changes are switched off' : 'Moved around your shifts this week'}</div>${auto.changes.map(c => `<div style="font-size:12px;padding:2px 0">${escHtml(c.text)}</div>`).join('')}</div>`
+      : `<div class="sub" style="margin-top:8px">✓ No shifts this week that need training moved.</div>`;
+    const left = [];
+    for (let i = 0; i < 7; i++) { const d = new Date(ws); d.setDate(d.getDate() + i); const ds = d.toLocaleDateString('en-CA'); if (ds >= new Date().toLocaleDateString('en-CA')) getClashes(ds).forEach(c => left.push({ ds, ...c })); }
+    el.innerHTML = moved + (left.length ? `<div style="margin-top:8px;padding:8px 10px;background:#FFF7E6;border-radius:8px"><div style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">⚠ Still tight</div>${left.map(c => `<div style="font-size:12px;padding:2px 0"><strong>${fmtDate(c.ds)}</strong> · ${c.session.emoji} ${escHtml(c.session.type)}: ${escHtml(c.why)}</div>`).join('')}</div>` : '');
+    return;
+  }
   if (!_liveCal.length) {
     el.innerHTML = `<div class="sub" style="margin-top:8px;color:#bbb">Shift clash checking needs your calendar — run the calendar-sync Apps Script once to connect it.</div>`;
     return;
@@ -9842,6 +9963,7 @@ function renderYear4Cal() {
 }
 
 function switchTab(name) {
+  if (name !== 'training' && typeof _showOriginalPlan !== 'undefined') _showOriginalPlan = false; // original plan is a peek, not a mode
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-pane').forEach(p => {
     p.classList.remove('active');
