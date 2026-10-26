@@ -3483,11 +3483,12 @@ function reorderTask(srcId, dstId, priority) {
 
 // Grouped for display (see HABIT_GROUP_ORDER in renderHabits) — group is purely
 // cosmetic, doesn't affect storage/streak keys, so re-grouping is always safe.
+const STEP_GOAL = 15000; // walking pad tops up low-mileage days
 const DAILY_HABITS = [
   { id: 'h-top-priority', label: 'Top priority', auto: 'top-task',    group: 'Tracked automatically' },
   { id: 'h-cardio',    label: 'Cardio',   auto: 'strava-cardio',   group: 'Tracked automatically' },
   { id: 'h-strength',  label: 'Strength', auto: 'strava-strength', group: 'Tracked automatically' },
-  { id: 'h-steps',     label: '10,000 steps', auto: 'steps',       group: 'Tracked automatically' },
+  { id: 'h-steps',     label: '15,000 steps', auto: 'steps',       group: 'Tracked automatically' },
   { id: 'h-sleep',     label: '8h sleep',     auto: 'sleep',       group: 'Tracked automatically' },
   { id: 'h-weight',    label: 'Weigh in',     auto: 'weight',      group: 'Tracked automatically' },
   { id: 'h-calories',  label: 'Under 2,183 kcal', auto: 'health-calories', group: 'Tracked automatically' },
@@ -3614,7 +3615,7 @@ function getAutoHabitStateOnDate(dateStr) {
     topDone = !!(tt && tt.done);
   }
   return {
-    'h-steps':    steps  != null && steps  >= 10000,
+    'h-steps':    steps  != null && steps  >= STEP_GOAL,
     'h-sleep':    sleep  != null && sleep.totalSleep >= 8,
     'h-weight':   weight != null || loggedWeight,
     'h-cardio':   hasCardio,
@@ -3638,7 +3639,7 @@ function renderHabits() {
   const sleepData = (typeof computeSleepForDate === 'function') ? computeSleepForDate(today) : null;
   const sleepTrackedButMissed = sleepData != null && sleepData.totalSleep < 8;
 
-  // Live step count, for the faint "x / 10,000" progress note next to that habit
+  // Live step count, for the faint "x / 15,000" progress note next to that habit
   const currentSteps = (typeof _healthValueOnDate === 'function')
     ? (_healthValueOnDate('step_count', today) ?? _healthValueOnDate('steps', today) ?? _healthValueOnDate('step_count_total', today))
     : null;
@@ -3687,7 +3688,7 @@ function renderHabits() {
     const streakCount = streakLive ? s.count : 0;
     const streakLabel = streakCount >= 2 ? `<span style="font-size:10px;color:var(--accent-text);margin-left:4px">🔥${streakCount}</span>` : '';
     const stepsProgress = (h.id === 'h-steps' && currentSteps != null)
-      ? `<span style="font-size:11px;color:var(--text-faint);margin-left:5px">${Math.round(currentSteps).toLocaleString()} / 10,000</span>` : '';
+      ? `<span style="font-size:11px;color:var(--text-faint);margin-left:5px">${Math.round(currentSteps).toLocaleString()} / ${STEP_GOAL.toLocaleString()}</span>` : '';
     const caloriesProgress = (h.id === 'h-calories' && currentCaloriesKcal != null)
       ? `<span style="font-size:11px;color:${overCalGoal ? 'var(--danger)' : 'var(--text-faint)'};margin-left:5px">${currentCaloriesKcal.toLocaleString()} / ${NUTRITION_GOALS.calories.toLocaleString()} kcal</span>` : '';
     const proteinProgress = (h.id === 'h-protein' && currentProteinG != null)
@@ -4642,13 +4643,33 @@ function planDay(ds, opts = {}) {
     // short break after a revision block
     free = free.map(([a, b]) => a === got[1] ? [a + 15, b] : [a, b]).filter(([a, b]) => b - a >= 20);
   }
+  // Walking pad top-up (10–30 min) on low-mileage days, or when today's steps are behind.
+  try {
+    const runKm = blocks.filter(b => b.type === 'training' && b.session && b.session.tag === 'run')
+      .reduce((a, b) => a + ((typeof plannedRunKm === 'function' ? plannedRunKm(b.session.type, ds) : 0) || 6), 0);
+    const isTodayDs = ds === new Date().toLocaleDateString('en-CA');
+    const stepsNow = isTodayDs && typeof _healthValueOnDate === 'function' ? _healthValueOnDate('step_count', ds) : null;
+    let padMin = 0, padWhy = '';
+    if (isTodayDs && stepsNow != null && notBefore >= 17 * 60) {
+      const leftRunKm = blocks.filter(b => b.type === 'training' && b.session && b.session.tag === 'run' && b.s >= notBefore)
+        .reduce((a, b) => a + ((typeof plannedRunKm === 'function' ? plannedRunKm(b.session.type, ds) : 0) || 6), 0);
+      const gap = STEP_GOAL - stepsNow - leftRunKm * 1000;
+      if (gap > 500) { padMin = Math.max(10, Math.min(30, Math.ceil(gap / 100 / 5) * 5)); padWhy = `${Math.round(stepsNow).toLocaleString()} steps so far — ~${Math.round(gap / 100) * 100} to go`; }
+    } else if (runKm < 8 && !busyBlocks.some(b => /football|5.?a.?side/i.test(b.title || ''))) {
+      padMin = 20; padWhy = runKm ? `low-mileage day (${Math.round(runKm)} km run) — skip if you're already near ${STEP_GOAL.toLocaleString()}` : `no run today — skip if you're already near ${STEP_GOAL.toLocaleString()}`;
+    }
+    if (padMin) {
+      const got = take(padMin, c => c.find(([s0]) => s0 >= 19 * 60) || c[c.length - 1]) || take(padMin, c => c[0]);
+      if (got) blocks.push({ s: got[0], e: got[1], title: '🚶 Walking pad', type: 'walk', note: padWhy });
+    }
+  } catch {}
   (opts.fillTasks || []).filter(t => !_earlyTasks.includes(t)).forEach(t => { const before = blocks.length; placeTask(t); if (blocks[before] && blocks[before].type === 'task-unplaced') blocks.pop(); });
   const shortBy = queue.reduce((s, q) => s + q.min, 0);
   const freeLeft = free.reduce((s, [a, b]) => s + (b - a), 0);
   blocks.sort((a, b) => (a.s ?? 9999) - (b.s ?? 9999));
   return { ds, blocks, shortBy, queueLeft: queue, free, freeLeft, hasCal: _liveCal.length > 0 };
 }
-const PLAN_COLORS = { done: '#FFFFFF', 'task-next': '#F2F7FB', 'task-unplaced': '#F7F3EE', wake: '#FFFFFF', routine: '#F7F3EE', shift: '#fee2e2', event: '#F2F2F7', optional: '#FAFAFA', meal: '#FFF7E6', training: '#E5F5EA', 'training-unplaced': '#FFF7E6', revision: '#EEE8FF', task: '#E0F2FE' };
+const PLAN_COLORS = { walk: '#EAF7F0', done: '#FFFFFF', 'task-next': '#F2F7FB', 'task-unplaced': '#F7F3EE', wake: '#FFFFFF', routine: '#F7F3EE', shift: '#fee2e2', event: '#F2F2F7', optional: '#FAFAFA', meal: '#FFF7E6', training: '#E5F5EA', 'training-unplaced': '#FFF7E6', revision: '#EEE8FF', task: '#E0F2FE' };
 function planBlocksHtml(plan, opts = {}) {
   const rows = plan.blocks.map(b => {
     const time = b.s == null ? 'no slot' : b.s === b.e ? _hm(b.s) : `${_hm(b.s)}–${_hm(b.e)}`;
@@ -9457,7 +9478,7 @@ function renderDailyBriefing() {
     }
     // 2. steps
     const steps = wkDays.map(ds => _healthValueOnDate('step_count', ds) ?? _healthValueOnDate('steps', ds) ?? _healthValueOnDate('step_count_total', ds)).filter(v => v != null);
-    if (steps.length) recapHtml += `<div style="${rowStyle}">👣 <span>Steps: avg <strong>${Math.round(avgOf(steps)).toLocaleString()}</strong>/day · ${steps.filter(v => v >= 10000).length}/${steps.length} days over 10,000</span></div>`;
+    if (steps.length) recapHtml += `<div style="${rowStyle}">👣 <span>Steps: avg <strong>${Math.round(avgOf(steps)).toLocaleString()}</strong>/day · ${steps.filter(v => v >= STEP_GOAL).length}/${steps.length} days over ${STEP_GOAL.toLocaleString()}</span></div>`;
     // 3. running progress
     if (typeof _actualWeek === 'function') {
       const ws = new Date(wkDays[0] + 'T00:00:00'), pws = new Date(ws); pws.setDate(pws.getDate() - 7);
