@@ -76,8 +76,33 @@ async function handle(context) {
     return json(401, { error: 'Unauthorized' });
   }
 
-  let payload, bodyLen = 0;
-  try { const text = await request.text(); bodyLen = text.length; payload = JSON.parse(text || '{}'); }
+  const text = await request.text();
+  const bodyLen = text.length;
+
+  // Fast path: hand the export straight to Postgres (health_ingest), which merges
+  // it into the stored blob under a row lock. The Worker never parses or rewrites
+  // the ~1 MB blob, which is what was pushing it past Cloudflare's CPU limit and
+  // producing intermittent HTTP 500s in Health Auto Export.
+  try {
+    const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/health_ingest`, {
+      method: 'POST',
+      headers: { apikey: env.SUPABASE_KEY, Authorization: `Bearer ${env.SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+      body: `{"payload":${text || '{}'}}`
+    });
+    const out = await res.text();
+    if (res.ok) {
+      const ok = out.includes('"ok": true') || out.includes('"ok":true');
+      return new Response(out, { status: ok ? 200 : 400, headers: CORS });
+    }
+    if (res.status === 400 && /invalid input syntax for type json|empty or invalid json|PGRST102/i.test(out)) return json(400, { error: 'Invalid JSON body' });
+    await logError(env, 'rpc', `${res.status} ${out.slice(0, 300)}`, { bodyLen });
+    // fall through to the in-Worker merge below
+  } catch (err) {
+    await logError(env, 'rpc', err, { bodyLen });
+  }
+
+  let payload;
+  try { payload = JSON.parse(text || '{}'); }
   catch { return json(400, { error: 'Invalid JSON body' }); }
 
   const metrics = (payload?.data?.metrics) || [];
@@ -133,12 +158,18 @@ async function handle(context) {
       // A point stamped exactly 00:00:00 is a whole-day summary (e.g. a manual
       // export); other points are individual entries. A day can end up with
       // both, so take whichever total is larger rather than adding them.
+      // Same rule as Postgres health_day_value(): each timestamp counts once (the
+      // same entry can arrive with and without a source name); a 00:00:00 value at
+      // least half the size of the other entries is a whole-day summary.
       for (const date of touched) {
-        let whole = 0, parts = 0;
+        const byTs = {};
         for (const [k, v] of Object.entries(byDate[date].points)) {
-          if (/ 00:00:00/.test(k)) whole += v; else parts += v;
+          const ts = k.split('|')[0];
+          if (typeof v === 'number') byTs[ts] = Math.max(byTs[ts] ?? -Infinity, v);
         }
-        byDate[date].value = Math.max(whole, parts);
+        let whole = 0, parts = 0;
+        for (const [ts, v] of Object.entries(byTs)) { if (/ 00:00:00/.test(ts)) whole += v; else parts += v; }
+        byDate[date].value = whole >= 0.5 * parts ? Math.max(whole, parts) : whole + parts;
       }
     } else {
       for (const point of (metric.data || [])) {
