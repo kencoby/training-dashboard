@@ -36,7 +36,37 @@ function pointValue(point) {
   return undefined;
 }
 
+// Workouts arrive with their full GPS route and per-second heart rate / energy /
+// step arrays (~250 KB each). The dashboard only uses the summary fields, and
+// keeping the arrays grew the stored blob to ~10 MB — every sync had to read,
+// parse and rewrite all of it, which pushed the function past its limits and
+// returned HTTP 500s to Health Auto Export. Arrays are dropped; summaries kept.
+function slimWorkout(w) {
+  const out = {};
+  for (const [k, v] of Object.entries(w)) if (!Array.isArray(v)) out[k] = v;
+  return out;
+}
+
+// Last few failures, so the cause of any 500 can be looked up afterwards.
+async function logError(env, where, err, extra) {
+  try {
+    const prev = (await sbGet(env, 'health-intake-errors')) || [];
+    const list = Array.isArray(prev) ? prev : [];
+    list.unshift({ at: new Date().toISOString(), where, error: String(err && err.message || err), ...extra });
+    await sbSet(env, 'health-intake-errors', list.slice(0, 20));
+  } catch {}
+}
+
 export async function onRequest(context) {
+  try {
+    return await handle(context);
+  } catch (err) {
+    await logError(context.env, 'uncaught', err);
+    return json(500, { error: err.message });
+  }
+}
+
+async function handle(context) {
   const { request, env } = context;
   if (request.method === 'OPTIONS') return json(200, {});
   if (request.method !== 'POST') return json(405, { error: 'Method not allowed' });
@@ -46,8 +76,8 @@ export async function onRequest(context) {
     return json(401, { error: 'Unauthorized' });
   }
 
-  let payload;
-  try { payload = JSON.parse(await request.text() || '{}'); }
+  let payload, bodyLen = 0;
+  try { const text = await request.text(); bodyLen = text.length; payload = JSON.parse(text || '{}'); }
   catch { return json(400, { error: 'Invalid JSON body' }); }
 
   const metrics = (payload?.data?.metrics) || [];
@@ -136,7 +166,7 @@ export async function onRequest(context) {
     const byId = { ...(priorW.byId || {}) };
     for (const w of workouts) {
       if (!w || !w.id) continue;
-      byId[w.id] = w;
+      byId[w.id] = slimWorkout(w);
     }
     const workoutCutoffMs = Date.now() - KEEP_DAYS * 86400000;
     for (const id of Object.keys(byId)) {
@@ -151,6 +181,7 @@ export async function onRequest(context) {
   try {
     await sbSet(env, 'blob:health-data', existing);
   } catch (err) {
+    await logError(env, 'save', err, { bodyLen, metrics: metrics.length, workouts: workouts.length });
     return json(500, { error: err.message });
   }
 
