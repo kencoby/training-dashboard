@@ -427,7 +427,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
       <div style="flex:1;overflow-y:auto;min-height:0;display:flex;flex-direction:column">
         <div id="today-sections" style="padding:10px 14px 6px;flex-shrink:0"></div>
         <!-- Top Priority (moved here from the right column, Oct 2026) -->
-        <div id="priority-block" style="padding:4px 0 14px;margin:0 14px;flex-shrink:0">
+        <div id="priority-block" style="display:none">
       <div class="lbl" style="margin-bottom:8px">🎯 Top Priority</div>
       <div id="dash-tasks-list"></div>
       <div style="display:flex;gap:5px;margin-top:8px">
@@ -1549,6 +1549,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
       onkeydown="if(event.key==='Enter')addTask('top')"
       style="flex:1;border:1.5px solid #F0C766;border-radius:8px;padding:7px 10px;font-size:13px;outline:none;font-family:inherit">
     <input id="tasks-date-top" type="date" title="Day (leave empty for today)" style="border:1.5px solid #F0C766;border-radius:8px;padding:5px 6px;font-size:12px;font-family:inherit;color:#4A3B2E;max-width:140px">
+    <select id="tasks-dur-top" title="Roughly how long it will take you (helps the day plan)" style="border:1.5px solid #F0E1D2;border-radius:8px;padding:5px 4px;font-size:12px;font-family:inherit;color:#4A3B2E;background:#fff"><option value="">⏱ time</option><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="20">20 min</option><option value="30">30 min</option><option value="45">45 min</option><option value="60">1h</option><option value="90">1h30</option><option value="120">2h</option></select>
     <button onclick="addTask('top')" style="background:#B0700A;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:16px;font-weight:700;cursor:pointer;line-height:1">+</button>
   </div>
 </div>
@@ -1570,6 +1571,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
     <input id="tasks-input-critical" type="text" placeholder="Add critical task…"
       onkeydown="if(event.key==='Enter')addTask('critical')"
       style="flex:1;border:1.5px solid #fca5a5;border-radius:8px;padding:7px 10px;font-size:13px;outline:none;font-family:inherit">
+    <select id="tasks-dur-critical" title="Roughly how long it will take you (helps the day plan)" style="border:1.5px solid #F0E1D2;border-radius:8px;padding:5px 4px;font-size:12px;font-family:inherit;color:#4A3B2E;background:#fff"><option value="">⏱ time</option><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="20">20 min</option><option value="30">30 min</option><option value="45">45 min</option><option value="60">1h</option><option value="90">1h30</option><option value="120">2h</option></select>
     <button onclick="addTask('critical')" style="background:#dc2626;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:16px;font-weight:700;cursor:pointer;line-height:1">+</button>
   </div>
 </div>
@@ -1591,6 +1593,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
     <input id="tasks-input-ondeck" type="text" placeholder="Add task…"
       onkeydown="if(event.key==='Enter')addTask('ondeck')"
       style="flex:1;border:1.5px solid #fcd34d;border-radius:8px;padding:7px 10px;font-size:13px;outline:none;font-family:inherit">
+    <select id="tasks-dur-ondeck" title="Roughly how long it will take you (helps the day plan)" style="border:1.5px solid #F0E1D2;border-radius:8px;padding:5px 4px;font-size:12px;font-family:inherit;color:#4A3B2E;background:#fff"><option value="">⏱ time</option><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="20">20 min</option><option value="30">30 min</option><option value="45">45 min</option><option value="60">1h</option><option value="90">1h30</option><option value="120">2h</option></select>
     <button onclick="addTask('ondeck')" style="background:#d97706;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:16px;font-weight:700;cursor:pointer;line-height:1">+</button>
   </div>
 </div>
@@ -1612,6 +1615,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
     <input id="tasks-input-someday" type="text" placeholder="Add future idea…"
       onkeydown="if(event.key==='Enter')addTask('someday')"
       style="flex:1;border:1.5px solid #E8D8C6;border-radius:8px;padding:7px 10px;font-size:13px;outline:none;font-family:inherit">
+    <select id="tasks-dur-someday" title="Roughly how long it will take you (helps the day plan)" style="border:1.5px solid #F0E1D2;border-radius:8px;padding:5px 4px;font-size:12px;font-family:inherit;color:#4A3B2E;background:#fff"><option value="">⏱ time</option><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="20">20 min</option><option value="30">30 min</option><option value="45">45 min</option><option value="60">1h</option><option value="90">1h30</option><option value="120">2h</option></select>
     <button onclick="addTask('someday')" style="background:#7A6656;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:16px;font-weight:700;cursor:pointer;line-height:1">+</button>
   </div>
 </div>
@@ -2677,6 +2681,8 @@ function addTask(priority) {
   const items = getTasks();
   const dateEl = priority === 'top' ? document.getElementById('tasks-date-top') : null;
   _addTaskItem(items, text, priority, dateEl && dateEl.value ? dateEl.value : null);
+  const durEl = document.getElementById(`tasks-dur-${priority}`);
+  if (durEl && durEl.value) { const last = items[items.length - 1]; if (last && last.text === text) last.durationMin = +durEl.value; else { const ex = items.find(t => t.text === text && !t.done); if (ex) ex.durationMin = +durEl.value; } durEl.value = ''; }
   if (dateEl) dateEl.value = '';
   saveTasks(items);
   if (input) input.value = '';
@@ -2758,10 +2764,38 @@ function _chainFollowUp(items, t) {
   if (!ch || ch.step + 1 >= ch.chain.steps.length) return;
   const next = ch.chain.steps[ch.step + 1];
   if (items.some(x => x.parentId === t.id)) return;
+  // You may already have this step as its own task (e.g. "Clothes away") — use that instead.
+  const key = _normTask(next.text).replace(/^(put|do) /, '');
+  if (items.some(x => !x.done && _normTask(x.text).includes(key))) return;
   const at = new Date();
   if (next.nextDay) { at.setDate(at.getDate() + 1); at.setHours(0, 0, 0, 0); } else at.setMinutes(at.getMinutes() + (next.after || 0));
   items.push({ id: 'tk' + Date.now() + 'c', text: next.text, priority: t.priority === 'top' ? 'critical' : t.priority, done: false,
     createdAt: new Date().toISOString(), chain: ch.chain.key, step: ch.step + 1, parentId: t.id, availableAt: at.toISOString() });
+}
+// Today's task set: the day's top priority, anything due today, the next step of a
+// chore already started, plus the first DAILY_TASK_SLOTS critical/on-deck tasks
+// (in your list order). Finishing a task before its planned slot earns one more.
+const DAILY_TASK_SLOTS = 2;
+let _lastPlanTaskStart = {};
+function _planBonus() { try { return JSON.parse(localStorage.getItem('plan_bonus') || '{}'); } catch { return {}; } }
+const _normTask = x => (x || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+function planTasksForToday(ds) {
+  const all = getTasks();
+  const top = getTopTaskForDate(ds);
+  const seen = new Set(), out = [];
+  const add = t => { const k = _normTask(t.text); if (!t || t.done || seen.has(k) || taskAvailableOn(t, ds) === Infinity) return false; seen.add(k); out.push(t); return true; };
+  // done-today tasks also claim their name, so a duplicate doesn't come back
+  all.filter(t => t.done && t.doneAt && new Date(t.doneAt).toLocaleDateString('en-CA') === ds).forEach(t => seen.add(_normTask(t.text)));
+  if (top) add(all.find(t => t.id === top.id) || top);
+  all.filter(t => t.dueDate && t.dueDate <= ds && t.priority !== 'someday').forEach(add);
+  all.filter(t => t.parentId).forEach(add);
+  const extraDoneToday = all.filter(t => t.done && t.doneAt && new Date(t.doneAt).toLocaleDateString('en-CA') === ds
+    && ['critical', 'ondeck'].includes(t.priority) && !t.parentId && !t.dupOf && !(t.dueDate && t.dueDate <= ds)).length;
+  let slots = DAILY_TASK_SLOTS + (_planBonus()[ds] || 0) - extraDoneToday;
+  for (const pr of ['critical', 'ondeck']) {
+    for (const t of all.filter(t => t.priority === pr && !t.forDate)) { if (slots <= 0) break; if (add(t)) slots--; }
+  }
+  return out;
 }
 function _refreshPlan() { try { if (typeof renderDailyBriefing === 'function') renderDailyBriefing(); } catch {} try { if (typeof renderCalendarTab === 'function') renderCalendarTab(); } catch {} }
 
@@ -2772,7 +2806,14 @@ function toggleTask(id) {
     t.done = !t.done;
     t.doneAt = t.done ? new Date().toISOString() : null;
     if (t.subtasks && t.subtasks.length) t.subtasks.forEach(s => s.done = t.done);
-    if (t.done) _chainFollowUp(items, t);
+    if (t.done) {
+      // Same task listed twice (e.g. Laundry as Critical and as today's Top) — tick both.
+      items.filter(x => x !== t && !x.done && _normTask(x.text) === _normTask(t.text)).forEach(x => { x.done = true; x.doneAt = t.doneAt; x.dupOf = t.id; });
+      _chainFollowUp(items, t);
+      const ds = new Date().toLocaleDateString('en-CA'), now = new Date().getHours() * 60 + new Date().getMinutes();
+      const planned = _lastPlanTaskStart[t.id];
+      if (planned != null && now < planned - 5) { const b = _planBonus(); b[ds] = (b[ds] || 0) + 1; localStorage.setItem('plan_bonus', JSON.stringify(b)); }
+    }
     else items = items.filter(x => !(x.parentId === t.id && !x.done)); // unticked: drop the pending next step
   }
   saveTasks(items);
@@ -4356,15 +4397,10 @@ function _weatherNotes(ds) {
 }
 function todayPlanHtml(ds, isToday, labelStyle, rowStyle) {
   const nowMin = isToday ? new Date().getHours() * 60 + new Date().getMinutes() : 0;
-  // Every open task that can be done today: top priority, critical and due-today
-  // go in before revision; on-deck/dashboard tasks fill whatever gaps are left.
   const top = (typeof getTopTaskForDate === 'function') ? getTopTaskForDate(ds) : null;
-  const avail = getTasks().filter(t => !t.done && t.priority !== 'someday' && taskAvailableOn(t, ds) !== Infinity
-    && (t.priority !== 'top' || t === top || (top && t.id === top.id)));
-  const rank = t => t.priority === 'top' ? 0 : t.priority === 'critical' ? 1 : (t.dueDate && t.dueDate <= ds) ? 2 : t.priority === 'ondeck' ? 3 : 4;
-  avail.sort((a, b) => rank(a) - rank(b));
-  const cand = avail.filter(t => rank(t) <= 2), fill = avail.filter(t => rank(t) > 2);
-  const plan = planDay(ds, { tasks: cand, fillTasks: fill, notBefore: isToday ? nowMin : 0 });
+  const cand = isToday ? planTasksForToday(ds) : (() => { const t = getTopTaskForDate(ds); return t && !t.done ? [t] : []; })();
+  const plan = planDay(ds, { tasks: cand, notBefore: isToday ? nowMin : 0 });
+  if (isToday) _lastPlanTaskStart = Object.fromEntries(plan.blocks.filter(b => b.task && b.s != null).map(b => [b.task.id, b.s]));
   const free = plan.free;
   const shown = { ...plan, blocks: plan.blocks.filter(b => !isToday || b.s == null || b.e > nowMin || b.type === 'wake') };
   const wakeVal = _hm(getWakeTime(ds));
@@ -4372,7 +4408,6 @@ function todayPlanHtml(ds, isToday, labelStyle, rowStyle) {
   const shift = plan.blocks.find(b => b.type === 'shift');
   const extras = [];
   if (shift) extras.push(`🏥 ${escHtml(shift.title.split(' - ')[0])} shift today (${escHtml(shift.note || '')}).`);
-  if (top && !top.done) extras.push(`🎯 Top priority: <strong>${escHtml(top.text)}</strong>`);
   if (isToday) {
     const sl = _sleepFor(ds);
     if (sl) extras.push(`😴 Slept ${fmtHrsMin(sl.hrs)}${sl.wakeMin != null ? `, up at ${_hm(sl.wakeMin)}` : ''}${sl.hrs < 6 ? ' — hard sessions swapped to easier versions today.' : '.'}`);
@@ -4475,6 +4510,11 @@ function planDay(ds, opts = {}) {
   };
   // Tasks, at their own length, from when they're available. A chained chore
   // also pencils in its next step after the wait (e.g. hang the washing 1h30 later).
+  const pencils = [];
+  const flushPencils = () => pencils.splice(0).forEach(({ at, next }) => {
+    const n = take(next.dur, c => c[0], at);
+    if (n) blocks.push({ s: n[0], e: n[1], title: `⏳ ${next.text}`, type: 'task-next', note: `after the ${next.why || 'wait'} — appears when you tick the step before` });
+  });
   const placeTask = t => {
     const len = taskDuration(t);
     const from = Math.max(notBefore, taskAvailableOn(t, ds));
@@ -4484,9 +4524,7 @@ function planDay(ds, opts = {}) {
     const ch = _taskChain(t);
     const next = ch && ch.chain.steps[ch.step + 1];
     if (next && !next.nextDay) {
-      const at = got[1] + (next.after || 0);
-      const n = take(next.dur, c => c[0], at);
-      if (n) blocks.push({ s: n[0], e: n[1], title: `⏳ ${next.text}`, type: 'task-next', note: `after the ${next.why || 'wait'} — appears when you tick the step before` });
+      pencils.push({ at: got[1] + (next.after || 0), next }); // placed after training so it doesn't split the gaps
     } else if (next && next.nextDay) {
       blocks[blocks.length - 1].after = `${next.text.toLowerCase()} tomorrow`;
     }
@@ -4558,7 +4596,9 @@ function planDay(ds, opts = {}) {
     if (slot) blocks.push({ s: slot[0], e: slot[1], title: `${session.emoji} ${session.type}`, type: 'training', session, rain: isRun ? rainAt(slot[0]) : null });
     else blocks.push({ s: null, e: null, title: `${session.emoji} ${session.type}`, type: 'training-unplaced', session });
   });
+  flushPencils();
   (opts.tasks || []).filter(t => !_earlyTasks.includes(t)).forEach(placeTask);
+  flushPencils();
   // revision queue
   const day = (typeof UKMLA_REVISION_PLAN !== 'undefined') ? UKMLA_REVISION_PLAN.find(d => d.date === ds) : null;
   const queue = [];
@@ -9834,8 +9874,7 @@ function syncHeaderLayout() {
   const block = document.getElementById('priority-block'), mob = document.getElementById('priority-slot-mobile');
   const desk = document.getElementById('today-sections');
   if (block && mob && desk) {
-    if (mobile && block.parentElement !== mob) { mob.appendChild(block); mob.style.display = ''; block.style.margin = '0'; block.style.padding = '0'; }
-    if (!mobile && mob.contains(block)) { desk.after(block); mob.style.display = 'none'; block.style.cssText = 'padding:4px 0 14px;margin:0 14px;flex-shrink:0'; }
+    mob.style.display = 'none'; // Top Priority box removed from Home — it's in the day plan; add tasks in Tasks
   }
 }
 window.addEventListener('resize', syncHeaderLayout);
