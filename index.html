@@ -3776,6 +3776,7 @@ function logMood(level) {
 function renderMoodRow() {
   const el = document.getElementById('mood-row');
   if (!el) return;
+  el.innerHTML = ''; return; // Energy today picker removed from Home (Oct 2026)
   const today = new Date().toLocaleDateString('en-CA');
   const entry = getMoodLog().find(e => e.date === today);
   const current = entry ? entry.mood : null;
