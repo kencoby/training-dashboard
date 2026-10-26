@@ -4518,6 +4518,23 @@ function planDay(ds, opts = {}) {
   const placeTask = t => {
     const len = taskDuration(t);
     const from = Math.max(notBefore, taskAvailableOn(t, ds));
+    const ch0 = _taskChain(t), nx = ch0 && ch0.chain.steps[ch0.step + 1];
+    if (nx && nx.after) {
+      // Only start it when you'll be free (not at placement/shift/training) once the wait is over:
+      // the next step must fit within 30 min of the wait ending.
+      const fits = (a, b) => free.some(([x, y]) => x <= a && y >= b);
+      let st = null, nst = null;
+      for (let m = from; m + len <= STUDY_DAY.end && st == null; m += 5) {
+        if (!fits(m, m + len)) continue;
+        for (let k = m + len + nx.after; k <= m + len + nx.after + 30; k += 5) if (fits(k, k + nx.dur)) { st = m; nst = k; break; }
+      }
+      if (st == null) { blocks.push({ s: null, e: null, title: `${t.priority === 'top' ? '🎯' : '✅'} ${t.text}`, type: 'task-unplaced', task: t, why: `no time today where you're home when the ${nx.why || 'wait'} finishes` }); return; }
+      take(len, c => c.find(x => x[0] === st), st);
+      take(nx.dur, c => c.find(x => x[0] === nst), nst);
+      blocks.push({ s: st, e: st + len, title: `${t.priority === 'top' ? '🎯' : '✅'} ${t.text}`, type: 'task', task: t, len });
+      blocks.push({ s: nst, e: nst + nx.dur, title: `⏳ ${nx.text}`, type: 'task-next', note: `after the ${nx.why || 'wait'} — appears when you tick the step before` });
+      return;
+    }
     const got = take(len, c => c[0], from);
     if (!got) { blocks.push({ s: null, e: null, title: `${t.priority === 'top' ? '🎯' : '✅'} ${t.text}`, type: 'task-unplaced', task: t, why: taskAvailableOn(t, ds) > 0 ? `available from ${_hm(taskAvailableOn(t, ds))}` : 'no gap left today' }); return; }
     blocks.push({ s: got[0], e: got[1], title: `${t.priority === 'top' ? '🎯' : '✅'} ${t.text}`, type: 'task', task: t, len });
@@ -4529,9 +4546,8 @@ function planDay(ds, opts = {}) {
       blocks[blocks.length - 1].after = `${next.text.toLowerCase()} tomorrow`;
     }
   };
-  // Chores with a wait (put a wash on, start cooking) go first so the wait runs alongside everything else.
+  // Chores with a wait (put a wash on, start cooking) are placed right after training, timed so you're home when the wait ends.
   const _earlyTasks = [...(opts.tasks || []), ...(opts.fillTasks || [])].filter(t => { const ch = _taskChain(t); const n = ch && ch.chain.steps[ch.step + 1]; return n && n.after; });
-  _earlyTasks.forEach(placeTask);
   let sessions = [];
   try { sessions = getTodaysSessions(new Date(ds + 'T12:00:00')); } catch {}
   // Done sessions drop out, so the rest of the day can move up.
@@ -4596,6 +4612,7 @@ function planDay(ds, opts = {}) {
     if (slot) blocks.push({ s: slot[0], e: slot[1], title: `${session.emoji} ${session.type}`, type: 'training', session, rain: isRun ? rainAt(slot[0]) : null });
     else blocks.push({ s: null, e: null, title: `${session.emoji} ${session.type}`, type: 'training-unplaced', session });
   });
+  _earlyTasks.forEach(placeTask);
   flushPencils();
   (opts.tasks || []).filter(t => !_earlyTasks.includes(t)).forEach(placeTask);
   flushPencils();
