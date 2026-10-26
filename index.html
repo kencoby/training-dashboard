@@ -373,6 +373,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
     <button class="tab-btn" data-tab="training">🏃 Training</button>
     <button class="tab-btn" data-tab="medicine">🩺 Medicine</button>
     <button class="tab-btn" data-tab="planner">✅ Tasks</button>
+    <button class="tab-btn" data-tab="calendar">📆 Calendar</button>
     <button class="tab-btn" data-tab="shopping">🛒 Shopping</button>
     <button class="tab-btn" data-tab="notes">📝 Notes</button>
     <button class="tab-btn" data-tab="habits">🔥 Habits</button>
@@ -1648,6 +1649,21 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 </div>
 
 </div><!-- /tab-planner -->
+
+<div class="tab-pane" id="tab-calendar">
+<div class="section">
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+    <h2 style="margin:0">Week plan</h2>
+    <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
+      <button onclick="shiftPlanWeek(-1)" aria-label="Previous week" style="border:1px solid #F0E1D2;background:#fff;border-radius:6px;width:28px;height:28px;cursor:pointer">‹</button>
+      <span id="plan-week-label" class="lbl" style="margin:0;min-width:90px;text-align:center">This week</span>
+      <button onclick="shiftPlanWeek(1)" aria-label="Next week" style="border:1px solid #F0E1D2;background:#fff;border-radius:6px;width:28px;height:28px;cursor:pointer">›</button>
+    </div>
+  </div>
+  <div class="sub" id="plan-legend" style="margin-bottom:10px">Your calendar plus suggested times for training and revision (dashed). Placement counts as 09:00–14:00 unless a mandatory session runs later (then until it ends + 1h travel); optional teaching doesn't block time.</div>
+  <div id="plan-days"></div>
+</div>
+</div>
 
 <div class="tab-pane" id="tab-shopping">
 
@@ -4132,6 +4148,7 @@ async function loadLiveCalendar() {
     if (typeof renderTrainingCalendar === 'function') renderTrainingCalendar(_acts);
     if (typeof renderUkmlaPlan === 'function') renderUkmlaPlan();
     if (typeof renderDailyBriefing === 'function') renderDailyBriefing();
+    if (typeof renderCalendarTab === 'function') renderCalendarTab();
   } catch {}
 }
 const _toMin = t => { if (!t) return null; const [hh, mm] = t.split(':').map(Number); return hh * 60 + (mm || 0); };
@@ -4155,8 +4172,35 @@ const _hm = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60
 // either side), minus ~1 h per training session and ~2 h for meals/admin.
 // Plan need = ~25 min per topic + 60 min for the mixed question set.
 const STUDY_DAY = { start: 7 * 60, end: 22 * 60, mealsAdmin: 120, perSession: 60, perTopic: 25, questionSet: 60 };
+// Busy time for a day. Placement (09:00–17:00 in the calendar) really ends at
+// 14:00 on most days; if a mandatory session (SIM, JA2 teaching — anything not
+// marked "(optional)") runs past 14:00, placement counts until it ends plus an
+// hour to get home. Optional teaching is shown but doesn't block time. Shifts
+// get 30 min travel either side.
+const PLACEMENT_FREE_FROM = 14 * 60;
+const _isMainPlacement = e => e.kind === 'placement' && /placement/i.test(e.title || '');
+const _isOptional = e => /\(optional|optional\)|optional,/i.test(e.title || '');
+function getBusyBlocks(ds) {
+  const evs = getDayEvents(ds);
+  const mandatory = evs.filter(e => !_isMainPlacement(e) && !_isOptional(e) && e.kind === 'placement');
+  const out = [];
+  evs.forEach(e => {
+    if (_isMainPlacement(e)) {
+      const lateMand = mandatory.filter(m => m.e > PLACEMENT_FREE_FROM).reduce((mx, m) => Math.max(mx, m.e), 0);
+      const end = lateMand ? lateMand + 60 : Math.min(e.e, PLACEMENT_FREE_FROM);
+      out.push({ s: e.s - 30, e: end, title: e.title, kind: 'placement', note: (lateMand ? `until ${_hm(lateMand)} + travel home` : 'free from 14:00') + ' · incl. 30 min travel in' });
+    } else if (_isOptional(e)) {
+      out.push({ s: e.s, e: e.e, title: e.title, kind: e.kind, optional: true });
+    } else if (e.kind === 'shift') {
+      out.push({ s: e.s - 30, e: e.e + 30, title: e.title, kind: 'shift', note: `${_hm(e.s)}–${_hm(e.e)} + travel` });
+    } else {
+      out.push({ s: e.s, e: e.e, title: e.title, kind: e.kind });
+    }
+  });
+  return out.sort((a, b) => a.s - b.s);
+}
 function computeStudyCapacity(ds) {
-  const evs = getDayEvents(ds).map(e => e.kind === 'shift' ? { ...e, s: e.s - 30, e: e.e + 30 } : e);
+  const evs = getBusyBlocks(ds).filter(b => !b.optional);
   // merge intervals clipped to the waking window
   const iv = evs.map(e => [Math.max(STUDY_DAY.start, e.s), Math.min(STUDY_DAY.end, e.e)]).filter(([a, b]) => b > a).sort((a, b) => a[0] - b[0]);
   let busy = 0, cur = null;
@@ -4179,6 +4223,203 @@ function computeStudyCapacity(ds) {
   return { free, need, heavy: need > 0 && need > free, busy, sessions, shift, hasCal: _liveCal.length > 0 };
 }
 const _fmtHrs = m => { const h = Math.floor(m / 60), mm = Math.round(m % 60 / 15) * 15; return mm === 60 ? `${h + 1}h` : `${h}h${mm ? String(mm).padStart(2, '0') : ''}`; };
+
+// ── Home: today's plan ──────────────────────────────────────────────────────
+function _weatherNotes(ds) {
+  const w = (typeof _weather !== 'undefined') ? _weather : null;
+  if (!w || !w.hourly || !w.hourly.time) return [];
+  const notes = [];
+  const hrs = w.hourly.time.map((t, i) => ({ t, h: +t.slice(11, 13), p: w.hourly.precipitation_probability[i], temp: w.hourly.temperature_2m[i] }))
+    .filter(x => x.t.startsWith(ds) && x.h >= 7 && x.h <= 21);
+  if (!hrs.length) return notes;
+  const wet = hrs.filter(x => x.p >= 50);
+  if (wet.length) {
+    const first = wet[0].h, last = wet[wet.length - 1].h;
+    notes.push(`🌧 Rain likely ${String(first).padStart(2, '0')}:00–${String(last + 1).padStart(2, '0')}:00 (up to ${Math.max(...wet.map(x => x.p))}%) — take a waterproof.`);
+  }
+  // driest 2-hour window
+  let best = null;
+  for (let i = 0; i < hrs.length - 1; i++) { const sc = hrs[i].p + hrs[i + 1].p; if (!best || sc < best.sc) best = { sc, h: hrs[i].h }; }
+  if (wet.length && best) notes.push(`☀️ Driest window around ${String(best.h).padStart(2, '0')}:00–${String(best.h + 2).padStart(2, '0')}:00.`);
+  const temps = hrs.map(x => x.temp);
+  if (Math.min(...temps) <= 5) notes.push(`🧤 Cold — down to ${Math.round(Math.min(...temps))}°C. Layer up for any run.`);
+  const di = (w.daily && w.daily.time) ? w.daily.time.indexOf(ds) : -1;
+  if (di >= 0 && w.daily.sunset) notes.push(`🌇 Sunset ${w.daily.sunset[di].slice(11, 16)} — wear something bright for runs after that.`);
+  return notes;
+}
+function todayPlanHtml(ds, isToday, labelStyle, rowStyle) {
+  const nowMin = isToday ? new Date().getHours() * 60 + new Date().getMinutes() : 0;
+  // Up to 3 open tasks: the day's top priority first, then critical / due by today.
+  const top = (typeof getTopTaskForDate === 'function') ? getTopTaskForDate(ds) : null;
+  const open = getTasks().filter(t => !t.done && t.priority !== 'top' && (t.priority === 'critical' || (t.dueDate && t.dueDate <= ds)));
+  const cand = [...(top && !top.done ? [top] : []), ...open].slice(0, 3);
+  const plan = planDay(ds, { tasks: cand, notBefore: nowMin });
+  const free = plan.free;
+  const shown = { ...plan, blocks: plan.blocks.filter(b => !isToday || b.s == null || b.e > nowMin) };
+  const notes = isToday ? _weatherNotes(ds) : [];
+  const shift = plan.blocks.find(b => b.type === 'shift');
+  const extras = [];
+  if (shift) extras.push(`🏥 ${escHtml(shift.title.split(' - ')[0])} shift today (${escHtml(shift.note || '')}).`);
+  if (top && !top.done) extras.push(`🎯 Top priority: <strong>${escHtml(top.text)}</strong>`);
+  const spare = free.reduce((s, [a, b]) => s + (b - a), 0);
+  if (spare >= 60) extras.push(`⏳ ~${_fmtHrs(spare)} still unplanned${isToday ? ' for the rest of today' : ''} — good for tasks, rest or an extra Anki session.`);
+  return `<div style="${labelStyle}">🗓 ${isToday ? "Today's plan" : 'Plan'} <a href="javascript:void(0)" onclick="switchTab('calendar')" style="float:right;font-weight:600;text-transform:none;letter-spacing:0;color:#A6937F">week view ›</a></div>
+    ${[...notes, ...extras].map(n => `<div style="${rowStyle};align-items:flex-start"><span>${n}</span></div>`).join('')}
+    <div style="margin-top:6px">${planBlocksHtml(shown) || '<div class="sub">Nothing left planned today.</div>'}</div>
+    ${!plan.hasCal ? '<div class="sub" style="margin-top:4px;color:#bbb">Calendar not synced — placement, shifts and tutoring are missing from this plan.</div>' : ''}`;
+}
+
+// ── Calendar tab ────────────────────────────────────────────────────────────
+let _planWeekOffset = 0;
+function shiftPlanWeek(d) { _planWeekOffset = Math.max(-1, Math.min(6, _planWeekOffset + d)); renderCalendarTab(); }
+function renderCalendarTab() {
+  const el = document.getElementById('plan-days');
+  if (!el) return;
+  const ws = weekStart(); ws.setDate(ws.getDate() + 7 * _planWeekOffset);
+  const lbl = document.getElementById('plan-week-label');
+  if (lbl) lbl.textContent = _planWeekOffset === 0 ? 'This week' : _planWeekOffset === 1 ? 'Next week' : `w/c ${ws.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const calNote = _liveCal.length ? '' : `<div class="card" style="margin-bottom:10px"><div class="sub">Your Google Calendar hasn't synced yet, so only training and revision are shown.</div></div>`;
+  el.innerHTML = calNote + [...Array(7)].map((_, i) => {
+    const d = new Date(ws); d.setDate(d.getDate() + i);
+    const ds = d.toLocaleDateString('en-CA');
+    const topT = (typeof getTopTaskForDate === 'function') ? getTopTaskForDate(ds) : null;
+    const plan = planDay(ds, { tasks: topT && !topT.done ? [topT] : [] });
+    const rev = plan.blocks.filter(b => b.type === 'revision').reduce((s, b) => s + (b.e - b.s), 0);
+    const clashes = (typeof getClashes === 'function') ? getClashes(ds) : [];
+    const isToday = ds === todayStr, past = ds < todayStr;
+    return `<div class="card" style="margin-bottom:10px;${isToday ? 'border:2px solid #3b82f6;' : ''}${past ? 'opacity:.6;' : ''}">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap">
+        <div style="font-weight:800">${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}${isToday ? ' · Today' : ''}</div>
+        <div class="sub">${rev ? `📚 ${_fmtHrs(rev)} revision` : ''}${plan.freeLeft >= 30 ? ` · ${_fmtHrs(plan.freeLeft)} spare` : ''}${clashes.length ? ' · <span style="color:#b45309;font-weight:700">⚠ clash</span>' : ''}</div>
+      </div>
+      <div style="margin-top:6px">${planBlocksHtml(plan) || '<div class="sub">Nothing planned.</div>'}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── Day planner ─────────────────────────────────────────────────────────────
+// Fits the day's training and revision into free time (07:00–22:00, around
+// busy blocks, keeping 18:30–19:15 for dinner). Runs go in the morning if
+// there's room before the day starts (driest hour if the forecast is known),
+// otherwise the first free slot; gym goes after placement. Revision fills the
+// remaining gaps in up-to-90-min blocks: the day's topics (~25 min each),
+// then the 30-question set.
+const PLAN_MEALS = [[18 * 60 + 30, 19 * 60 + 15, '🍽 Dinner']];
+function _freeIntervals(busy) {
+  let free = [[STUDY_DAY.start, STUDY_DAY.end]];
+  busy.forEach(([a, b]) => {
+    free = free.flatMap(([s, e]) => b <= s || a >= e ? [[s, e]] : [[s, Math.max(s, a)], [Math.min(e, b), e]].filter(([x, y]) => y - x > 0));
+  });
+  return free.filter(([s, e]) => e - s >= 20);
+}
+function _runMinutes(type, ds) {
+  const km = (typeof plannedRunKm === 'function') ? plannedRunKm(type, ds) : null;
+  return Math.max(30, Math.min(120, Math.round((km || 6) * 5.5 + 10)));
+}
+function planDay(ds, opts = {}) {
+  const busyBlocks = getBusyBlocks(ds);
+  const hard = busyBlocks.filter(b => !b.optional).map(b => [b.s, b.e]);
+  const blocks = busyBlocks.map(b => ({ ...b, type: b.kind === 'shift' ? 'shift' : b.optional ? 'optional' : 'event' }));
+  // Dinner at 18:30 if free, otherwise the first free 45 min between 17:30 and 21:00.
+  const meals = [];
+  PLAN_MEALS.forEach(([s, e, t]) => {
+    if (!hard.some(([a, b]) => a < e && b > s)) { meals.push([s, e, t]); return; }
+    const gap = _freeIntervals(hard).find(([a, b]) => a >= 17 * 60 + 30 && a <= 21 * 60 && b - a >= 45);
+    if (gap) meals.push([gap[0], gap[0] + 45, t]);
+  });
+  meals.forEach(([s, e, t]) => blocks.push({ s, e, title: t, type: 'meal' }));
+  let free = _freeIntervals([...hard, ...meals.map(m => [m[0], m[1]])]);
+  const take = (len, pick) => {
+    const cands = free.filter(([s, e]) => e - s >= len);
+    if (!cands.length) return null;
+    const [s, e] = pick(cands);
+    const start = s;
+    free = free.flatMap(([a, b]) => a === s && b === e ? [[start + len, b]].filter(([x, y]) => y - x >= 20) : [[a, b]]);
+    return [start, start + len];
+  };
+  let sessions = [];
+  try { sessions = getTodaysSessions(new Date(ds + 'T12:00:00')); } catch {}
+  const firstBusy = hard.length ? Math.min(...hard.map(b => b[0])) : 24 * 60;
+  const wetHours = (typeof _weather !== 'undefined' && _weather && _weather.hourly && _weather.hourly.time)
+    ? Object.fromEntries(_weather.hourly.time.map((t, i) => [t, _weather.hourly.precipitation_probability[i]])) : null;
+  const rainAt = m => wetHours ? wetHours[`${ds}T${String(Math.floor(m / 60)).padStart(2, '0')}:00`] : null;
+  const longShift = busyBlocks.some(b => b.kind === 'shift' && b.e - b.s >= 10 * 60);
+  sessions.forEach(({ session }) => {
+    if (longShift) { blocks.push({ s: null, e: null, title: `${session.emoji} ${session.type}`, type: 'training-unplaced', session, why: 'long shift today — move it or make it a rest day' }); return; }
+    const isRun = session.tag === 'run';
+    const len = isRun ? _runMinutes(session.type, ds) : session.tag === 'soccer' ? 60 : 75;
+    let slot;
+    if (isRun) {
+      slot = take(len, c => {
+        const morning = c.filter(([s]) => s + len <= firstBusy);
+        if (morning.length) return morning[0];
+        if (wetHours) return c.slice().sort((a, b) => (rainAt(a[0]) ?? 50) - (rainAt(b[0]) ?? 50))[0];
+        return c[0];
+      });
+    } else {
+      slot = take(len, c => c.find(([s]) => s >= PLACEMENT_FREE_FROM) || c[c.length - 1]);
+    }
+    if (slot) blocks.push({ s: slot[0], e: slot[1], title: `${session.emoji} ${session.type}`, type: 'training', session, rain: isRun ? rainAt(slot[0]) : null });
+    else blocks.push({ s: null, e: null, title: `${session.emoji} ${session.type}`, type: 'training-unplaced', session });
+  });
+  // Tasks to fit (today's top priority etc.), 30 min each, before revision so they get a slot.
+  const notBefore = opts.notBefore || 0;
+  (opts.tasks || []).forEach(t => {
+    const got = take(30, c => c.find(([s]) => s >= notBefore && s >= PLACEMENT_FREE_FROM) || c.find(([s]) => s >= notBefore) || c[0]);
+    if (got) blocks.push({ s: got[0], e: got[1], title: `${t.priority === 'top' ? '🎯' : '✅'} ${t.text}`, type: 'task' });
+  });
+  // revision queue
+  const day = (typeof UKMLA_REVISION_PLAN !== 'undefined') ? UKMLA_REVISION_PLAN.find(d => d.date === ds) : null;
+  const queue = [];
+  if (day) {
+    const groups = (typeof ukmlaGroups === 'function') ? ukmlaGroups(day) : day.groups;
+    groups.forEach(g => g.items.forEach(it => queue.push(g.subject ? { text: it, min: STUDY_DAY.perTopic } : { text: it, min: STUDY_DAY.questionSet, set: true })));
+  }
+  while (queue.length) {
+    const slot0 = free.find(([s, e]) => e - s >= queue[0].min);
+    if (!slot0) break;
+    let room = Math.min(90, slot0[1] - slot0[0]);
+    const items = [];
+    let used = 0;
+    while (queue.length && used + queue[0].min <= room) { const it = queue.shift(); items.push(it); used += it.min; }
+    if (!items.length) break;
+    const got = take(used, c => c.find(x => x[0] === slot0[0] && x[1] === slot0[1]) || c[0]);
+    if (!got) break;
+    blocks.push({ s: got[0], e: got[1], title: items.some(i => i.set) && items.length === 1 ? '📝 30 Passmedicine questions' : '📚 Revision', items, type: 'revision' });
+    // short break after a revision block
+    free = free.map(([a, b]) => a === got[1] ? [a + 15, b] : [a, b]).filter(([a, b]) => b - a >= 20);
+  }
+  const shortBy = queue.reduce((s, q) => s + q.min, 0);
+  const freeLeft = free.reduce((s, [a, b]) => s + (b - a), 0);
+  blocks.sort((a, b) => (a.s ?? 9999) - (b.s ?? 9999));
+  return { ds, blocks, shortBy, queueLeft: queue, free, freeLeft, hasCal: _liveCal.length > 0 };
+}
+const PLAN_COLORS = { shift: '#fee2e2', event: '#F2F2F7', optional: '#FAFAFA', meal: '#FFF7E6', training: '#E5F5EA', 'training-unplaced': '#FFF7E6', revision: '#EEE8FF', task: '#E0F2FE' };
+function planBlocksHtml(plan, opts = {}) {
+  const rows = plan.blocks.map(b => {
+    const time = b.s != null ? `${_hm(b.s)}–${_hm(b.e)}` : 'no slot';
+    let title = escHtml(b.title);
+    let sub = b.note ? escHtml(b.note) : '';
+    if (b.type === 'optional') sub = 'optional';
+    if (b.type === 'training') {
+      const shoe = (typeof getRunShoe === 'function') ? getRunShoe(b.session.type) : null;
+      const st = (typeof getRunStructure === 'function') ? getRunStructure(b.session.type, plan.ds) : null;
+      sub = ['suggested', st ? st.title : '', shoe ? `👟 ${shoe.short}` : '', b.rain != null ? `${b.rain}% rain` : ''].filter(Boolean).join(' · ');
+    }
+    if (b.type === 'training-unplaced') sub = b.why || 'no free slot today — move it to another day';
+    if (b.type === 'revision') sub = 'suggested · ' + b.items.map(i => i.set ? '30 questions' : i.text).join(', ');
+    if (b.type === 'task') sub = 'fits here';
+    const faded = b.type === 'optional' ? 'opacity:.55;' : '';
+    const dashed = ['training', 'revision', 'task'].includes(b.type) ? 'border:1px dashed #C9BFAF;' : 'border:1px solid transparent;';
+    return `<div style="display:flex;gap:10px;align-items:flex-start;padding:6px 8px;margin:3px 0;border-radius:8px;background:${PLAN_COLORS[b.type] || '#F2F2F7'};${dashed}${faded}">
+      <span style="font-size:11px;font-weight:700;color:#7A6656;min-width:78px;flex-shrink:0;padding-top:1px">${time}</span>
+      <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">${title}</div>${sub ? `<div style="font-size:11px;color:#7A6656;line-height:1.35">${sub}</div>` : ''}</div>
+    </div>`;
+  }).join('');
+  const warn = plan.shortBy > 0 ? `<div style="font-size:12px;color:#b45309;margin-top:4px">⚠ ~${_fmtHrs(plan.shortBy)} of revision doesn't fit today: ${escHtml(plan.queueLeft.map(q => q.set ? '30 questions' : q.text).slice(0, 4).join(', '))}${plan.queueLeft.length > 4 ? '…' : ''}</div>` : '';
+  return rows + warn;
+}
 
 // ── Training / shift clash checker ──────────────────────────────────────────
 // Flags: any hard session on a shift of 8h+; any session on a 12h+ shift day;
@@ -8555,7 +8796,7 @@ function wmoDesc(code) {
 
 async function fetchWeather() {
   try {
-    const url = 'https://api.open-meteo.com/v1/forecast?latitude=51.6214&longitude=-3.9436&current=temperature_2m,weather_code,wind_speed_10m,precipitation&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Europe%2FLondon&forecast_days=1';
+    const url = 'https://api.open-meteo.com/v1/forecast?latitude=51.6214&longitude=-3.9436&current=temperature_2m,weather_code,wind_speed_10m,precipitation&hourly=temperature_2m,precipitation_probability,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset&timezone=Europe%2FLondon&forecast_days=2';
     const res = await fetch(url);
     if (!res.ok) return;
     _weather = await res.json();
@@ -8708,14 +8949,9 @@ function renderDailyBriefing() {
     sections.push(`<div style="${sectionStyle}"><div style="${labelStyle}">🏋️ Training</div><div style="font-size:13px;color:#A6937F">Rest day 😴</div></div>`);
   }
 
-  // ── Study time + clashes (needs the live calendar) ───────────────────────
-  if (typeof computeStudyCapacity === 'function' && typeof UKMLA_REVISION_PLAN !== 'undefined' && UKMLA_REVISION_PLAN.some(d => d.date === todayDateStr)) {
-    const c = computeStudyCapacity(todayDateStr);
-    const shiftTxt = c.shift ? `${escHtml(c.shift.title.split(' - ')[0])} shift ${_hm(c.shift.s)}–${_hm(c.shift.e)}. ` : '';
-    const body = c.hasCal
-      ? `<div style="${rowStyle}">📚 <span>${shiftTxt}~<strong>${_fmtHrs(c.free)}</strong> free for study; today's plan needs ~${_fmtHrs(c.need)}${c.heavy ? ' — <strong style="color:#b45309">too much, move a topic</strong>' : ''}.</span></div>`
-      : `<div style="${rowStyle}">📚 <span>Plan needs ~${_fmtHrs(c.need)} today. <span style="color:#aaa">Connect your calendar (calendar-sync script) to see free time around shifts.</span></span></div>`;
-    sections.push(`<div style="${sectionStyle}"><div style="${labelStyle}">📚 Study</div>${body}</div>`);
+  // ── Today's plan: schedule, weather notes, tasks that fit ──────────────
+  if (typeof planDay === 'function') {
+    try { sections.push(`<div style="${sectionStyle}">${todayPlanHtml(todayDateStr, isToday, labelStyle, rowStyle)}</div>`); } catch (err) { console.warn('day plan failed', err); }
   }
   if (typeof getClashes === 'function') {
     const cl = getClashes(todayDateStr);
@@ -9346,6 +9582,7 @@ function switchTab(name) {
   if (name === 'notes') renderNotes();
   if (name === 'habits') { renderHabitHistory(); }
   if (name === 'year4') renderYear4Cal();
+  if (name === 'calendar') renderCalendarTab();
   // Dashboard uses a fixed-height grid — override display:block
   if (name === 'dashboard') { pane.style.display = 'block'; document.body.style.overflow = 'hidden'; }
   else { document.body.style.overflow = ''; }
