@@ -112,12 +112,21 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 @media (max-width:700px){.g4{grid-template-columns:1fr 1fr}.g2,.g3{grid-template-columns:1fr}.col2{grid-column:span 1}body{padding:12px}.todo-grid{grid-template-columns:1fr !important}.todo-divider{display:none}.todo-right{padding-left:0 !important;border-top:1px solid var(--border-soft);margin-top:16px;padding-top:16px}}
 @media (max-width:420px){.g4{grid-template-columns:1fr}}
-.home-2col{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);grid-template-rows:minmax(0,1fr) auto;grid-template-areas:"briefing right" "statrow right";gap:12px;height:calc(100vh - 130px)}
+.home-2col{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);grid-template-rows:auto minmax(0,1fr) auto;grid-template-areas:"briefing training" "briefing right" "statrow right";gap:12px;height:calc(100vh - 130px)}
+.home-training-col{grid-area:training;max-height:48vh}
+.home-prio{grid-area:prio}
+@media(min-width:1300px){
+  .home-2col{grid-template-columns:minmax(0,5fr) minmax(0,4fr) minmax(0,3fr);grid-template-rows:minmax(0,1fr) auto;grid-template-areas:"briefing training right" "statrow training right"}
+  .home-training-col{max-height:none}
+}
 .home-briefing-col{grid-area:briefing}
+.plan-row .plan-sub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.plan-row.open .plan-sub{white-space:normal}
 #home-stat-row{grid-area:statrow;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px}
 .home-tasks-col{grid-area:right}
 @media(max-width:640px){
-  .home-2col{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr);grid-template-areas:"statrow" "right";height:calc(100vh - 195px)}
+  .home-2col{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto minmax(0,1fr);grid-template-areas:"statrow" "prio" "training" "right";height:calc(100vh - 195px)}
+  .home-training-col{max-height:38vh}
   .home-briefing-col{display:none!important}
 }
 .accordion{border:1px solid var(--border-soft);border-radius:var(--radius-lg);margin-bottom:10px;overflow:hidden;background:var(--surface)}
@@ -470,22 +479,22 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
   </div>
 
   <!-- RIGHT: Tasks (top) + Habits (bottom) -->
-  <div class="home-tasks-col" style="display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden">
+  <!-- Top Priority lives here on mobile only (briefing column is hidden there) -->
+  <div id="priority-slot-mobile" class="card home-prio" style="padding:14px;display:none"></div>
 
-    <!-- Top Priority lives here on mobile only (briefing column is hidden there) -->
-    <div id="priority-slot-mobile" class="card" style="padding:14px;flex-shrink:0;display:none"></div>
+  <!-- Training: own column on wide screens, top of the right column otherwise -->
+  <div class="card home-training-col" style="padding:12px 14px;overflow-x:hidden;overflow-y:auto;min-height:0">
+    <div id="home-suggestion"></div>
+    <div id="training-todo"></div>
+  </div>
 
-    <!-- Habits card -->
-    <div class="card" style="padding:14px;flex:1;overflow-x:hidden;overflow-y:auto;min-height:0">
-      <div class="lbl" style="margin-bottom:8px">Daily <span style="font-size:10px;color:#bbb;text-transform:none;letter-spacing:0;font-weight:500">— resets midnight</span></div>
-      <div id="home-suggestion"></div>
-      <div id="training-todo"></div>
-      <div id="mood-row"></div>
-      <div id="habit-list"></div>
-      <div id="journal-prompt"></div>
-      <div id="wake-times"></div>
-    </div>
-
+  <!-- Habits -->
+  <div class="card home-tasks-col" style="padding:12px 14px;overflow-x:hidden;overflow-y:auto;min-height:0">
+    <div class="lbl" style="margin-bottom:8px">Daily <span style="font-size:10px;color:#bbb;text-transform:none;letter-spacing:0;font-weight:500">— resets midnight</span></div>
+    <div id="mood-row"></div>
+    <div id="habit-list"></div>
+    <div id="journal-prompt"></div>
+    <div id="wake-times"></div>
   </div>
 </div>
 
@@ -3435,7 +3444,7 @@ const YR4_BLOCKS = [
 // marks the entries the countdown in renderSystemAlerts() should watch.
 const YR4_TRAVEL = [
   {start:406,end:407,label:'California',color:'#4A90D9',tc:'#fff'},
-  {start:413,end:413,label:'Formative SBA',color:'#F4B183',tc:'#7a4010',assessment:true},
+  {start:413,end:413,label:'Mock AKT',color:'#F4B183',tc:'#7a4010',assessment:true},
   {start:421,end:421,label:'CPSA (Pt 1–3)',color:'#F4B183',tc:'#7a4010',assessment:true},
   {start:423,end:423,label:'AKT (P1 & P2)',color:'#F4B183',tc:'#7a4010',assessment:true},
   {start:429,end:429,label:'Swansea HM · PSA',color:'#9B59B6',tc:'#fff',assessment:true},
@@ -4263,7 +4272,7 @@ function todayPlanHtml(ds, isToday, labelStyle, rowStyle) {
   if (spare >= 60) extras.push(`⏳ ~${_fmtHrs(spare)} still unplanned${isToday ? ' for the rest of today' : ''} — good for tasks, rest or an extra Anki session.`);
   return `<div style="${labelStyle}">🗓 ${isToday ? "Today's plan" : 'Plan'} <a href="javascript:void(0)" onclick="switchTab('calendar')" style="float:right;font-weight:600;text-transform:none;letter-spacing:0;color:#A6937F">week view ›</a></div>
     ${[...notes, ...extras].map(n => `<div style="${rowStyle};align-items:flex-start"><span>${n}</span></div>`).join('')}
-    <div style="margin-top:6px">${planBlocksHtml(shown) || '<div class="sub">Nothing left planned today.</div>'}</div>
+    <div style="margin-top:6px">${planBlocksHtml(shown, { compact: true, nowMin: isToday ? nowMin : null }) || '<div class="sub">Nothing left planned today.</div>'}</div>
     ${!plan.hasCal ? '<div class="sub" style="margin-top:4px;color:#bbb">Calendar not synced — placement, shifts and tutoring are missing from this plan.</div>' : ''}`;
 }
 
@@ -4343,6 +4352,12 @@ function planDay(ds, opts = {}) {
     ? Object.fromEntries(_weather.hourly.time.map((t, i) => [t, _weather.hourly.precipitation_probability[i]])) : null;
   const rainAt = m => wetHours ? wetHours[`${ds}T${String(Math.floor(m / 60)).padStart(2, '0')}:00`] : null;
   const longShift = busyBlocks.some(b => b.kind === 'shift' && b.e - b.s >= 10 * 60);
+  // Runs are placed first. Only rule on order: legs must come after a speed
+  // session (Speed Run / Intervals) on the same day; anything else can go either way.
+  sessions = sessions.slice().sort((x, y) => (x.session.tag === 'run' ? 0 : 1) - (y.session.tag === 'run' ? 0 : 1));
+  const SPEED_RUNS = ['Speed Run', 'Intervals'];
+  const isLegs = sess => sess.tag === 'lower' || /\bLegs\b/i.test(sess.type);
+  let runEnd = 0;
   sessions.forEach(({ session }) => {
     if (longShift) { blocks.push({ s: null, e: null, title: `${session.emoji} ${session.type}`, type: 'training-unplaced', session, why: 'long shift today — move it or make it a rest day' }); return; }
     const isRun = session.tag === 'run';
@@ -4356,8 +4371,10 @@ function planDay(ds, opts = {}) {
         return c[0];
       });
     } else {
-      slot = take(len, c => c.find(([s]) => s >= PLACEMENT_FREE_FROM) || c[c.length - 1]);
+      const after = isLegs(session) ? runEnd : 0;
+      slot = take(len, c => c.find(([s]) => s >= Math.max(PLACEMENT_FREE_FROM, after)) || c.find(([s]) => s >= after) || c[c.length - 1]);
     }
+    if (slot && isRun && SPEED_RUNS.includes(session.type)) runEnd = Math.max(runEnd, slot[1]);
     if (slot) blocks.push({ s: slot[0], e: slot[1], title: `${session.emoji} ${session.type}`, type: 'training', session, rain: isRun ? rainAt(slot[0]) : null });
     else blocks.push({ s: null, e: null, title: `${session.emoji} ${session.type}`, type: 'training-unplaced', session });
   });
@@ -4409,6 +4426,15 @@ function planBlocksHtml(plan, opts = {}) {
     if (b.type === 'revision') sub = 'suggested · ' + b.items.map(i => i.set ? '30 questions' : i.text).join(', ');
     if (b.type === 'task') sub = 'fits here';
     const faded = b.type === 'optional' ? 'opacity:.55;' : '';
+    if (opts.compact) {
+      const now = opts.nowMin != null && b.s != null && b.s <= opts.nowMin && b.e > opts.nowMin;
+      const plainSub = sub.replace(/<[^>]+>/g, '');
+      return `<div class="plan-row" onclick="this.classList.toggle('open')" title="${escHtml(plainSub)}" style="display:flex;gap:8px;align-items:baseline;padding:3px 8px;margin:2px 0;border-radius:6px;background:${PLAN_COLORS[b.type] || '#F2F2F7'};${now ? 'box-shadow:inset 3px 0 0 var(--primary);' : ''}${faded}cursor:pointer">
+        <span style="font-size:11px;font-weight:700;color:#7A6656;min-width:72px;flex-shrink:0">${time}</span>
+        <span style="font-size:12.5px;font-weight:600;flex-shrink:0;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${title}</span>
+        ${sub ? `<span class="plan-sub" style="font-size:11px;color:#7A6656;flex:1;min-width:0">${sub.replace(/^suggested · /, '')}</span>` : ''}
+      </div>`;
+    }
     const dashed = ['training', 'revision', 'task'].includes(b.type) ? 'border:1px dashed #C9BFAF;' : 'border:1px solid transparent;';
     return `<div style="display:flex;gap:10px;align-items:flex-start;padding:6px 8px;margin:3px 0;border-radius:8px;background:${PLAN_COLORS[b.type] || '#F2F2F7'};${dashed}${faded}">
       <span style="font-size:11px;font-weight:700;color:#7A6656;min-width:78px;flex-shrink:0;padding-top:1px">${time}</span>
@@ -6439,6 +6465,7 @@ function renderTrainingTodo() {
     el.innerHTML = `<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #FBF1E7">${hdr}<div style="color:#A6937F;font-size:13px">Rest day 😴</div></div>`;
     return;
   }
+  const swaps = [];
   const rows = sessions.map(({ slot, session }) => {
     const stravaDetected = sessionDone(session, _acts, todayStr);
     const isDone = stravaDetected || manual[slot] === 'done' || manual[`${slot}_todo`] === true;
@@ -6446,23 +6473,38 @@ function renderTrainingTodo() {
     const evtAttr = stravaDetected ? 'disabled' : `onchange="toggleTrainingTodo('${slot}',this.checked)"`;
     const stravaTag = stravaDetected ? `<span style="font-size:10px;color:#7A6656;margin-left:2px">✓ Strava</span>` : '';
     const note = getCoachNote(session.type);
-    const noteHtml = (note && !isDone) ? `<div style="font-size:11px;color:#A6937F;margin:-2px 0 4px 28px;line-height:1.35">${escHtml(note)}</div>` : '';
-    const swapHtml = isDone ? '' : _nextBestSwapHtml(session, (label) => `homeApplySwap('${slot}','${label}')`);
-    const structHtml = isDone ? '' : runStructureHtml(session.type, todayStr, 28);
-    return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;${isDone ? 'opacity:0.5' : ''}">
+    const st = getRunStructure(session.type, todayStr);
+    const shoe = getRunShoe(session.type);
+    const summary = [st ? st.title : '', shoe ? `👟 ${shoe.short || shoe.name}` : ''].filter(Boolean).join(' · ');
+    const detail = isDone ? '' : `${note ? `<div style="font-size:11px;color:#A6937F;margin:0 0 4px;line-height:1.35">${escHtml(note)}</div>` : ''}${runStructureHtml(session.type, todayStr, 0, true)}`;
+    if (!isDone) { const sug = _nextBestSwap(session); if (sug) swaps.push({ slot, session, sug }); }
+    const key = `${todayStr}|${slot}`;
+    const open = _ttOpen.has(key);
+    const toggle = detail ? `onclick="_ttToggle('${key}')" style="flex:1;min-width:0;cursor:pointer;font-size:13px;${isDone ? 'text-decoration:line-through' : ''}"` : `style="flex:1;min-width:0;font-size:13px;${isDone ? 'text-decoration:line-through' : ''}"`;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:4px 0;${isDone ? 'opacity:0.5' : ''}">
       <input type="checkbox" ${cbAttr} ${evtAttr} style="cursor:${stravaDetected ? 'default' : 'pointer'};flex-shrink:0"/>
-      <span style="flex:1;font-size:13px;${isDone ? 'text-decoration:line-through' : ''}"${getRunShoe(session.type) ? ` title="👟 ${escHtml(getRunShoe(session.type).name)} — ${escHtml(getRunShoe(session.type).why)}"` : ''}>${session.emoji} ${escHtml(session.type)}</span>
+      <span ${toggle}>${session.emoji} ${escHtml(session.type)}${summary && !isDone ? ` <span style="font-size:11px;color:#A6937F">· ${escHtml(summary)}</span>` : ''}${detail ? ` <span style="font-size:10px;color:#A6937F">${open ? '▴' : '▾'}</span>` : ''}</span>
       <span style="font-size:10px;color:#A6937F">${slot.toUpperCase()}</span>${stravaTag}
-    </div>${noteHtml}${structHtml}${swapHtml}`;
+    </div>${detail && open ? `<div style="margin:0 0 6px 24px">${detail}</div>` : ''}`;
   });
+  // One "go easier" box for the whole day (the reason is already in the banner above).
+  let swapHtml = '';
+  if (swaps.length) {
+    const parts = swaps.map(({ slot, session, sug }) => sug.kind === 'swap'
+      ? `<button onclick="homeApplySwap('${slot}','${sug.label}')" style="border:none;border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;background:#fffbeb;color:#92400e">↓ ${escHtml(session.type)} → ${escHtml(sug.easierType === 'Easy Run' ? EASIER_RUN.title : sug.easierType)}</button>`
+      : `<span>${escHtml(session.type)}: ${escHtml(sug.text.replace(/^Consider /, '').replace(/\.$/, ''))}</span>`);
+    swapHtml = `<div style="background:var(--surface-hover,#FBF1E7);border-radius:8px;padding:6px 10px;margin:4px 0;font-size:11px;color:#7A6656;line-height:1.5;display:flex;flex-wrap:wrap;gap:6px;align-items:center">⚡ <b>Go easier:</b> ${parts.join(' · ')}</div>`;
+  }
   // Hard run days: fuel them, and take the calorie deficit on easy days instead.
   const HARD_RUNS = ['Long Run', 'Speed Run', 'Intervals', 'Tempo Run'];
   const hardRun = sessions.find(({ session }) => HARD_RUNS.includes(session.type));
   const fuelHtml = hardRun
-    ? `<div style="background:#FFF7E6;border-radius:8px;padding:8px 10px;margin:6px 0 2px;font-size:11px;color:#7A5A1E;line-height:1.4">🍝 <b>${escHtml(hardRun.session.type)} today — fuel it.</b> Eat right up to your ${typeof NUTRITION_GOALS !== 'undefined' ? NUTRITION_GOALS.calories.toLocaleString() : ''} kcal target (carbs before, protein after) and make the deficit on easy days instead.</div>`
+    ? `<div style="background:#FFF7E6;border-radius:8px;padding:5px 10px;margin:4px 0 0;font-size:11px;color:#7A5A1E;line-height:1.4" title="Carbs before, protein after; make the deficit on easy days instead.">🍝 <b>${escHtml(hardRun.session.type)} day — fuel it:</b> eat up to ${typeof NUTRITION_GOALS !== 'undefined' ? NUTRITION_GOALS.calories.toLocaleString() : ''} kcal, deficit on easy days.</div>`
     : '';
-  el.innerHTML = `<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #FBF1E7">${hdr}${rows.join('')}${fuelHtml}</div>`;
+  el.innerHTML = `<div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #FBF1E7">${hdr}${rows.join('')}${swapHtml}${fuelHtml}</div>`;
 }
+const _ttOpen = new Set();
+function _ttToggle(key) { _ttOpen.has(key) ? _ttOpen.delete(key) : _ttOpen.add(key); renderTrainingTodo(); }
 
 // Applies a Next-Best-Workout swap tapped from the Home "Today's Training"
 // list (mirrors popoverSetOverride's effect, without a popover to close).
@@ -8923,13 +8965,11 @@ function renderDailyBriefing() {
 
   // ── Upcoming deadlines (today only — ranked across Year 4/audit/signoffs) ──
   if (isToday && typeof computeUpcomingDeadlines === 'function') {
-    const deadlines = computeUpcomingDeadlines(3);
+    const deadlines = computeUpcomingDeadlines(1);
     if (deadlines.length) {
-      const dHtml = deadlines.map(d => {
-        const when = d.daysAway === 0 ? 'today' : d.daysAway === 1 ? 'in 1 day' : `in ${d.daysAway} days`;
-        return `<div style="${rowStyle}" onclick="${d.action}" role="button" tabindex="0"><span>📌</span><span>${escHtml(d.label)} — <strong>${when}</strong></span></div>`;
-      }).join('');
-      sections.push(`<div style="${sectionStyle}"><div style="${labelStyle}">Upcoming</div>${dHtml}</div>`);
+      const d = deadlines[0];
+      const when = d.daysAway === 0 ? 'today' : d.daysAway === 1 ? 'in 1 day' : `in ${d.daysAway} days`;
+      sections.push(`<div style="${rowStyle};padding-bottom:8px;margin-bottom:8px;border-bottom:1px solid #FBF1E7;cursor:pointer" onclick="${d.action}" role="button" tabindex="0"><span>📌</span><span><span style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:#A6937F;font-weight:700">Next up</span> · ${escHtml(d.label)} — <strong>${when}</strong></span></div>`);
     }
   }
 
