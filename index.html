@@ -3899,6 +3899,7 @@ function computeWakeTimes(bedHH, bedMM) {
 function renderWakeTimes() {
   const el = document.getElementById('wake-times');
   if (!el) return;
+  el.innerHTML = ''; return; // Wake times removed from Home (Oct 2026) — wake time is set in Today's plan
   const today = new Date().toLocaleDateString('en-CA');
   const sleepData = (typeof computeSleepForDate === 'function') ? computeSleepForDate(today) : null;
   let bedHH = null, bedMM = null;
