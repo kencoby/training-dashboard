@@ -2786,7 +2786,23 @@ const _normTask = x => (x || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(
 // Per-day task swaps from the plan's ⇄ button: { 'YYYY-MM-DD': { skip: [ids], add: [ids] } }.
 // "skip" = not on that day (it comes back on later days); "add" = do this one instead.
 function _taskChoices() { try { return JSON.parse(localStorage.getItem('task_day_choices') || '{}') || {}; } catch { return {}; } }
-function _dayTaskChoice(ds) { const c = _taskChoices()[ds] || {}; return { skip: c.skip || [], add: c.add || [] }; }
+function _dayTaskChoice(ds) { const c = _taskChoices()[ds] || {}; return { skip: c.skip || [], add: c.add || [], rev: c.rev || [] }; }
+// Revision swapped in for a task: [{ date, idx }] = a missed topic from that
+// day's UKMLA plan; [{ extra: true }] = an extra 30-min revision block.
+function _swappedRevision(ds) {
+  const prog = (typeof getUkmlaProgress === 'function') ? getUkmlaProgress() : {};
+  return _dayTaskChoice(ds).rev.map(r => {
+    if (r.extra) return { text: 'Extra revision', min: 30 };
+    const day = (typeof UKMLA_REVISION_PLAN !== 'undefined') ? UKMLA_REVISION_PLAN.find(d => d.date === r.date) : null;
+    if (!day || (prog[r.date] || [])[r.idx]) return null; // done since — drop it
+    let i = 0, hit = null;
+    ukmlaGroups(day).forEach(g => g.items.forEach(it => { if (i++ === r.idx) hit = { subject: g.subject, text: it }; }));
+    if (!hit) return null;
+    const when = new Date(r.date + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short' });
+    return hit.subject ? { text: `${hit.text} (missed ${when})`, min: STUDY_DAY.perTopic, catchup: r }
+                       : { text: `30 questions (missed ${when})`, min: STUDY_DAY.questionSet, set: true, catchup: r };
+  }).filter(Boolean);
+}
 function _saveTaskChoices(all) {
   const cut = new Date(); cut.setDate(cut.getDate() - 14); const cutStr = cut.toLocaleDateString('en-CA');
   Object.keys(all).forEach(d => { if (d < cutStr) delete all[d]; });
@@ -2834,13 +2850,26 @@ function openTaskSwap(ev, ds, taskId) {
   const opts = all.filter(t => !t.done && !planned.has(t.id) && tierOrder.includes(t.priority) && taskAvailableOn(t, ds) !== Infinity)
     .sort((a, b) => tierOrder.indexOf(a.priority) - tierOrder.indexOf(b.priority));
   const dayLbl = ds === today ? 'today' : new Date(ds + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long' });
+  // Revision options: missed UKMLA topics from earlier days (most recent first), then an extra block.
+  const already = new Set(_dayTaskChoice(ds).rev.filter(r => !r.extra).map(r => `${r.date}|${r.idx}`));
+  let missed = [];
+  try {
+    missed = ukmlaPastIncompleteByDay(getUkmlaProgress(), ds).slice().reverse()
+      .flatMap(({ day, items }) => items.map(it => ({ ...it, date: day.date })))
+      .filter(m => !already.has(`${m.date}|${m.idx}`)).slice(0, 12);
+  } catch {}
   const pop = document.createElement('div');
   pop.id = 'task-swap-pop';
   pop.style.cssText = 'position:fixed;z-index:3000;background:#fff;border:1px solid #EADFD1;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:10px;width:min(300px,92vw);max-height:60vh;overflow-y:auto;font-size:13px';
   const row = (onclick, label, sub) => `<button onclick="${onclick}" style="display:block;width:100%;text-align:left;border:none;background:none;padding:7px 8px;border-radius:8px;cursor:pointer;font:inherit;color:inherit" onmouseover="this.style.background='#F7F1EA'" onmouseout="this.style.background='none'">${label}${sub ? `<span style="display:block;font-size:11px;color:#A6937F">${sub}</span>` : ''}</button>`;
+  const revHtml = `<div style="font-size:11px;font-weight:700;color:#A6937F;padding:8px 8px 2px">Revise instead${missed.length ? ' · missed topics' : ''}</div>`
+    + missed.map(m => row(`swapTaskForRevision('${ds}','${taskId}','${m.date}',${m.idx})`, `📚 ${escHtml(m.subject ? m.text : '30 Passmedicine questions')}`,
+        `missed ${new Date(m.date + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}${m.subject ? ' · ' + escHtml(m.subject) : ''}`)).join('')
+    + row(`swapTaskForRevision('${ds}','${taskId}',null,null)`, '📚 Extra revision', '30 min block');
   pop.innerHTML = `<div style="font-size:11px;font-weight:700;color:#A6937F;text-transform:uppercase;letter-spacing:.05em;padding:2px 8px 6px">Swap “${escHtml(cur.text)}” · ${escHtml(dayLbl)}</div>`
     + row(`swapTaskForDay('${ds}','${taskId}',null)`, `🚫 Not ${escHtml(dayLbl)}`, 'Takes it off this day; it comes back on a later day')
-    + (opts.length ? `<div style="font-size:11px;font-weight:700;color:#A6937F;padding:8px 8px 2px">Do one of these instead</div>` + opts.map(t => row(`swapTaskForDay('${ds}','${taskId}','${t.id}')`, escHtml(t.text), `${t.priority === 'top' ? 'top priority' : t.priority === 'ondeck' ? 'on deck' : t.priority} · ${taskDuration(t)} min`)).join('') : '')
+    + revHtml
+    + (opts.length ? `<div style="font-size:11px;font-weight:700;color:#A6937F;padding:8px 8px 2px">Or do another task</div>` + opts.map(t => row(`swapTaskForDay('${ds}','${taskId}','${t.id}')`, escHtml(t.text), `${t.priority === 'top' ? 'top priority' : t.priority === 'ondeck' ? 'on deck' : t.priority} · ${taskDuration(t)} min`)).join('') : '')
     + `<div style="text-align:right;padding-top:4px"><button onclick="closeTaskSwap()" style="border:none;background:none;color:#A6937F;cursor:pointer;font:inherit;font-size:12px">Cancel</button></div>`;
   document.body.appendChild(pop);
   const r = ev.target.getBoundingClientRect();
@@ -2848,6 +2877,16 @@ function openTaskSwap(ev, ds, taskId) {
   pop.style.top = Math.max(8, top) + 'px';
   pop.style.left = Math.max(8, Math.min(r.left - 120, window.innerWidth - pop.offsetWidth - 8)) + 'px';
   setTimeout(() => document.addEventListener('click', function h(e) { if (!pop.contains(e.target)) { closeTaskSwap(); document.removeEventListener('click', h); } }), 0);
+}
+function swapTaskForRevision(ds, outId, date, idx) {
+  const all = _taskChoices(), c = all[ds] = all[ds] || { skip: [], add: [] };
+  c.skip = c.skip || []; c.add = (c.add || []).filter(id => id !== outId); c.rev = c.rev || [];
+  if (!c.skip.includes(outId)) c.skip.push(outId);
+  if (date) { if (!c.rev.some(r => r.date === date && r.idx === idx)) c.rev.push({ date, idx }); }
+  else c.rev.push({ extra: true });
+  _saveTaskChoices(all);
+  closeTaskSwap();
+  _refreshPlan();
 }
 function swapTaskForDay(ds, outId, inId) {
   const all = _taskChoices(), c = all[ds] = all[ds] || { skip: [], add: [] };
@@ -4781,7 +4820,7 @@ function planDay(ds, opts = {}) {
   flushPencils();
   // revision queue
   const day = (typeof UKMLA_REVISION_PLAN !== 'undefined') ? UKMLA_REVISION_PLAN.find(d => d.date === ds) : null;
-  const queue = [];
+  const queue = (typeof _swappedRevision === 'function') ? _swappedRevision(ds) : [];
   if (day) {
     const groups = (typeof ukmlaGroups === 'function') ? ukmlaGroups(day) : day.groups;
     const ticked = (typeof getUkmlaProgress === 'function' ? getUkmlaProgress()[ds] : null) || [];
@@ -4841,7 +4880,7 @@ function planBlocksHtml(plan, opts = {}) {
       sub = ['suggested', b.session.swappedFrom ? `instead of ${b.session.swappedFrom} (short sleep)` : '', b.session.lighter ? 'go lighter — short sleep' : '', st ? st.title : '', shoe ? `👟 ${shoe.short}` : '', b.rain != null ? `${b.rain}% rain` : ''].filter(Boolean).join(' · ');
     }
     if (b.type === 'training-unplaced') sub = b.why || 'no free slot today — move it to another day';
-    if (b.type === 'revision') sub = 'suggested · ' + b.items.map(i => i.set ? '30 questions' : i.text).join(', ');
+    if (b.type === 'revision') sub = 'suggested · ' + b.items.map(i => i.set && !i.catchup ? '30 questions' : i.text).join(', ');
     if (b.type === 'task') sub = [`${b.len} min`, b.after || ''].filter(Boolean).join(' · ');
     if (b.type === 'task-unplaced') sub = b.why;
     if (b.type === 'done') return '';
