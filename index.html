@@ -4345,6 +4345,17 @@ const PLACEMENT_LEAVE_AT = 7 * 60 + 40; // leaves home 07:40 for a 09:00 start
 // 07:40–14:00 rule; any other times in the calendar are used as entered, with
 // the same 1h20 journey in and 1h home.
 const PLACEMENT_STD_START = 9 * 60, PLACEMENT_STD_END = 17 * 60;
+// One-off changes to particular days (date → adjustments):
+//   travel:   [start, end, title] journey block (counts as leaving home)
+//   stayOver: on site and staying the night, so no journey in or home
+//             around placement
+//   noGym:    drop that day's gym sessions (runs stay)
+const DAY_ADJUSTMENTS = {
+  // Tue 27 Oct: to the placement hospital's accommodation in the morning
+  // (revise there), placement ~14:00–20:00, staying the night. Run if the
+  // weather allows, no gym. Back to normal Wed.
+  '2026-10-27': { travel: ['07:50', '09:00', '🚆 Travel to hospital accommodation'], stayOver: true, noGym: true },
+};
 const PLACEMENT_TRAVEL_IN = 9 * 60 - PLACEMENT_LEAVE_AT;
 const COMMUTE_HOME = 60;                // an hour to get home after placement
 const MORNING_ROUTINE = 20;             // 10 min breakfast + 10 min shower
@@ -4392,6 +4403,8 @@ function getBusyBlocks(ds) {
   const evs = getDayEvents(ds);
   const mandatory = evs.filter(e => !_isMainPlacement(e) && !_isOptional(e) && e.kind === 'placement');
   const out = [];
+  const adj = DAY_ADJUSTMENTS[ds] || {};
+  if (adj.travel) out.push({ s: _toMin(adj.travel[0]), e: _toMin(adj.travel[1]), title: adj.travel[2] || 'Travel', kind: 'placement' });
   evs.forEach(e => {
     // "Journey to Placement" calendar entries: travel is worked out from the
     // placement's own times below, so these are skipped (otherwise a changed
@@ -4399,7 +4412,10 @@ function getBusyBlocks(ds) {
     if (_isPlacementJourney(e)) return;
     if (_isMainPlacement(e)) {
       const lateMand = mandatory.filter(m => m.e > PLACEMENT_FREE_FROM).reduce((mx, m) => Math.max(mx, m.e), 0);
-      if (e.s <= PLACEMENT_STD_START && e.e >= PLACEMENT_STD_END) {
+      if (adj.stayOver) {
+        const finish = Math.max(e.e, lateMand);
+        out.push({ s: e.s, e: finish, title: e.title, kind: 'placement', note: `${_hm(e.s)}–${_hm(finish)} · on site, staying over` });
+      } else if (e.s <= PLACEMENT_STD_START && e.e >= PLACEMENT_STD_END) {
         // Usual 09:00–17:00 day: leave 07:40, really finishes 14:00.
         const finish = lateMand || Math.min(e.e, PLACEMENT_FREE_FROM);
         const end = finish + COMMUTE_HOME;
@@ -4730,7 +4746,7 @@ function planDay(ds, opts = {}) {
     } else if (runKm < 8 && !busyBlocks.some(b => /football|5.?a.?side/i.test(b.title || ''))) {
       padMin = 20; padWhy = runKm ? `low-mileage day (${Math.round(runKm)} km run) — skip if you're already near ${STEP_GOAL.toLocaleString()}` : `no run today — skip if you're already near ${STEP_GOAL.toLocaleString()}`;
     }
-    if (padMin) {
+    if (padMin && !(DAY_ADJUSTMENTS[ds] || {}).stayOver) { // walking pad is at home
       const got = take(padMin, c => c.find(([s0]) => s0 >= 19 * 60) || c[c.length - 1]) || take(padMin, c => c[0]);
       if (got) blocks.push({ s: got[0], e: got[1], title: '🚶 Walking pad', type: 'walk', note: padWhy });
     }
@@ -6403,6 +6419,19 @@ function getRawTemplateDay(dateOrStr) {
 // (see getAutoWeek). "Show original plan" on the Training tab bypasses it.
 let _showOriginalPlan = false;
 function getTemplateDay(dateOrStr) {
+  const day = _getTemplateDayBase(dateOrStr);
+  try {
+    const ds = typeof dateOrStr === 'string' ? dateOrStr : dateOrStr.toLocaleDateString('en-CA');
+    const adj = (typeof DAY_ADJUSTMENTS !== 'undefined') && DAY_ADJUSTMENTS[ds];
+    if (day && adj && adj.noGym) {
+      const out = { ...day };
+      ['am', 'pm', 'eve'].forEach(k => { if (out[k] && _isGym(out[k])) out[k] = null; });
+      return out;
+    }
+  } catch {}
+  return day;
+}
+function _getTemplateDayBase(dateOrStr) {
   const raw = getRawTemplateDay(dateOrStr);
   if (_showOriginalPlan) return raw;
   try {
