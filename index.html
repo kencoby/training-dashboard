@@ -4330,6 +4330,11 @@ const STUDY_DAY = { start: 7 * 60, end: 22 * 60, mealsAdmin: 120, perSession: 60
 // get 30 min travel either side.
 const PLACEMENT_FREE_FROM = 14 * 60;
 const PLACEMENT_LEAVE_AT = 7 * 60 + 40; // leaves home 07:40 for a 09:00 start
+// A placement entered as 09:00–17:00 (or longer) is a usual day and gets the
+// 07:40–14:00 rule; any other times in the calendar are used as entered, with
+// the same 1h20 journey in and 1h home.
+const PLACEMENT_STD_START = 9 * 60, PLACEMENT_STD_END = 17 * 60;
+const PLACEMENT_TRAVEL_IN = 9 * 60 - PLACEMENT_LEAVE_AT;
 const COMMUTE_HOME = 60;                // an hour to get home after placement
 const MORNING_ROUTINE = 20;             // 10 min breakfast + 10 min shower
 // Wake time: 06:30 on placement/shift days, 08:00 on days off; per-day override
@@ -4356,7 +4361,9 @@ function getWakeTime(ds) {
   const o = _wakeOverrides();
   if (typeof o[ds] === 'number') return o[ds];
   let work = false;
-  try { work = getDayEvents(ds).some(e => _isMainPlacement(e) || e.kind === 'shift'); } catch {}
+  // Early wake only when placement or a shift starts in the morning; an
+  // afternoon start (e.g. placement 14:00–20:00) gets the day-off wake time.
+  try { work = getDayEvents(ds).some(e => (_isMainPlacement(e) || e.kind === 'shift') && e.s < 12 * 60); } catch {}
   return work ? WAKE_WORKDAY : WAKE_DAY_OFF;
 }
 function setWakeTime(ds, hhmm) {
@@ -4367,18 +4374,32 @@ function setWakeTime(ds, hhmm) {
   if (typeof renderDailyBriefing === 'function') try { renderDailyBriefing(); } catch {}
   if (typeof renderCalendarTab === 'function') try { renderCalendarTab(); } catch {}
 }
-const _isMainPlacement = e => e.kind === 'placement' && /placement/i.test(e.title || '');
+const _isPlacementJourney = e => /\b(journey|travel|commute)\b/i.test(e.title || '') && /placement/i.test(e.title || '');
+const _isMainPlacement = e => e.kind === 'placement' && /placement/i.test(e.title || '') && !_isPlacementJourney(e);
 const _isOptional = e => /\(optional|optional\)|optional,/i.test(e.title || '');
 function getBusyBlocks(ds) {
   const evs = getDayEvents(ds);
   const mandatory = evs.filter(e => !_isMainPlacement(e) && !_isOptional(e) && e.kind === 'placement');
   const out = [];
   evs.forEach(e => {
+    // "Journey to Placement" calendar entries: travel is worked out from the
+    // placement's own times below, so these are skipped (otherwise a changed
+    // placement still shows the usual 07:40 start).
+    if (_isPlacementJourney(e)) return;
     if (_isMainPlacement(e)) {
       const lateMand = mandatory.filter(m => m.e > PLACEMENT_FREE_FROM).reduce((mx, m) => Math.max(mx, m.e), 0);
-      const finish = lateMand || Math.min(e.e, PLACEMENT_FREE_FROM);
-      const end = finish + COMMUTE_HOME;
-      out.push({ s: Math.min(e.s, PLACEMENT_LEAVE_AT), e: end, title: e.title, kind: 'placement', note: `leave ${_hm(PLACEMENT_LEAVE_AT)} · ${lateMand ? `until ${_hm(lateMand)}` : 'finish 14:00'} · home ${_hm(end)}` });
+      if (e.s <= PLACEMENT_STD_START && e.e >= PLACEMENT_STD_END) {
+        // Usual 09:00–17:00 day: leave 07:40, really finishes 14:00.
+        const finish = lateMand || Math.min(e.e, PLACEMENT_FREE_FROM);
+        const end = finish + COMMUTE_HOME;
+        out.push({ s: Math.min(e.s, PLACEMENT_LEAVE_AT), e: end, title: e.title, kind: 'placement', note: `leave ${_hm(PLACEMENT_LEAVE_AT)} · ${lateMand ? `until ${_hm(lateMand)}` : 'finish 14:00'} · home ${_hm(end)}` });
+      } else {
+        // Different times set in the calendar: use them as they are.
+        const leave = e.s - PLACEMENT_TRAVEL_IN;
+        const finish = Math.max(e.e, lateMand);
+        const end = finish + COMMUTE_HOME;
+        out.push({ s: leave, e: end, title: e.title, kind: 'placement', note: `leave ${_hm(leave)} · ${_hm(e.s)}–${_hm(finish)} · home ${_hm(end)}` });
+      }
     } else if (_isOptional(e)) {
       out.push({ s: e.s, e: e.e, title: e.title, kind: e.kind, optional: true });
     } else if (e.kind === 'shift') {
