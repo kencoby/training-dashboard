@@ -4261,6 +4261,7 @@ async function loadLiveCalendar() {
     // Old probe format (summary/ISO times) is ignored; only the sync script's format is used.
     _liveCal = evs.filter(e => e && e.date && e.title).map(e => ({ ...e, kind: _calKind(e) }));
     window._liveCalSyncedAt = j.updatedAt || null;
+    window._liveCalDate = j.date || null;
     if (typeof renderGcalSyncStatus === 'function') renderGcalSyncStatus();
     if (typeof renderTrainingCalendar === 'function') renderTrainingCalendar(_acts);
     if (typeof renderUkmlaPlan === 'function') renderUkmlaPlan();
@@ -4303,6 +4304,13 @@ async function gcalSyncNow() {
 setInterval(() => { const el = document.getElementById('cal-sync-status'); if (el && !el.style.color.includes('danger') && !/Syncing|Asking|Synced \d/.test(el.textContent)) renderGcalSyncStatus(); }, 60000);
 
 const _toMin = t => { if (!t) return null; const [hh, mm] = t.split(':').map(Number); return hh * 60 + (mm || 0); };
+// The live sync sends the past 7 days and next 6 weeks from its sync date.
+function _liveCalCovers(ds) {
+  const base = window._liveCalDate;
+  if (!_liveCal.length || !base) return false;
+  const shift = n => { const d = new Date(base + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toLocaleDateString('en-CA'); };
+  return ds >= shift(-7) && ds <= shift(42);
+}
 // Timed events on a date (live calendar + placement seed), excluding training imports.
 function getDayEvents(ds) {
   const live = _liveCal.filter(e => e.kind !== 'training' && !e.allDay && e.start && (e.date === ds || (e.endDate && e.date < ds && e.endDate >= ds)))
@@ -4312,7 +4320,10 @@ function getDayEvents(ds) {
       const en = (e.endDate && e.endDate > ds) ? 24 * 60 : _toMin(e.end);
       return { title: e.title, kind: e.kind, s, e: en, calendar: e.calendar };
     });
-  const seed = (gcalEvents || []).filter(e => e.date === ds && e.start && e.end)
+  // The older week snapshot (gcal_events, refreshed once a day) is only used
+  // for dates the live calendar doesn't cover, so it can't duplicate events
+  // or bring back ones you've since deleted or moved.
+  const seed = _liveCalCovers(ds) ? [] : (gcalEvents || []).filter(e => e.date === ds && e.start && e.end)
     .map(e => ({ title: e.title, kind: 'placement', s: _toMin(e.start), e: _toMin(e.end) }));
   return [...live, ...seed].filter(x => x.s != null && x.e != null && x.e > x.s).sort((a, b) => a.s - b.s);
 }
