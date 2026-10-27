@@ -2584,7 +2584,7 @@ const SYNC_KEYS = [
   'mood_log', 'habit_streaks', 'habit_reset_date',
   'weight_goal', 'cst_grades', 'audit_cycle', 'ukmla_progress', 'macro_targets',
   'wardrobe_items', 'wardrobe_wears',
-  'hm_race', 'hm_prediction_log', 'ukmla_scores'
+  'hm_race', 'hm_prediction_log', 'ukmla_scores', 'task_day_choices'
 ];
 
 function getSyncMeta() {
@@ -2783,24 +2783,83 @@ const DAILY_TASK_SLOTS = 2;
 let _lastPlanTaskStart = {};
 function _planBonus() { try { return JSON.parse(localStorage.getItem('plan_bonus') || '{}'); } catch { return {}; } }
 const _normTask = x => (x || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+// Per-day task swaps from the plan's ⇄ button: { 'YYYY-MM-DD': { skip: [ids], add: [ids] } }.
+// "skip" = not on that day (it comes back on later days); "add" = do this one instead.
+function _taskChoices() { try { return JSON.parse(localStorage.getItem('task_day_choices') || '{}') || {}; } catch { return {}; } }
+function _dayTaskChoice(ds) { const c = _taskChoices()[ds] || {}; return { skip: c.skip || [], add: c.add || [] }; }
+function _saveTaskChoices(all) {
+  const cut = new Date(); cut.setDate(cut.getDate() - 14); const cutStr = cut.toLocaleDateString('en-CA');
+  Object.keys(all).forEach(d => { if (d < cutStr) delete all[d]; });
+  localStorage.setItem('task_day_choices', JSON.stringify(all));
+  if (typeof syncPush === 'function') syncPush('task_day_choices', all);
+}
+// Tasks for a day that isn't today: its top task (unless swapped out) plus any swapped in.
+function planTasksForDay(ds) {
+  const all = getTasks(), ch = _dayTaskChoice(ds), out = [];
+  const top = getTopTaskForDate(ds);
+  if (top && !top.done && !ch.skip.includes(top.id)) out.push(top);
+  ch.add.forEach(id => { const t = all.find(x => x.id === id); if (t && !t.done && !out.includes(t)) out.push(t); });
+  return out;
+}
 function planTasksForToday(ds) {
   const all = getTasks();
   const top = getTopTaskForDate(ds);
+  const ch = _dayTaskChoice(ds), skipIds = new Set(ch.skip);
   const seen = new Set(), out = [];
-  const add = t => { const k = _normTask(t.text); if (!t || t.done || seen.has(k) || taskAvailableOn(t, ds) === Infinity) return false; seen.add(k); out.push(t); return true; };
+  const add = t => { if (!t || skipIds.has(t.id)) return false; const k = _normTask(t.text); if (t.done || seen.has(k) || taskAvailableOn(t, ds) === Infinity) return false; seen.add(k); out.push(t); return true; };
   // done-today tasks also claim their name, so a duplicate doesn't come back
   all.filter(t => t.done && t.doneAt && new Date(t.doneAt).toLocaleDateString('en-CA') === ds).forEach(t => seen.add(_normTask(t.text)));
   if (top) add(all.find(t => t.id === top.id) || top);
+  ch.add.forEach(id => add(all.find(t => t.id === id)));
   all.filter(t => t.dueDate && t.dueDate <= ds && t.priority !== 'someday').forEach(add);
   all.filter(t => t.parentId).forEach(add);
   const extraDoneToday = all.filter(t => t.done && t.doneAt && new Date(t.doneAt).toLocaleDateString('en-CA') === ds
     && ['critical', 'ondeck'].includes(t.priority) && !t.parentId && !t.dupOf && !(t.dueDate && t.dueDate <= ds)).length;
-  let slots = DAILY_TASK_SLOTS + (_planBonus()[ds] || 0) - extraDoneToday;
+  // A task swapped in takes the place of the one swapped out (the top task has its own place).
+  const swappedIn = ch.add.length - (top && skipIds.has(top.id) ? 1 : 0);
+  let slots = DAILY_TASK_SLOTS + (_planBonus()[ds] || 0) - extraDoneToday - Math.max(0, swappedIn);
   for (const pr of ['critical', 'ondeck']) {
     for (const t of all.filter(t => t.priority === pr && !t.forDate)) { if (slots <= 0) break; if (add(t)) slots--; }
   }
   return out;
 }
+function closeTaskSwap() { const p = document.getElementById('task-swap-pop'); if (p) p.remove(); }
+function openTaskSwap(ev, ds, taskId) {
+  closeTaskSwap();
+  const all = getTasks(), cur = all.find(t => t.id === taskId);
+  if (!cur) return;
+  const today = new Date().toLocaleDateString('en-CA');
+  const planned = new Set((ds === today ? planTasksForToday(ds) : planTasksForDay(ds)).map(t => t.id));
+  const tierOrder = ['top', 'critical', 'ondeck', 'someday'];
+  const opts = all.filter(t => !t.done && !planned.has(t.id) && tierOrder.includes(t.priority) && taskAvailableOn(t, ds) !== Infinity)
+    .sort((a, b) => tierOrder.indexOf(a.priority) - tierOrder.indexOf(b.priority));
+  const dayLbl = ds === today ? 'today' : new Date(ds + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long' });
+  const pop = document.createElement('div');
+  pop.id = 'task-swap-pop';
+  pop.style.cssText = 'position:fixed;z-index:3000;background:#fff;border:1px solid #EADFD1;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:10px;width:min(300px,92vw);max-height:60vh;overflow-y:auto;font-size:13px';
+  const row = (onclick, label, sub) => `<button onclick="${onclick}" style="display:block;width:100%;text-align:left;border:none;background:none;padding:7px 8px;border-radius:8px;cursor:pointer;font:inherit;color:inherit" onmouseover="this.style.background='#F7F1EA'" onmouseout="this.style.background='none'">${label}${sub ? `<span style="display:block;font-size:11px;color:#A6937F">${sub}</span>` : ''}</button>`;
+  pop.innerHTML = `<div style="font-size:11px;font-weight:700;color:#A6937F;text-transform:uppercase;letter-spacing:.05em;padding:2px 8px 6px">Swap “${escHtml(cur.text)}” · ${escHtml(dayLbl)}</div>`
+    + row(`swapTaskForDay('${ds}','${taskId}',null)`, `🚫 Not ${escHtml(dayLbl)}`, 'Takes it off this day; it comes back on a later day')
+    + (opts.length ? `<div style="font-size:11px;font-weight:700;color:#A6937F;padding:8px 8px 2px">Do one of these instead</div>` + opts.map(t => row(`swapTaskForDay('${ds}','${taskId}','${t.id}')`, escHtml(t.text), `${t.priority === 'top' ? 'top priority' : t.priority === 'ondeck' ? 'on deck' : t.priority} · ${taskDuration(t)} min`)).join('') : '')
+    + `<div style="text-align:right;padding-top:4px"><button onclick="closeTaskSwap()" style="border:none;background:none;color:#A6937F;cursor:pointer;font:inherit;font-size:12px">Cancel</button></div>`;
+  document.body.appendChild(pop);
+  const r = ev.target.getBoundingClientRect();
+  const top = Math.min(r.bottom + 6, window.innerHeight - pop.offsetHeight - 8);
+  pop.style.top = Math.max(8, top) + 'px';
+  pop.style.left = Math.max(8, Math.min(r.left - 120, window.innerWidth - pop.offsetWidth - 8)) + 'px';
+  setTimeout(() => document.addEventListener('click', function h(e) { if (!pop.contains(e.target)) { closeTaskSwap(); document.removeEventListener('click', h); } }), 0);
+}
+function swapTaskForDay(ds, outId, inId) {
+  const all = _taskChoices(), c = all[ds] = all[ds] || { skip: [], add: [] };
+  c.skip = c.skip || []; c.add = c.add || [];
+  c.add = c.add.filter(id => id !== outId);           // swapping out something swapped in earlier just removes it
+  if (!c.skip.includes(outId)) c.skip.push(outId);
+  if (inId) { c.skip = c.skip.filter(id => id !== inId); if (!c.add.includes(inId)) c.add.push(inId); }
+  _saveTaskChoices(all);
+  closeTaskSwap();
+  _refreshPlan();
+}
+
 function _refreshPlan() { try { if (typeof renderDailyBriefing === 'function') renderDailyBriefing(); } catch {} try { if (typeof renderCalendarTab === 'function') renderCalendarTab(); } catch {} }
 
 function toggleTask(id) {
@@ -4350,11 +4409,16 @@ const PLACEMENT_STD_START = 9 * 60, PLACEMENT_STD_END = 17 * 60;
 //   stayOver: on site and staying the night, so no journey in or home
 //             around placement
 //   noGym:    drop that day's gym sessions (runs stay)
+//   onSite:   already at the hospital in the morning: no journey in, but
+//             the usual journey home
 const DAY_ADJUSTMENTS = {
   // Tue 27 Oct: to the placement hospital's accommodation in the morning
   // (revise there), placement ~14:00–20:00, staying the night. Run if the
   // weather allows, no gym. Back to normal Wed.
   '2026-10-27': { travel: ['07:50', '09:00', '🚆 Travel to hospital accommodation'], stayOver: true, noGym: true },
+  // Wed 28 Oct: wakes up at the hospital accommodation, so no journey in;
+  // journey home after placement as usual.
+  '2026-10-28': { onSite: true },
 };
 const PLACEMENT_TRAVEL_IN = 9 * 60 - PLACEMENT_LEAVE_AT;
 const COMMUTE_HOME = 60;                // an hour to get home after placement
@@ -4382,6 +4446,13 @@ function getWakeTime(ds) {
   if (sl && sl.wakeMin != null) return sl.wakeMin; // actual wake time wins once recorded
   const o = _wakeOverrides();
   if (typeof o[ds] === 'number') return o[ds];
+  const adjW = (typeof DAY_ADJUSTMENTS !== 'undefined') && DAY_ADJUSTMENTS[ds];
+  if (adjW && adjW.onSite) {
+    try {
+      const pl = getDayEvents(ds).filter(e => _isMainPlacement(e)).reduce((m, e) => Math.min(m, e.s), Infinity);
+      if (pl !== Infinity) return pl - (PLACEMENT_LEAVE_AT - WAKE_WORKDAY);
+    } catch {}
+  }
   let work = false;
   // Early wake only when placement or a shift starts in the morning; an
   // afternoon start (e.g. placement 14:00–20:00) gets the day-off wake time.
@@ -4419,10 +4490,11 @@ function getBusyBlocks(ds) {
         // Usual 09:00–17:00 day: leave 07:40, really finishes 14:00.
         const finish = lateMand || Math.min(e.e, PLACEMENT_FREE_FROM);
         const end = finish + COMMUTE_HOME;
-        out.push({ s: Math.min(e.s, PLACEMENT_LEAVE_AT), e: end, title: e.title, kind: 'placement', note: `leave ${_hm(PLACEMENT_LEAVE_AT)} · ${lateMand ? `until ${_hm(lateMand)}` : 'finish 14:00'} · home ${_hm(end)}` });
+        const start = adj.onSite ? e.s : Math.min(e.s, PLACEMENT_LEAVE_AT);
+        out.push({ s: start, e: end, title: e.title, kind: 'placement', note: `${adj.onSite ? 'already on site' : `leave ${_hm(PLACEMENT_LEAVE_AT)}`} · ${lateMand ? `until ${_hm(lateMand)}` : 'finish 14:00'} · home ${_hm(end)}` });
       } else {
         // Different times set in the calendar: use them as they are.
-        const leave = e.s - PLACEMENT_TRAVEL_IN;
+        const leave = adj.onSite ? e.s : e.s - PLACEMENT_TRAVEL_IN;
         const finish = Math.max(e.e, lateMand);
         const end = finish + COMMUTE_HOME;
         out.push({ s: leave, e: end, title: e.title, kind: 'placement', note: `leave ${_hm(leave)} · ${_hm(e.s)}–${_hm(finish)} · home ${_hm(end)}` });
@@ -4489,7 +4561,7 @@ function _weatherNotes(ds) {
 function todayPlanHtml(ds, isToday, labelStyle, rowStyle) {
   const nowMin = isToday ? new Date().getHours() * 60 + new Date().getMinutes() : 0;
   const top = (typeof getTopTaskForDate === 'function') ? getTopTaskForDate(ds) : null;
-  const cand = isToday ? planTasksForToday(ds) : (() => { const t = getTopTaskForDate(ds); return t && !t.done ? [t] : []; })();
+  const cand = isToday ? planTasksForToday(ds) : planTasksForDay(ds);
   const plan = planDay(ds, { tasks: cand, notBefore: isToday ? nowMin : 0 });
   if (isToday) _lastPlanTaskStart = Object.fromEntries(plan.blocks.filter(b => b.task && b.s != null).map(b => [b.task.id, b.s]));
   const free = plan.free;
@@ -4530,8 +4602,7 @@ function renderCalendarTab() {
   el.innerHTML = calNote + [...Array(7)].map((_, i) => {
     const d = new Date(ws); d.setDate(d.getDate() + i);
     const ds = d.toLocaleDateString('en-CA');
-    const topT = (typeof getTopTaskForDate === 'function') ? getTopTaskForDate(ds) : null;
-    const plan = planDay(ds, { tasks: topT && !topT.done ? [topT] : [] });
+    const plan = planDay(ds, { tasks: ds === todayStr ? planTasksForToday(ds) : planTasksForDay(ds) });
     const rev = plan.blocks.filter(b => b.type === 'revision').reduce((s, b) => s + (b.e - b.s), 0);
     const clashes = (typeof getClashes === 'function') ? getClashes(ds) : [];
     const isToday = ds === todayStr, past = ds < todayStr;
@@ -4774,6 +4845,8 @@ function planBlocksHtml(plan, opts = {}) {
     if (b.type === 'task') sub = [`${b.len} min`, b.after || ''].filter(Boolean).join(' · ');
     if (b.type === 'task-unplaced') sub = b.why;
     if (b.type === 'done') return '';
+    const swapBtn = (b.task && plan.ds && ['task', 'task-unplaced', 'task-next'].includes(b.type))
+      ? ` <button onclick="event.stopPropagation();openTaskSwap(event,'${plan.ds}','${b.task.id}')" title="Swap this task for another, or move it off this day" style="border:1px solid #E5DACB;background:#fff;border-radius:6px;font-size:11px;line-height:1;padding:2px 5px;cursor:pointer;vertical-align:1px;color:#7A6656">⇄</button>` : '';
     const faded = b.type === 'optional' ? 'opacity:.55;' : '';
     if (opts.compact) {
       const now = opts.nowMin != null && b.s != null && b.s <= opts.nowMin && b.e > opts.nowMin;
@@ -4781,14 +4854,14 @@ function planBlocksHtml(plan, opts = {}) {
       return `<div class="plan-row" onclick="this.classList.toggle('open')" title="${escHtml(plainSub)}" style="display:flex;gap:8px;align-items:baseline;padding:3px 8px;margin:2px 0;border-radius:6px;background:${PLAN_COLORS[b.type] || '#F2F2F7'};${now ? 'box-shadow:inset 3px 0 0 var(--primary);' : ''}${faded}cursor:pointer">
         <span style="font-size:11px;font-weight:700;color:#7A6656;min-width:72px;flex-shrink:0">${time}</span>
         ${b.task ? `<input type="checkbox" onclick="event.stopPropagation();toggleTask('${b.task.id}')" title="Done" style="width:13px;height:13px;margin:0;flex-shrink:0;align-self:center;cursor:pointer">` : ''}
-        <span style="font-size:12.5px;font-weight:600;flex-shrink:0;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${title}</span>
+        <span style="font-size:12.5px;font-weight:600;flex-shrink:0;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${title}</span>${swapBtn}
         ${sub ? `<span class="plan-sub" style="font-size:11px;color:#7A6656;flex:1;min-width:0">${sub.replace(/^suggested · /, '')}</span>` : ''}
       </div>`;
     }
     const dashed = ['training', 'revision', 'task'].includes(b.type) ? 'border:1px dashed #C9BFAF;' : 'border:1px solid transparent;';
     return `<div style="display:flex;gap:10px;align-items:flex-start;padding:6px 8px;margin:3px 0;border-radius:8px;background:${PLAN_COLORS[b.type] || '#F2F2F7'};${dashed}${faded}">
       <span style="font-size:11px;font-weight:700;color:#7A6656;min-width:78px;flex-shrink:0;padding-top:1px">${time}</span>
-      <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">${title}</div>${sub ? `<div style="font-size:11px;color:#7A6656;line-height:1.35">${sub}</div>` : ''}</div>
+      <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">${title}${swapBtn}</div>${sub ? `<div style="font-size:11px;color:#7A6656;line-height:1.35">${sub}</div>` : ''}</div>
     </div>`;
   }).join('');
   const warn = plan.shortBy > 0 ? `<div style="font-size:12px;color:#b45309;margin-top:4px">⚠ ~${_fmtHrs(plan.shortBy)} of revision doesn't fit today: ${escHtml(plan.queueLeft.map(q => q.set ? '30 questions' : q.text).slice(0, 4).join(', '))}${plan.queueLeft.length > 4 ? '…' : ''}</div>` : '';
@@ -12290,6 +12363,7 @@ function applySyncUpdates(updated) {
   if (updated.includes('macro_targets')) safe(renderMacrosCard);
   if (updated.includes('monthly_km_goal')) safe(() => renderMonthlyGoal(_acts));
   if (updated.includes('tasks_priority')) safe(() => { renderTasks(); if (typeof renderHabits === 'function') renderHabits(); });
+  if (updated.includes('task_day_choices')) safe(_refreshPlan);
   if (updated.includes('shopping_items')) safe(renderShopping);
   if (updated.includes('notes_data')) safe(renderNotes);
   if (updated.includes('cst_grades')) safe(renderCstScorecard);
