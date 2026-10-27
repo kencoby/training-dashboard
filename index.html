@@ -3714,6 +3714,7 @@ function toggleHabit(id) {
   saveHabits({ date: today, ticked });
   recomputeAllStreaks(); // recompute from actual log after every toggle
   renderHabits();
+  if (id === 'h-osce-2' && typeof _refreshPlan === 'function') _refreshPlan(); // OSCE block leaves the plan
 }
 function getAutoHabitStateOnDate(dateStr) {
   const tryHealth = (...keys) => { for (const k of keys) { const v = _healthValueOnDate(k, dateStr); if (v != null) return v; } return null; };
@@ -3823,6 +3824,8 @@ function renderHabits() {
       ? `<span style="font-size:11px;color:${overCalGoal ? 'var(--danger)' : 'var(--text-faint)'};margin-left:5px">${currentCaloriesKcal.toLocaleString()} / ${NUTRITION_GOALS.calories.toLocaleString()} kcal</span>` : '';
     const proteinProgress = (h.id === 'h-protein' && currentProteinG != null)
       ? `<span style="font-size:11px;color:var(--text-faint);margin-left:5px">${Math.round(currentProteinG)} / ${getMacroTargets().protein}g</span>` : '';
+    const _osceSt = h.id === 'h-osce-2' && typeof ukmlaOsceFor === 'function' ? ukmlaOsceFor(today) : null;
+    const osceNote = _osceSt ? `<span style="font-size:11px;color:var(--text-faint);margin-left:5px">— ${escHtml(_osceSt.title)}</span>` : '';
     const topTaskNote = (h.id === 'h-top-priority' && currentTopTask)
       ? `<span style="font-size:11px;color:var(--text-faint);margin-left:5px">— ${escHtml(currentTopTask.text)}</span>` : '';
     const isNewGroup = h.group !== lastGroup;
@@ -3833,7 +3836,7 @@ function renderHabits() {
     const sameGroupNext = i < ordered.length - 1 && ordered[i+1].group === h.group;
     return `${headerHtml}<div style="display:flex;align-items:center;gap:10px;padding:8px 0;${sameGroupNext?'border-bottom:1px solid var(--border-soft);':''}${isDone?'opacity:0.45':''}">
       <input type="checkbox" ${isDone?'checked':''} onchange="toggleHabit('${h.id}')" style="cursor:pointer;flex-shrink:0;accent-color:var(--accent)"/>
-      <span style="flex:1;font-size:13px;${isDone?'text-decoration:line-through;color:var(--text-faint)':''}">${h.label}${stepsProgress}${caloriesProgress}${proteinProgress}${topTaskNote}${syncedLabel}${missLabel}${streakLabel}</span>
+      <span style="flex:1;font-size:13px;${isDone?'text-decoration:line-through;color:var(--text-faint)':''}">${h.label}${stepsProgress}${caloriesProgress}${proteinProgress}${topTaskNote}${osceNote}${syncedLabel}${missLabel}${streakLabel}</span>
     </div>`;
   }).join(''));
   renderTrainingTodo();
@@ -4868,6 +4871,15 @@ function planDay(ds, opts = {}) {
     // short break after a revision block
     free = free.map(([a, b]) => a === got[1] ? [a + 15, b] : [a, b]).filter(([a, b]) => b - a >= 20);
   }
+  // OSCE station of the day: 20 min after revision, until the "OSCE revision" habit is ticked.
+  try {
+    const st = (typeof ukmlaOsceFor === 'function') ? ukmlaOsceFor(ds) : null;
+    if (st && !_osceDoneOn(ds)) {
+      const got = take(20, c => c[0]);
+      blocks.push(got ? { s: got[0], e: got[1], title: `🩺 OSCE: ${st.title}`, type: 'osce', station: st }
+                      : { s: null, e: null, title: `🩺 OSCE: ${st.title}`, type: 'osce', station: st });
+    }
+  } catch {}
   // Walking pad top-up (10–30 min) on low-mileage days, or when today's steps are behind.
   try {
     const runKm = blocks.filter(b => b.type === 'training' && b.session && b.session.tag === 'run')
@@ -4894,7 +4906,7 @@ function planDay(ds, opts = {}) {
   blocks.sort((a, b) => (a.s ?? 9999) - (b.s ?? 9999));
   return { ds, blocks, shortBy, queueLeft: queue, free, freeLeft, hasCal: _liveCal.length > 0 };
 }
-const PLAN_COLORS = { walk: '#EAF7F0', done: '#FFFFFF', 'task-next': '#F2F7FB', 'task-unplaced': '#F7F3EE', wake: '#FFFFFF', routine: '#F7F3EE', shift: '#fee2e2', event: '#F2F2F7', optional: '#FAFAFA', meal: '#FFF7E6', training: '#E5F5EA', 'training-unplaced': '#FFF7E6', revision: '#EEE8FF', task: '#E0F2FE' };
+const PLAN_COLORS = { walk: '#EAF7F0', done: '#FFFFFF', 'task-next': '#F2F7FB', 'task-unplaced': '#F7F3EE', wake: '#FFFFFF', routine: '#F7F3EE', shift: '#fee2e2', event: '#F2F2F7', optional: '#FAFAFA', meal: '#FFF7E6', training: '#E5F5EA', 'training-unplaced': '#FFF7E6', revision: '#EEE8FF', task: '#E0F2FE', osce: '#E8F4F8' };
 function planBlocksHtml(plan, opts = {}) {
   const rows = plan.blocks.map(b => {
     const time = b.s == null ? 'no slot' : b.s === b.e ? _hm(b.s) : `${_hm(b.s)}–${_hm(b.e)}`;
@@ -4910,6 +4922,7 @@ function planBlocksHtml(plan, opts = {}) {
     if (b.type === 'revision') sub = 'suggested · ' + b.items.map(i => i.set && !i.catchup ? '30 questions' : i.text).join(', ');
     if (b.type === 'task') sub = [`${b.len} min`, b.task && b.task.revSwap ? 'revision swapped in' : '', b.after || ''].filter(Boolean).join(' · ');
     if (b.type === 'task-unplaced') sub = b.why;
+    if (b.type === 'osce') sub = `${b.station.type} · ${b.station.focus.join(' · ')}`;
     if (b.type === 'done') return '';
     const swapBtn = (b.task && plan.ds && ['task', 'task-unplaced', 'task-next'].includes(b.type))
       ? ` <button onclick="event.stopPropagation();openTaskSwap(event,'${plan.ds}','${b.task.id}')" title="Swap this task for another, or move it off this day" style="border:1px solid #E5DACB;background:#fff;border-radius:6px;font-size:11px;line-height:1;padding:2px 5px;cursor:pointer;vertical-align:1px;color:#7A6656">⇄</button>` : '';
@@ -4919,12 +4932,13 @@ function planBlocksHtml(plan, opts = {}) {
       const plainSub = sub.replace(/<[^>]+>/g, '');
       return `<div class="plan-row" onclick="this.classList.toggle('open')" title="${escHtml(plainSub)}" style="display:flex;gap:8px;align-items:baseline;padding:3px 8px;margin:2px 0;border-radius:6px;background:${PLAN_COLORS[b.type] || '#F2F2F7'};${now ? 'box-shadow:inset 3px 0 0 var(--primary);' : ''}${faded}cursor:pointer">
         <span style="font-size:11px;font-weight:700;color:#7A6656;min-width:72px;flex-shrink:0">${time}</span>
+        ${b.type === 'osce' && plan.ds === new Date().toLocaleDateString('en-CA') ? `<input type="checkbox" onclick="event.stopPropagation();tickOsceFromPlan()" title="Done (ticks your OSCE revision habit)" style="width:13px;height:13px;margin:0;flex-shrink:0;align-self:center;cursor:pointer">` : ''}
         ${b.task ? `<input type="checkbox" onclick="event.stopPropagation();${b.task.revSwap ? `tickRevSwap('${plan.ds}','${b.task.id}')` : `toggleTask('${b.task.id}')`}" title="Done" style="width:13px;height:13px;margin:0;flex-shrink:0;align-self:center;cursor:pointer">` : ''}
         <span style="font-size:12.5px;font-weight:600;flex-shrink:0;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${title}</span>${swapBtn}
         ${sub ? `<span class="plan-sub" style="font-size:11px;color:#7A6656;flex:1;min-width:0">${sub.replace(/^suggested · /, '')}</span>` : ''}
       </div>`;
     }
-    const dashed = ['training', 'revision', 'task'].includes(b.type) ? 'border:1px dashed #C9BFAF;' : 'border:1px solid transparent;';
+    const dashed = ['training', 'revision', 'task', 'osce'].includes(b.type) ? 'border:1px dashed #C9BFAF;' : 'border:1px solid transparent;';
     return `<div style="display:flex;gap:10px;align-items:flex-start;padding:6px 8px;margin:3px 0;border-radius:8px;background:${PLAN_COLORS[b.type] || '#F2F2F7'};${dashed}${faded}">
       <span style="font-size:11px;font-weight:700;color:#7A6656;min-width:78px;flex-shrink:0;padding-top:1px">${time}</span>
       <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">${title}${swapBtn}</div>${sub ? `<div style="font-size:11px;color:#7A6656;line-height:1.35">${sub}</div>` : ''}</div>
@@ -6342,6 +6356,62 @@ function ukmlaDayDoneCount(day, progress) {
   const done = arr.filter(Boolean).length;
   return { done, total };
 }
+// ── OSCE station of the day ──────────────────────────────────────────────────
+// One CPSA-style station per revision day, chosen to practise that day's
+// topics (12-min station format). Shown on the day's UKMLA card, next to the
+// "OSCE revision" habit, and as a 20-min block in the day plan until the
+// habit is ticked.
+const UKMLA_OSCE_STATIONS = {
+  '2026-10-26': { type: 'A–E assessment', title: 'Acute chest pain: suspected ACS', focus: ['12-lead ECG: STEMI criteria and territories', 'Immediate management and when to call for primary PCI', "Don't miss: aortic dissection, PE, pericarditis"] },
+  '2026-10-27': { type: 'A–E assessment', title: 'Acutely breathless patient: acute severe asthma', focus: ['Grade severity: moderate, acute severe, life-threatening', 'Stepwise treatment and when to escalate to seniors/ITU', 'ABG: a normal or rising CO₂ is a life-threatening sign'] },
+  '2026-10-28': { type: 'A–E assessment', title: 'Haematemesis: upper GI bleed', focus: ['Resuscitation: two large-bore cannulae, cross-match, major haemorrhage protocol', 'Glasgow-Blatchford score before endoscopy, Rockall after', 'Suspected variceal bleed: terlipressin and antibiotics'] },
+  '2026-10-29': { type: 'Data interpretation', title: 'Rising creatinine on the ward: AKI', focus: ['KDIGO staging by creatinine and urine output', 'Pre-renal, renal and post-renal causes; bladder scan', 'Review nephrotoxic drugs; check potassium and ECG'] },
+  '2026-10-30': { type: 'A–E assessment', title: 'Unwell patient with diabetes: DKA', focus: ['Diagnosis: ketones ≥3 mmol/L, glucose >11 mmol/L or known diabetes, pH <7.3 and/or bicarbonate <15', 'Fluids, fixed-rate insulin infusion, potassium monitoring', 'Find the precipitant; DKA vs HHS'] },
+  '2026-10-31': { type: 'Examination', title: 'Cranial nerve and limb exam: suspected stroke', focus: ['UMN vs LMN facial weakness (forehead sparing vs Bell’s palsy)', 'Thrombolysis within 4.5 h of onset once CT excludes haemorrhage', 'TIA: risk assessment and specialist review'] },
+  '2026-11-01': { type: 'History + examination', title: 'Back pain with red flags: cauda equina', focus: ['Saddle anaesthesia, bladder/bowel change, bilateral sciatica', 'Lower-limb neuro exam incl. perianal sensation', 'Emergency MRI and same-day referral'] },
+  '2026-11-02': { type: 'Communication', title: 'Suicide risk assessment after an overdose', focus: ['Intent, planning, final acts, regret', 'Risk and protective factors', 'Safety plan and crisis team follow-up'] },
+  '2026-11-03': { type: 'History', title: 'Headache at 34 weeks: pre-eclampsia', focus: ['Headache, visual disturbance, RUQ/epigastric pain, oedema', 'BP ≥140/90 after 20 weeks plus proteinuria or organ dysfunction', 'Severe features: admit, antihypertensives, magnesium sulphate'] },
+  '2026-11-04': { type: 'History', title: 'Abdominal pain and PV bleeding: ectopic pregnancy', focus: ['Pregnancy test in anyone of reproductive age', 'Risk factors: previous ectopic, PID, IUD, IVF', 'Haemodynamic stability, TVUS and serum hCG'] },
+  '2026-11-05': { type: 'History (from parent)', title: 'Febrile child', focus: ['NICE traffic-light system', 'Non-blanching rash: think meningococcal disease', 'Clear safety-netting advice'] },
+  '2026-11-06': { type: 'History', title: 'Tiredness: anaemia work-up', focus: ['Microcytic vs macrocytic: what to ask and test', 'Iron deficiency: look for GI blood loss and know urgent referral criteria', 'Red flags for leukaemia/lymphoma: B symptoms, nodes, bruising'] },
+  '2026-11-07': { type: 'A–E assessment', title: 'Febrile, hypotensive patient: sepsis', focus: ['NEWS2 and sepsis red flags', 'Sepsis Six within the hour', 'Find the source and escalate early'] },
+  '2026-11-08': { type: 'Examination', title: 'Pigmented skin lesion', focus: ['Describe it systematically (site, size, shape, colour, border)', 'ABCDE and the 7-point checklist', 'Explain a 2-week-wait referral'] },
+  '2026-11-09': { type: 'Examination', title: 'Painful red eye', focus: ['Visual acuity, pupils, fluorescein, fundoscopy', 'Acute angle-closure: halos, fixed mid-dilated pupil, hard eye', 'Same-day ophthalmology vs GP management'] },
+  '2026-11-10': { type: 'Examination', title: 'Abdominal exam: acute abdomen / bowel obstruction', focus: ['Peritonism and hernial orifices', 'NBM, IV fluids, NG tube', 'Imaging and common causes: adhesions, hernia, malignancy'] },
+  '2026-11-11': { type: 'Collateral history + assessment', title: 'Confused older patient: delirium', focus: ['4AT', 'Precipitants: infection, drugs, pain, constipation, retention, dehydration', 'Non-drug management first'] },
+  '2026-11-12': { type: 'Data interpretation', title: 'Paracetamol overdose', focus: ['Timed level from 4 h against the treatment line', 'Staggered or uncertain timing: treat regardless of level', 'Acetylcysteine and when to involve liver services'] },
+  '2026-11-13': { type: 'Communication', title: 'Breaking bad news', focus: ['SPIKES structure', 'Warning shot, silence, check understanding', 'Agree a plan and support'] },
+  '2026-11-14': { type: 'A–E assessment', title: 'Anaphylaxis', focus: ['Recognise it: airway/breathing/circulation problem plus skin changes', 'IM adrenaline into the anterolateral thigh; repeat after 5 min if needed', 'Mast cell tryptase, observation and adrenaline auto-injector training'] },
+  '2026-11-15': { type: 'Examination', title: 'Cardiovascular exam: murmurs', focus: ['Aortic stenosis vs mitral regurgitation', 'Signs of heart failure', 'Peripheral stigmata of infective endocarditis'] },
+  '2026-11-16': { type: 'Examination', title: 'Abdominal exam: chronic liver disease', focus: ['Stigmata: palmar erythema, spider naevi, asterixis, ascites', 'Complications: varices, SBP, encephalopathy', 'Common causes and how to investigate'] },
+  '2026-11-17': { type: 'Examination', title: 'Hand exam: rheumatoid vs osteoarthritis', focus: ['Look, feel, move, function', 'Joint distribution and deformities', 'Extra-articular features'] },
+  '2026-11-18': { type: 'History', title: 'Alcohol history and withdrawal', focus: ['AUDIT/CAGE and drinking pattern', 'Withdrawal timeline and delirium tremens', 'Benzodiazepine regime and IV thiamine (Wernicke’s)'] },
+  '2026-11-19': { type: 'A–E assessment', title: 'Unwell patient on chemotherapy: neutropenic sepsis', focus: ['Suspect it in any unwell patient on chemo', 'Empirical IV antibiotics within 1 h; don’t wait for the FBC', 'Escalate early'] },
+  '2026-11-20': { type: 'Examination', title: 'Peripheral vascular exam: acute limb ischaemia', focus: ['The 6 Ps', 'ABPI basics', 'Urgent vascular referral'] },
+  '2026-11-21': { type: 'Mock circuit', title: '3 timed stations: chest pain history, ABG, prescribing', focus: ['12 minutes each', 'Practise an opening and a summary', 'Time management'] },
+};
+function ukmlaOsceFor(ds) { return UKMLA_OSCE_STATIONS[ds] || null; }
+function _osceDoneOn(ds) {
+  try {
+    if (ds === new Date().toLocaleDateString('en-CA') && typeof getHabits === 'function') { const t = getHabits(); if (t && t['h-osce-2']) return true; }
+    const log = (typeof getHabitLog === 'function') ? getHabitLog() : {};
+    return !!(log[ds] && log[ds]['h-osce-2']);
+  } catch { return false; }
+}
+function osceStationHtml(ds) {
+  const st = ukmlaOsceFor(ds);
+  if (!st) return '';
+  return `<div style="margin-top:12px;padding:10px 12px;border-radius:10px;background:#E8F4F8">
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:#3B6E80">🩺 OSCE station · ${escHtml(st.type)}</div>
+    <div style="font-size:13px;font-weight:700;margin:2px 0 4px">${escHtml(st.title)}</div>
+    <ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.5;color:#4A5B62">${st.focus.map(f => `<li>${escHtml(f)}</li>`).join('')}</ul>
+  </div>`;
+}
+function tickOsceFromPlan() {
+  if (typeof toggleHabit === 'function') toggleHabit('h-osce-2');
+  if (typeof _refreshPlan === 'function') _refreshPlan();
+}
+
 function renderUkmlaDay(dateStr) {
   const day = UKMLA_REVISION_PLAN.find(d => d.date === dateStr);
   if (!day) return;
@@ -6360,7 +6430,7 @@ function renderUkmlaDay(dateStr) {
       </label>`;
     }).join('');
     return (g.subject ? `<div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:#A6937F;margin:10px 0 2px">${escHtml(g.subject)}</div>` : '') + itemsHtml;
-  }).join('');
+  }).join('') + osceStationHtml(dateStr);
   set('ukmla-meta-' + dateStr, (() => { const { done, total } = ukmlaDayDoneCount(day, progress); return `${done} / ${total}`; })());
   const capEl = document.getElementById('ukmla-meta-' + dateStr);
   if (capEl && typeof _liveCal !== 'undefined' && _liveCal.length) {
