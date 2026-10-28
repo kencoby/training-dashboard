@@ -3482,6 +3482,11 @@ const _DL_RUN = /\b(run|jog|running)\b/i;
 function _dlPinned(text) {
   let m = text.match(/(?:^|\s)(?:at\s+|@\s*)?(\d{1,2})[:.](\d{2})\s*(am|pm)?(?=\s|$)/i);
   if (!m) m = text.match(/(?:^|\s)(?:at\s+|@\s*)?(\d{1,2})\s*(am|pm)(?=\s|$)/i), m = m && [m[0], m[1], '00', m[2]];
+  if (!m) {
+    // "lunch at 12", "dinner @ 7": a bare hour after at/@. 1–6 read as afternoon; dinner/tea always evening.
+    const b = text.match(/(?:^|\s)(?:at\s+|@\s*)(\d{1,2})(?=\s|$)/i);
+    if (b) { let h = +b[1]; if (h >= 1 && h <= 6) h += 12; if (h < 12 && /dinner|\btea\b|supper/i.test(text)) h += 12; m = [b[0], String(h), '00', '']; }
+  }
   if (!m) return null;
   let h = +m[1]; const mi = +m[2], ap = (m[3] || '').toLowerCase();
   if (ap === 'pm' && h < 12) h += 12; if (ap === 'am' && h === 12) h = 0;
