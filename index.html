@@ -574,6 +574,11 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 </div>
 
 <div class="section">
+<h2>Bedtime target</h2>
+<div class="card" id="sleep-target-card"></div>
+</div>
+
+<div class="section">
 <h2>Score breakdown <span class="fx-h2-sub">last night</span></h2>
 <div class="card" id="sleep-score-breakdown"></div>
 </div>
@@ -590,7 +595,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 
 <div class="section">
 <h2>Timing <span class="fx-h2-sub">asleep → awake</span></h2>
-<div class="card"><div style="font-size:12px;color:var(--fx-muted,#999);margin-bottom:8px"><span style="color:#8B7CF6">■</span> weekday morning &nbsp; <span style="color:#F2BE2E">■</span> weekend morning &nbsp; <span style="color:#C7C7CC">■</span> nap merged in</div><div style="height:240px"><canvas id="sleep-timing-chart"></canvas></div></div>
+<div class="card"><div style="font-size:12px;color:var(--fx-muted,#999);margin-bottom:8px"><span style="white-space:nowrap"><span style="color:#8B7CF6">■</span> weekday morning</span> &nbsp; <span style="white-space:nowrap"><span style="color:#F2BE2E">■</span> weekend morning</span> &nbsp; <span style="white-space:nowrap"><span style="color:#C7C7CC">■</span> nap merged in</span> &nbsp; <span style="white-space:nowrap"><span style="color:#E5484D">╌</span> target</span></div><div style="height:240px"><canvas id="sleep-timing-chart"></canvas></div></div>
 <div class="card" id="sleep-timing-stats"></div>
 </div>
 
@@ -2638,7 +2643,7 @@ const SYNC_KEYS = [
   'mood_log', 'habit_streaks', 'habit_reset_date',
   'weight_goal', 'cst_grades', 'audit_cycle', 'ukmla_progress', 'macro_targets',
   'wardrobe_items', 'wardrobe_wears',
-  'hm_race', 'hm_prediction_log', 'ukmla_scores', 'task_day_choices', 'day_lists', 'plan_moves'
+  'hm_race', 'hm_prediction_log', 'ukmla_scores', 'task_day_choices', 'day_lists', 'plan_moves', 'sleep_target'
 ];
 
 function getSyncMeta() {
@@ -4759,6 +4764,22 @@ const MORNING_ROUTINE = 20;             // 10 min breakfast + 10 min shower
 // Wake time: 06:30 on placement/shift days, 08:00 on days off; per-day override
 // set from the plan header (stored in 'wake_overrides' as {date: minutes}).
 const WAKE_WORKDAY = 6 * 60 + 30, WAKE_DAY_OFF = 8 * 60;
+// Latest time to be asleep (synced as sleep_target, minutes after midnight; default 23:00).
+function getSleepTarget() { const v = parseInt(localStorage.getItem('sleep_target'), 10); return isFinite(v) ? v : 23 * 60; }
+function setSleepTarget(hhmm) {
+  if (!hhmm) return; const [h, m] = hhmm.split(':').map(Number); const v = h * 60 + m;
+  localStorage.setItem('sleep_target', String(v));
+  if (typeof syncPush === 'function') try { syncPush('sleep_target', v); } catch {}
+  try { renderWhoopSleep(); } catch {} try { _refreshPlan(); } catch {}
+}
+// Tonight's "asleep by": the target, or earlier if tomorrow's wake needs it for the full sleep need (not before 21:30).
+function sleepByFor(ds) {
+  const t = new Date(ds + 'T12:00:00'); t.setDate(t.getDate() + 1);
+  const tds = t.toLocaleDateString('en-CA');
+  const target = getSleepTarget(), wakeT = getWakeTime(tds);
+  const forNeed = wakeT - Math.round(SLEEP_NEED_HOURS * 60) + 1440;
+  return { by: Math.max(21 * 60 + 30, Math.min(target, forNeed)), target, wake: wakeT, forNeed: forNeed % 1440 };
+}
 function _wakeOverrides() { try { return JSON.parse(localStorage.getItem('wake_overrides') || '{}'); } catch { return {}; } }
 (function seedWake() { // Phil: up at 07:00 on Mon 26 Oct 2026
   const o = _wakeOverrides(); if (!o.__seeded26) { o['2026-10-26'] = 7 * 60; o.__seeded26 = 1; localStorage.setItem('wake_overrides', JSON.stringify(o)); }
@@ -4907,10 +4928,10 @@ function todayPlanHtml(ds, isToday, labelStyle, rowStyle) {
   if (isToday) {
     const sl = _sleepFor(ds);
     if (sl) extras.push(`😴 Slept ${fmtHrsMin(sl.hrs)}${sl.wakeMin != null ? `, up at ${_hm(sl.wakeMin)}` : ''}${sl.hrs < 6 ? ' — hard sessions swapped to easier versions today.' : '.'}`);
-    const t = new Date(ds + 'T12:00:00'); t.setDate(t.getDate() + 1);
-    const tds = t.toLocaleDateString('en-CA');
-    const bed = (getWakeTime(tds) - Math.round(SLEEP_NEED_HOURS * 60) + 1440) % 1440;
-    extras.push(`🛏 Bed by ${_hm(bed)} for ${SLEEP_NEED_HOURS}h before tomorrow's ${_hm(getWakeTime(tds))} wake.`);
+    const sb = sleepByFor(ds);
+    extras.push(sb.by < sb.target
+      ? `😴 Asleep by ${_hm(sb.by)} tonight for ${SLEEP_NEED_HOURS}h before tomorrow's ${_hm(sb.wake)} wake (${_hm(sb.target)} at the latest).`
+      : `😴 Asleep by ${_hm(sb.by)} tonight at the latest.${sb.forNeed < 12 * 60 || sb.forNeed > sb.by ? ` That gives ${fmtHrsMin((sb.wake + 1440 - sb.by) / 60)} before tomorrow's ${_hm(sb.wake)} wake.` : ''}`);
   }
   try { const aw = getAutoWeek(new Date(ds + 'T12:00:00')); (aw ? aw.changes : []).filter(c => c.ds === ds || c.to === ds).forEach(c => extras.push(`🔁 ${escHtml(c.text)}`)); } catch {}
   const spare = free.reduce((s, [a, b]) => s + (b - a), 0);
@@ -5227,12 +5248,20 @@ function planDay(ds, opts = {}) {
     }
   } catch {}
   (opts.fillTasks || []).filter(t => !_earlyTasks.includes(t)).forEach(t => { const before = blocks.length; placeTask(t); if (blocks[before] && blocks[before].type === 'task-unplaced') blocks.pop(); });
+  // Wind down, then asleep by the target (skipped if a shift or event runs into it, e.g. a night shift).
+  try {
+    const sb = sleepByFor(ds);
+    if (!hard.some(([a, b]) => a < sb.by && b > sb.by - 30)) {
+      blocks.push({ s: sb.by - 30, e: sb.by, title: '🌙 Wind down', type: 'wind', note: 'screens off, lights low' });
+      blocks.push({ s: sb.by, e: sb.by, title: '😴 Asleep', type: 'wake', note: sb.by < sb.target ? `earlier than your ${_hm(sb.target)} latest, for ${SLEEP_NEED_HOURS}h before ${_hm(sb.wake)}` : `your latest · ${_hm(sb.wake)} wake tomorrow` });
+    }
+  } catch {}
   const shortBy = queue.reduce((s, q) => s + q.min, 0);
   const freeLeft = free.reduce((s, [a, b]) => s + (b - a), 0);
   blocks.sort((a, b) => (a.s ?? 9999) - (b.s ?? 9999));
   return { ds, blocks, shortBy, queueLeft: queue, free, freeLeft, hasCal: _liveCal.length > 0, listNote };
 }
-const PLAN_COLORS = { walk: '#EAF7F0', done: '#FFFFFF', 'task-next': '#F2F7FB', 'task-unplaced': '#F7F3EE', wake: '#FFFFFF', routine: '#F7F3EE', shift: '#fee2e2', event: '#F2F2F7', optional: '#FAFAFA', meal: '#FFF7E6', training: '#E5F5EA', 'training-unplaced': '#FFF7E6', revision: '#EEE8FF', task: '#E0F2FE', osce: '#E8F4F8', daylist: '#FBEFE3', missed: '#F7F4F1' };
+const PLAN_COLORS = { walk: '#EAF7F0', done: '#FFFFFF', 'task-next': '#F2F7FB', 'task-unplaced': '#F7F3EE', wake: '#FFFFFF', routine: '#F7F3EE', shift: '#fee2e2', event: '#F2F2F7', optional: '#FAFAFA', meal: '#FFF7E6', training: '#E5F5EA', 'training-unplaced': '#FFF7E6', revision: '#EEE8FF', task: '#E0F2FE', osce: '#E8F4F8', daylist: '#FBEFE3', missed: '#F7F4F1', wind: '#EEF0FB' };
 function planBlocksHtml(plan, opts = {}) {
   const rows = plan.blocks.map(b => {
     const time = b.s == null ? 'no slot' : b.s === b.e ? _hm(b.s) : `${_hm(b.s)}–${_hm(b.e)}`;
@@ -11372,8 +11401,8 @@ function renderWhoopSleep() {
   const coach = computeSleepCoach();
   const consistency = computeSleepConsistency();
   setH('whoop-sleep-coach', `
-    ${coach ? `<div class="whoop-contrib-row"><span class="wc-label">Recommended bedtime</span><span class="wc-value">${coach.recommendedBedtime}</span></div>` : ''}
-    ${coach ? `<div class="whoop-contrib-row"><span class="wc-label">Based on avg wake time</span><span class="wc-value">${coach.avgWakeTime} (${coach.nights}d avg)</span></div>` : ''}
+    ${(() => { try { const sb = sleepByFor(todayStr()); return `<div class="whoop-contrib-row"><span class="wc-label">Asleep tonight by</span><span class="wc-value">${_hm(sb.by)}</span></div><div class="whoop-contrib-row"><span class="wc-label">Planned wake tomorrow</span><span class="wc-value">${_hm(sb.wake)}</span></div>`; } catch { return ''; } })()}
+    ${coach ? `<div class="whoop-contrib-row"><span class="wc-label">Actual avg wake time</span><span class="wc-value">${coach.avgWakeTime} (${coach.nights}d avg)</span></div>` : ''}
     ${debt ? `<div class="whoop-contrib-row"><span class="wc-label">Sleep debt (${debt.nights}d)</span><span class="wc-value">${fmtHrsMin(debt.debtHours)}</span></div>` : ''}
     ${consistency ? `<div class="whoop-contrib-row"><span class="wc-label">Bedtime spread (${consistency.nights} nights)</span><span class="wc-value">± ${fmtHrsMin(consistency.stdevMinutes / 60)}</span></div>` : ''}
     ${(!coach && !debt && !consistency) ? `<div class="sub" style="font-style:italic;color:#bbb">Not enough data yet</div>` : ''}
@@ -11401,7 +11430,44 @@ function _sleepNights(days) {
 const _sAvg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
 const _sBar = (v, color) => `<div style="height:6px;border-radius:3px;background:var(--fx-track,#eee);overflow:hidden;margin-top:5px"><div style="height:100%;width:${Math.max(0, Math.min(100, v))}%;background:${color};border-radius:3px"></div></div>`;
 
+function renderSleepTarget() {
+  const target = getSleepTarget(), tBed = target - 12 * 60; // as minutes after noon
+  const m = _healthData && _healthData.sleep_analysis;
+  const dates = m ? Object.keys(m.byDate).sort().slice(-14) : [];
+  const nights = dates.map(d => ({ d, bed: _sleepBedMin(m.byDate[d].raw || {}) })).filter(n => n.bed != null);
+  const late = n => Math.max(0, n.bed - tBed);
+  const hit = nights.filter(n => late(n) === 0).length;
+  let streak = 0; for (let i = nights.length - 1; i >= 0 && late(nights[i]) === 0; i--) streak++;
+  const last = nights[nights.length - 1];
+  const lateNights = nights.filter(n => late(n) > 0);
+  const avgLate = lateNights.length ? _sAvg(lateNights.map(late)) : 0;
+  const avgBed = nights.length ? _sAvg(nights.map(n => n.bed)) : null;
+  const tonight = (() => { try { return sleepByFor(new Date().toLocaleDateString('en-CA')); } catch { return null; } })();
+  const pct = nights.length ? Math.round(hit / nights.length * 100) : 0;
+  setH('sleep-target-card', `
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="flex:1;min-width:150px">
+        <div style="font-size:13px;color:var(--fx-muted,#999)">Asleep by</div>
+        <div class="fx-num">${_hm(target)}</div>
+      </div>
+      <label style="font-size:12px;color:var(--fx-muted,#999)">Change <input type="time" value="${_hm(target)}" onchange="setSleepTarget(this.value)" style="border:1px solid var(--fx-line,#eee);border-radius:8px;font:inherit;font-size:13px;padding:3px 6px;color:var(--fx-text,#222);background:#fff"></label>
+    </div>
+    ${nights.length ? `
+    <div style="margin-top:10px;font-size:14px;font-weight:600">${hit} of the last ${nights.length} nights on time <span style="font-weight:500;color:var(--fx-muted,#999)">(${pct}%)</span></div>
+    ${_sBar(pct, pct >= 70 ? WHOOP_GREEN : pct >= 35 ? WHOOP_YELLOW : WHOOP_RED)}
+    <div style="display:flex;gap:4px;margin-top:10px">${nights.map(n => `<div title="${fmtDate(n.d)}: asleep ${_clockFromNoon(n.bed)}" style="flex:1;height:22px;border-radius:5px;background:${late(n) === 0 ? WHOOP_GREEN : late(n) <= 60 ? WHOOP_YELLOW : '#E5E5EA'}"></div>`).join('')}</div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--fx-muted,#999);margin-top:3px"><span>${fmtDate(nights[0].d)}</span><span>green on time · yellow up to 1h late</span><span>last night</span></div>
+    <div style="font-size:13px;color:var(--fx-text2,#555);margin-top:10px;line-height:1.5">
+      ${last ? `Last night: asleep at <b>${_clockFromNoon(last.bed)}</b>${late(last) ? `, ${fmtHrsMin(late(last) / 60)} after your target` : ', on time'}.` : ''}
+      ${streak ? ` ${streak} night${streak > 1 ? 's' : ''} in a row on time.` : ''}
+      ${lateNights.length ? ` On late nights you were ${fmtHrsMin(avgLate / 60)} over on average; your 14-night average is ${_clockFromNoon(avgBed)}.` : ''}
+      ${tonight ? `<br>Tonight: wind down from ${_hm(tonight.by - 30)}, asleep by <b>${_hm(tonight.by)}</b>${tonight.by < target ? ` (earlier than ${_hm(target)} to get ${SLEEP_NEED_HOURS}h before your ${_hm(tonight.wake)} wake)` : ''}.` : ''}
+      ${lateNights.length && avgLate > 60 ? `<br><span style="color:var(--fx-muted,#999)">Pulling bedtime forward in steps of 15–30 minutes every few days is easier to stick to than a single big jump.</span>` : ''}
+    </div>` : '<div class="fx-empty">No bedtimes recorded yet.</div>'}`);
+}
+
 function renderSleepDeepDive(s) {
+  try { renderSleepTarget(); } catch (e) { console.warn('sleep target failed', e); }
   // 1) Score breakdown
   const drag = (s.parts || []).filter(p => p.lost >= 3).sort((a, b) => b.lost - a.lost)[0];
   setH('sleep-score-breakdown', (s.parts || []).map(p => `
@@ -11471,7 +11537,7 @@ function renderSleepHabits() {
     { label: 'Hard day (strain 14+)', test: (day) => { try { const st = computeStrainForDate(day); return st && st.activeEnergySynced ? st.strain >= 14 : null; } catch { return null; } }, no: 'lighter day' },
     { label: '200mg+ caffeine logged', test: (day) => { const c = _healthValueOnDate('caffeine', day); return c == null ? null : c >= 200; }, no: 'under 200mg logged' },
     { label: 'Placement that day', test: (day) => { try { const ev = getDayEvents(day); if (!_liveCalCovers(day) && !(gcalEvents || []).some(e => e.date === day)) return null; return ev.some(e => /placement/i.test(e.title || '')); } catch { return null; } }, no: 'no placement' },
-    { label: 'Asleep before midnight', test: (day, n) => { const b = _sleepBedMin((_healthData.sleep_analysis.byDate[n.date] || {}).raw || {}); return b == null ? null : b < 12 * 60; }, no: 'after midnight', self: true },
+    { label: `Asleep by ${_hm(getSleepTarget())}`, test: (day, n) => { const b = _sleepBedMin((_healthData.sleep_analysis.byDate[n.date] || {}).raw || {}); return b == null ? null : b <= getSleepTarget() - 12 * 60; }, no: 'later', self: true },
   ];
   const out = factors.map(f => {
     const yes = [], no = [];
@@ -11494,6 +11560,8 @@ function renderSleepHabits() {
     </div>`;
   }).join('') : '<div class="fx-empty">Not enough nights yet to compare.</div>')
     + (short.length ? `<div style="font-size:12px;color:var(--fx-muted,#999);margin-top:8px">Not enough nights yet (3+ each way) for: ${short.map(f => f.label.toLowerCase()).join(', ')}.</div>` : '')
+    + (() => { const logged = nights.filter(n => _healthValueOnDate('caffeine', prevDay(n.date)) != null).length;
+        return logged < 20 ? `<div style="font-size:12px;margin-top:8px;padding:8px 10px;border-radius:10px;background:#FFF7E6;color:#8A5A00;line-height:1.45">☕ Caffeine is logged on only ${logged} of these ${nights.length} days, so the caffeine result is shaky. Logging it every day you have any, coffee, tea, energy drinks, pre-workout, will make this reliable within a few weeks.</div>` : ''; })()
     + `<div style="font-size:12px;color:var(--fx-muted,#999);margin-top:8px;line-height:1.45">Last ${nights.length} nights, each matched to the day before it. These are patterns in your own data, not proof of cause, and a few nights either way can swing them.</div>`);
 }
 
@@ -11523,13 +11591,14 @@ function buildSleepDeepCharts() {
   const tn = nights.map(n => { const r = _healthData.sleep_analysis.byDate[n.date].raw || {}; const b = _sleepBedMin(r, true), w = _sleepWakeMin(r, true); return b != null && w != null ? { n, b, w: w + 12 * 60 + (w + 12 * 60 < b ? 24 * 60 : 0), split: _sleepSplit(r) } : null; }).filter(Boolean);
   if (c2 && tn.length) {
     if (_sleepTimingChart) _sleepTimingChart.destroy();
-    const lo = Math.floor((Math.min(...tn.map(t => t.b)) - 30) / 60) * 60, hi = Math.ceil((Math.max(...tn.map(t => t.w)) + 30) / 60) * 60;
+    const lo = Math.floor((Math.min(getSleepTarget() - 12 * 60, ...tn.map(t => t.b)) - 30) / 60) * 60, hi = Math.ceil((Math.max(...tn.map(t => t.w)) + 30) / 60) * 60;
     _sleepTimingChart = new Chart(c2, {
       type: 'bar',
       data: { labels: tn.map(t => fmtDate(t.n.date)), datasets: [{ data: tn.map(t => [t.b, t.w]),
-        backgroundColor: tn.map(t => { if (t.split) return '#D1D1D6'; const d = new Date(t.n.date + 'T12:00:00').getDay(); return d === 0 || d === 6 ? '#F2BE2E' : '#8B7CF6'; }), borderRadius: 4, borderSkipped: false }] },
+        order: 2, backgroundColor: tn.map(t => { if (t.split) return '#D1D1D6'; const d = new Date(t.n.date + 'T12:00:00').getDay(); return d === 0 || d === 6 ? '#F2BE2E' : '#8B7CF6'; }), borderRadius: 4, borderSkipped: false },
+        { type: 'line', order: 1, data: tn.map(() => getSleepTarget() - 12 * 60), borderColor: '#E5484D', borderDash: [5, 4], borderWidth: 1.5, pointRadius: 0, fill: false }] },
       options: { responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${_clockFromNoon(ctx.raw[0])} → ${_clockFromNoon(ctx.raw[1])} · ${fmtHrsMin(tn[ctx.dataIndex].n.totalSleep)} asleep${tn[ctx.dataIndex].split ? ' (includes a nap, left out of averages)' : ''}` } } },
+        plugins: { legend: { display: false }, tooltip: { filter: ctx => ctx.datasetIndex === 0, callbacks: { label: ctx => `${_clockFromNoon(ctx.raw[0])} → ${_clockFromNoon(ctx.raw[1])} · ${fmtHrsMin(tn[ctx.dataIndex].n.totalSleep)} asleep${tn[ctx.dataIndex].split ? ' (includes a nap, left out of averages)' : ''}` } } },
         scales: { x: { ticks: { font: { size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
           y: { reverse: true, min: lo, max: hi, ticks: { stepSize: 60, font: { size: 10 }, callback: v => _clockFromNoon(v) } } } }
     });
@@ -13030,6 +13099,7 @@ function applySyncUpdates(updated) {
     renderTrainingTodo();
   });
   if (updated.includes('daily_habits')) safe(renderHabits);
+  if (updated.includes('sleep_target')) safe(() => { renderWhoopSleep(); _refreshPlan(); });
   if (updated.includes('hm_race') || updated.includes('hm_prediction_log')) safe(renderHmPredictor);
   if (updated.includes('ukmla_scores')) safe(() => { renderUkmlaScores(); renderUkmlaPlan(); });
   if (updated.includes('wardrobe_items') || updated.includes('wardrobe_wears')) safe(() => { if (typeof wdRender === 'function') wdRender(); });
