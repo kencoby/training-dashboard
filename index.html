@@ -227,6 +227,17 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 /* keep the Fitness page at phone-app proportions on wide screens */
 #sub-tab-whoop-fitness.fx{max-width:760px;margin-left:auto;margin-right:auto}
 .fx-hrr-spark{max-width:260px}
+/* Health tab: the score cards go light like the rest of the Training style */
+.fx .whoop-card{background:#fff;color:var(--fx-text);border-radius:22px;box-shadow:0 1px 2px rgba(0,0,0,.04),0 6px 24px rgba(0,0,0,.045);padding:18px 16px 18px}
+.fx .whoop-card .lbl{color:var(--fx-text2)!important;font-size:14px;font-weight:600;align-self:stretch;margin-bottom:6px!important}
+.fx .whoop-card .lbl span{color:var(--fx-muted)!important;font-size:11px!important}
+.fx .whoop-card .info-i{color:var(--fx-faint)!important}
+.fx .whoop-ring-wrap{max-width:200px}
+.fx .whoop-score-label{color:var(--fx-muted);font-weight:600;font-size:14px}
+.fx .stage-bar{background:var(--fx-track)}
+.fx .stage-legend-item{color:var(--fx-muted)}
+.fx .whoop-contrib-row .wc-label{color:var(--fx-text2)}
+.fx .card [style*="#FBF1E7"],.fx .card [style*="#FFFBF6"]{border-color:var(--fx-line)!important}
 /* page header (Fitness sub-tab) */
 .fx-pagehead{margin:2px 2px 16px}
 .fx-pagetitle{font-size:30px;font-weight:700;letter-spacing:-.8px;line-height:1.1}
@@ -510,7 +521,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 
 </div><!-- /tab-dashboard -->
 
-<div class="tab-pane" id="tab-whoop">
+<div class="tab-pane fx" id="tab-whoop">
 
 <nav class="sub-tab-nav">
   <button class="sub-tab-btn active" data-subtab="whoop-recovery">Recovery</button>
@@ -541,12 +552,12 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 </div>
 
 <div class="section">
-<h2>HRV Trend — 14 Days <button class="info-i" data-t="whoop-hrv">ⓘ</button></h2>
+<h2>HRV trend — 14 days <button class="info-i" data-t="whoop-hrv">ⓘ</button></h2>
 <div class="card"><div class="cht-sm"><canvas id="whoop-hrv-chart"></canvas></div></div>
 </div>
 
 <div class="section">
-<h2>Recovery Trend — 30 Days</h2>
+<h2>Recovery trend — 30 days</h2>
 <div class="card"><div class="cht-sm"><canvas id="whoop-recovery-trend-chart"></canvas></div></div>
 </div>
 
@@ -563,7 +574,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 </div>
 
 <div class="section">
-<h2>Sleep Stages <button class="info-i" data-t="whoop-sleep-stages">ⓘ</button></h2>
+<h2>Sleep stages <button class="info-i" data-t="whoop-sleep-stages">ⓘ</button></h2>
 <div class="card">
   <div id="whoop-sleep-stagebar"></div>
   <div id="whoop-sleep-legend" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:14px"></div>
@@ -576,17 +587,17 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 </div>
 
 <div class="section">
-<h2>Sleep Coach</h2>
+<h2>Sleep coach</h2>
 <div class="card whoop-contrib-card" id="whoop-sleep-coach"></div>
 </div>
 
 <div class="section">
-<h2>Sleep Trend — 30 Days</h2>
+<h2>Sleep trend — 30 days</h2>
 <div class="card"><div class="cht-sm"><canvas id="whoop-sleep-trend-chart"></canvas></div></div>
 </div>
 
 <div class="section">
-<h2>Sleep → Next-Day HRV Correlation</h2>
+<h2>Sleep → next-day HRV correlation</h2>
 <div class="card" style="padding:14px">
   <div style="font-size:12px;color:#A6937F;margin-bottom:10px">Each dot is one night. Drag to see details.</div>
   <div class="cht-sm"><canvas id="sleep-hrv-scatter"></canvas></div>
@@ -612,17 +623,17 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 </div>
 
 <div class="section">
-<h2>Strain Coach</h2>
+<h2>Strain coach</h2>
 <div class="card" id="whoop-strain-coach"></div>
 </div>
 
 <div class="section">
-<h2>Workouts Today</h2>
+<h2>Workouts today</h2>
 <div class="card" id="whoop-strain-workouts"></div>
 </div>
 
 <div class="section">
-<h2>Strain Trend — 30 Days</h2>
+<h2>Strain trend — 30 days</h2>
 <div class="card"><div class="cht-sm"><canvas id="whoop-strain-trend-chart"></canvas></div></div>
 </div>
 
@@ -631,17 +642,17 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 <div class="sub-tab-pane" id="sub-tab-whoop-monitor">
 
 <div class="section">
-<h2>This Week</h2>
+<h2>This week</h2>
 <div class="card whoop-contrib-card" id="whoop-weekly-rollup"></div>
 </div>
 
 <div class="section">
-<h2>Health Monitor <span id="whoop-monitor-date" style="float:right;font-size:10px;color:#555;text-transform:none;letter-spacing:0;font-weight:400"></span></h2>
+<h2>Health monitor <span id="whoop-monitor-date" style="float:right;font-size:10px;color:#555;text-transform:none;letter-spacing:0;font-weight:400"></span></h2>
 <div class="card" id="whoop-monitor-tiles" style="padding:12px"></div>
 </div>
 
 <div class="section">
-<h2>Weight Trend — 60 Days</h2>
+<h2>Weight trend — 60 days</h2>
 <div class="card">
   <div id="weight-goal-row" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px"></div>
   <div id="weight-rate" style="margin-bottom:10px"></div>
@@ -650,7 +661,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 </div>
 
 <div class="section">
-<h2>Calories Burned</h2>
+<h2>Calories burned</h2>
 <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:10px">
     <div id="calories-today-row" style="display:flex;gap:22px"></div>
@@ -671,7 +682,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 </div>
 
 <div class="section">
-<h2>Calorie Intake</h2>
+<h2>Calorie intake</h2>
 <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:10px">
     <div id="intake-today-row" style="display:flex;gap:22px"></div>
@@ -685,7 +696,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 </div>
 
 <div class="section">
-<h2>Calorie Balance</h2>
+<h2>Calorie balance</h2>
 <div class="card">
   <div id="balance-today-row" style="display:flex;gap:22px;margin-bottom:10px"></div>
   <div class="cht-sm"><canvas id="calorie-balance-chart"></canvas></div>
@@ -704,18 +715,18 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 </div>
 
 <div class="section">
-<h2>Training Load <button class="info-i" data-t="whoop-fitness-load">ⓘ</button></h2>
+<h2>Training load <button class="info-i" data-t="whoop-fitness-load">ⓘ</button></h2>
 <div class="card whoop-contrib-card" id="whoop-fitness-trend-readout"></div>
 <div class="card"><div class="cht-sm"><canvas id="whoop-fitness-trend-chart"></canvas></div></div>
 </div>
 
 <div class="section">
-<h2>RHR — 7-Day Rolling</h2>
+<h2>RHR — 7-day rolling</h2>
 <div class="card"><div class="cht-sm"><canvas id="rhr-7day-chart"></canvas></div></div>
 </div>
 
 <div class="section">
-<h2>HRV — 7-Day Rolling</h2>
+<h2>HRV — 7-day rolling</h2>
 <div class="card"><div class="cht-sm"><canvas id="hrv-7day-chart"></canvas></div></div>
 </div>
 
@@ -10980,11 +10991,11 @@ function buildScoreRing(elId, value, max, color, decimals) {
   const dash = frac * circumference;
   const label = decimals > 0 ? value.toFixed(decimals) : Math.round(value);
   el.innerHTML = `<svg viewBox="0 0 ${size} ${size}">
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#26282c" stroke-width="${sw}"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#ECECF1" stroke-width="${sw}"/>
     <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="${sw}"
       stroke-linecap="round" stroke-dasharray="${dash.toFixed(1)} ${(circumference - dash).toFixed(1)}"
       transform="rotate(-90 ${cx} ${cy})"/>
-    <text x="${cx}" y="${cy + size * 0.07}" text-anchor="middle" font-size="${size * 0.24}" font-weight="800" fill="#fff" font-family="system-ui">${label}</text>
+    <text x="${cx}" y="${cy + size * 0.07}" text-anchor="middle" font-size="${size * 0.24}" font-weight="700" fill="#1C1C1E" font-family="-apple-system,BlinkMacSystemFont,Inter,system-ui">${label}</text>
   </svg>`;
 }
 
@@ -14649,7 +14660,7 @@ function calcOttawa() {
   function updateMode() {
     const tr = $('tab-training'), wh = $('tab-whoop'), fit = $('sub-tab-whoop-fitness');
     const wd = $('tab-wardrobe');
-    const on = (tr && tr.classList.contains('active')) || (wd && wd.classList.contains('active')) || (wh && wh.classList.contains('active') && fit && fit.classList.contains('active'));
+    const on = (tr && tr.classList.contains('active')) || (wd && wd.classList.contains('active')) || (wh && wh.classList.contains('active'));
     document.body.classList.toggle('fx-mode', !!on);
   }
   const mo = new MutationObserver(updateMode);
