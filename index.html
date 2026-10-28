@@ -1578,6 +1578,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
     <button id="daylist-btn-today" onclick="setDayListDate(new Date().toLocaleDateString('en-CA'))" style="border:1px solid #E5DACB;border-radius:99px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Today</button>
     <button id="daylist-btn-tomorrow" onclick="(()=>{const t=new Date();t.setDate(t.getDate()+1);setDayListDate(t.toLocaleDateString('en-CA'))})()" style="border:1px solid #E5DACB;border-radius:99px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Tomorrow</button>
     <input id="daylist-date" type="date" onchange="setDayListDate(this.value)" title="Pick any day" style="border:1px solid #E5DACB;border-radius:8px;padding:4px 6px;font-size:12px;font-family:inherit;color:#4A3B2E">
+    <span id="daylist-wake"></span>
   </div>
 </div>
 <div class="card" style="padding:4px 14px 10px">
@@ -2643,7 +2644,7 @@ const SYNC_KEYS = [
   'mood_log', 'habit_streaks', 'habit_reset_date',
   'weight_goal', 'cst_grades', 'audit_cycle', 'ukmla_progress', 'macro_targets',
   'wardrobe_items', 'wardrobe_wears',
-  'hm_race', 'hm_prediction_log', 'ukmla_scores', 'task_day_choices', 'day_lists', 'plan_moves', 'sleep_target'
+  'hm_race', 'hm_prediction_log', 'ukmla_scores', 'task_day_choices', 'day_lists', 'plan_moves', 'sleep_target', 'wake_defaults'
 ];
 
 function getSyncMeta() {
@@ -3570,6 +3571,7 @@ function renderDayList() {
   const tm = new Date(); tm.setDate(tm.getDate() + 1); const tomorrow = tm.toLocaleDateString('en-CA');
   const ds = _dayListDate || today;
   const dateEl = document.getElementById('daylist-date'); if (dateEl && dateEl.value !== ds) dateEl.value = ds;
+  try { const w = document.getElementById('daylist-wake'); if (w) w.innerHTML = wakeChipHtml(ds); } catch {}
   ['today', 'tomorrow'].forEach(k => { const b = document.getElementById('daylist-btn-' + k); if (b) { const on = ds === (k === 'today' ? today : tomorrow); b.style.background = on ? '#4A3B2E' : '#fff'; b.style.color = on ? '#fff' : '#4A3B2E'; } });
   const items = getDayList(ds);
   // Times from the plan, so you can see where each one landed.
@@ -4763,7 +4765,18 @@ const COMMUTE_HOME = 60;                // an hour to get home after placement
 const MORNING_ROUTINE = 20;             // 10 min breakfast + 10 min shower
 // Wake time: 06:30 on placement/shift days, 08:00 on days off; per-day override
 // set from the plan header (stored in 'wake_overrides' as {date: minutes}).
-const WAKE_WORKDAY = 6 * 60 + 30, WAKE_DAY_OFF = 8 * 60;
+// Default wake times (synced as wake_defaults {work, off}); a day can be set on its own via wake_overrides.
+function _wakeDefaults() { try { const d = JSON.parse(localStorage.getItem('wake_defaults') || '{}') || {}; return { work: typeof d.work === 'number' ? d.work : 6 * 60 + 30, off: typeof d.off === 'number' ? d.off : 8 * 60 }; } catch { return { work: 390, off: 480 }; } }
+function setWakeDefault(kind, hhmm) {
+  if (!hhmm) return; const [h, m] = hhmm.split(':').map(Number);
+  const d = _wakeDefaults(); d[kind] = h * 60 + m;
+  localStorage.setItem('wake_defaults', JSON.stringify(d));
+  if (typeof syncPush === 'function') try { syncPush('wake_defaults', d); } catch {}
+  closeWakePicker(); _refreshPlan();
+}
+// Whether a day counts as a work day (placement/shift starting before noon) for the default wake time.
+function _isWakeWorkDay(ds) { try { return getDayEvents(ds).some(e => (_isMainPlacement(e) || e.kind === 'shift') && e.s < 12 * 60); } catch { return false; } }
+function _wakeDefaultFor(ds) { const d = _wakeDefaults(); return _isWakeWorkDay(ds) ? d.work : d.off; }
 // Latest time to be asleep (synced as sleep_target, minutes after midnight; default 23:00).
 function getSleepTarget() { const v = parseInt(localStorage.getItem('sleep_target'), 10); return isFinite(v) ? v : 23 * 60; }
 function setSleepTarget(hhmm) {
@@ -4804,14 +4817,48 @@ function getWakeTime(ds) {
   if (adjW && adjW.onSite) {
     try {
       const pl = getDayEvents(ds).filter(e => _isMainPlacement(e)).reduce((m, e) => Math.min(m, e.s), Infinity);
-      if (pl !== Infinity) return pl - (PLACEMENT_LEAVE_AT - WAKE_WORKDAY);
+      if (pl !== Infinity) return pl - (PLACEMENT_LEAVE_AT - _wakeDefaults().work);
     } catch {}
   }
-  let work = false;
   // Early wake only when placement or a shift starts in the morning; an
   // afternoon start (e.g. placement 14:00–20:00) gets the day-off wake time.
-  try { work = getDayEvents(ds).some(e => (_isMainPlacement(e) || e.kind === 'shift') && e.s < 12 * 60); } catch {}
-  return work ? WAKE_WORKDAY : WAKE_DAY_OFF;
+  return _wakeDefaultFor(ds);
+}
+// Wake chip: shows a day's wake time; tap to change just that day, or the defaults.
+function wakeChipHtml(ds, small) {
+  const sl = _sleepFor(ds), set = typeof _wakeOverrides()[ds] === 'number';
+  const recorded = sl && sl.wakeMin != null;
+  return `<button onclick="event.stopPropagation();openWakePicker(event,'${ds}')" title="${recorded ? 'Woke at this time (from your watch)' : 'Tap to change the wake time for this day'}" style="border:1px solid ${set ? '#C9B8F0' : '#E5DACB'};background:${set ? '#F3EFFD' : '#fff'};border-radius:99px;padding:${small ? '1px 7px' : '3px 9px'};font-size:${small ? 11 : 12}px;font-weight:600;cursor:pointer;font-family:inherit;color:#4A3B2E;white-space:nowrap">⏰ ${_hm(getWakeTime(ds))}${recorded ? ' ✓' : ''}</button>`;
+}
+function closeWakePicker() { const p = document.getElementById('wake-pop'); if (p) p.remove(); }
+function openWakePicker(ev, ds) {
+  closeWakePicker();
+  const cur = getWakeTime(ds), o = _wakeOverrides(), set = typeof o[ds] === 'number';
+  const sl = _sleepFor(ds), recorded = sl && sl.wakeMin != null;
+  const work = _isWakeWorkDay(ds), defs = _wakeDefaults(), def = work ? defs.work : defs.off;
+  const presets = []; for (let m = 5 * 60 + 30; m <= 10 * 60; m += 30) presets.push(m);
+  const day = new Date(ds + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  const btn = (m) => `<button onclick="setWakeTime('${ds}','${_hm(m)}');closeWakePicker();_refreshPlan()" style="border:1px solid ${m === cur ? '#8B7CF6' : '#E5DACB'};background:${m === cur ? '#8B7CF6' : '#fff'};color:${m === cur ? '#fff' : '#4A3B2E'};border-radius:8px;padding:6px 0;font:inherit;font-size:13px;font-weight:600;cursor:pointer">${_hm(m)}</button>`;
+  const pop = document.createElement('div');
+  pop.id = 'wake-pop';
+  pop.style.cssText = 'position:fixed;z-index:3000;background:#fff;border:1px solid #EADFD1;border-radius:14px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:12px;width:min(290px,92vw);font-size:13px;color:#4A3B2E';
+  pop.innerHTML = `<div style="font-size:11px;font-weight:700;color:#A6937F;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Wake up · ${day}</div>
+    ${recorded ? `<div style="font-size:12px;color:#7A6656;margin-bottom:8px">Your watch recorded ${_hm(sl.wakeMin)} today, so the plan uses that.</div>` : ''}
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">${presets.map(btn).join('')}</div>
+    <div style="display:flex;align-items:center;gap:6px;margin-top:8px"><span style="font-size:12px;color:#7A6656">Other</span>
+      <input type="time" value="${_hm(cur)}" onchange="setWakeTime('${ds}',this.value);closeWakePicker();_refreshPlan()" style="border:1px solid #E5DACB;border-radius:8px;padding:4px 6px;font:inherit;font-size:13px;color:#4A3B2E"></div>
+    ${set ? `<button onclick="setWakeTime('${ds}','');closeWakePicker();_refreshPlan()" style="margin-top:8px;border:none;background:none;color:#8B7CF6;font:inherit;font-size:12px;cursor:pointer;padding:0">↺ Back to default (${_hm(def)})</button>` : ''}
+    <div style="border-top:1px solid #F3EADF;margin-top:10px;padding-top:8px;font-size:12px;color:#7A6656">
+      <div style="font-weight:700;margin-bottom:4px">Defaults</div>
+      <label style="display:flex;justify-content:space-between;align-items:center;margin:3px 0">Placement / shift mornings <input type="time" value="${_hm(defs.work)}" onchange="setWakeDefault('work',this.value)" style="border:1px solid #E5DACB;border-radius:6px;padding:2px 4px;font:inherit;font-size:12px;color:#4A3B2E"></label>
+      <label style="display:flex;justify-content:space-between;align-items:center;margin:3px 0">Days off <input type="time" value="${_hm(defs.off)}" onchange="setWakeDefault('off',this.value)" style="border:1px solid #E5DACB;border-radius:6px;padding:2px 4px;font:inherit;font-size:12px;color:#4A3B2E"></label>
+      <div style="font-size:11px;color:#A6937F;margin-top:2px">This day counts as ${work ? 'a placement/shift morning' : 'a day off'}.</div>
+    </div>`;
+  document.body.appendChild(pop);
+  const r = ev.target.getBoundingClientRect();
+  pop.style.top = Math.max(8, Math.min(r.bottom + 6, window.innerHeight - pop.offsetHeight - 8)) + 'px';
+  pop.style.left = Math.max(8, Math.min(r.left - 100, window.innerWidth - pop.offsetWidth - 8)) + 'px';
+  setTimeout(() => document.addEventListener('click', function h(e) { if (!pop.contains(e.target)) { closeWakePicker(); document.removeEventListener('click', h); } }), 0);
 }
 function setWakeTime(ds, hhmm) {
   const o = _wakeOverrides();
@@ -4936,7 +4983,7 @@ function todayPlanHtml(ds, isToday, labelStyle, rowStyle) {
   try { const aw = getAutoWeek(new Date(ds + 'T12:00:00')); (aw ? aw.changes : []).filter(c => c.ds === ds || c.to === ds).forEach(c => extras.push(`🔁 ${escHtml(c.text)}`)); } catch {}
   const spare = free.reduce((s, [a, b]) => s + (b - a), 0);
   if (spare >= 60) extras.push(`⏳ ~${_fmtHrs(spare)} still unplanned${isToday ? ' for the rest of today' : ''} — good for tasks, rest or an extra Anki session.`);
-  return `<div style="${labelStyle}">🗓 ${isToday ? "Today's plan" : 'Plan'} <a href="javascript:void(0)" onclick="switchTab('calendar')" style="float:right;font-weight:600;text-transform:none;letter-spacing:0;color:#A6937F">week view ›</a><label style="float:right;margin-right:10px;font-weight:600;text-transform:none;letter-spacing:0;color:#A6937F">⏰ wake <input type="time" value="${wakeVal}" onchange="setWakeTime('${ds}', this.value)" style="border:1px solid #F0E1D2;border-radius:6px;font:inherit;font-size:11px;padding:0 3px;color:#4A3B2E;background:#fff"></label></div>
+  return `<div style="${labelStyle}">🗓 ${isToday ? "Today's plan" : 'Plan'} <a href="javascript:void(0)" onclick="switchTab('calendar')" style="float:right;font-weight:600;text-transform:none;letter-spacing:0;color:#A6937F">week view ›</a><span style="float:right;margin-right:10px;text-transform:none;letter-spacing:0">${wakeChipHtml(ds, true)}</span></div>
     ${[...notes, ...extras].map(n => `<div style="${rowStyle};align-items:flex-start"><span>${n}</span></div>`).join('')}
     <div style="margin-top:6px">${planBlocksHtml(shown, { compact: true, nowMin: isToday ? nowMin : null }) || '<div class="sub">Nothing left planned today.</div>'}</div>
     ${!plan.hasCal ? '<div class="sub" style="margin-top:4px;color:#bbb">Calendar not synced — placement, shifts and tutoring are missing from this plan.</div>' : ''}`;
@@ -4962,7 +5009,7 @@ function renderCalendarTab() {
     const isToday = ds === todayStr, past = ds < todayStr;
     return `<div class="card" style="margin-bottom:10px;${isToday ? 'border:2px solid #3b82f6;' : ''}${past ? 'opacity:.6;' : ''}">
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap">
-        <div style="font-weight:800">${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}${isToday ? ' · Today' : ''}</div>
+        <div style="font-weight:800;display:flex;align-items:center;gap:8px">${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}${isToday ? ' · Today' : ''}${past ? '' : wakeChipHtml(ds, true)}</div>
         <div class="sub">${rev ? `📚 ${_fmtHrs(rev)} revision` : ''}${plan.freeLeft >= 30 ? ` · ${_fmtHrs(plan.freeLeft)} spare` : ''}${clashes.length ? ' · <span style="color:#b45309;font-weight:700">⚠ clash</span>' : ''}</div>
       </div>
       <div style="margin-top:6px">${planBlocksHtml(plan) || '<div class="sub">Nothing planned.</div>'}</div>
@@ -13100,6 +13147,7 @@ function applySyncUpdates(updated) {
   });
   if (updated.includes('daily_habits')) safe(renderHabits);
   if (updated.includes('sleep_target')) safe(() => { renderWhoopSleep(); _refreshPlan(); });
+  if (updated.includes('wake_defaults') || updated.includes('wake_overrides')) safe(_refreshPlan);
   if (updated.includes('hm_race') || updated.includes('hm_prediction_log')) safe(renderHmPredictor);
   if (updated.includes('ukmla_scores')) safe(() => { renderUkmlaScores(); renderUkmlaPlan(); });
   if (updated.includes('wardrobe_items') || updated.includes('wardrobe_wears')) safe(() => { if (typeof wdRender === 'function') wdRender(); });
