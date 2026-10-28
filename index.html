@@ -5069,7 +5069,15 @@ function planDay(ds, opts = {}) {
       const len = it.dur || 15;
       const title = sess ? `${sess.emoji} ${sess.type}` : `📝 ${it.text}`;
       const pin = _dlPinned(it.text);
-      const got = take(len, c => c[0], pin != null ? Math.max(cursor, pin) : cursor, 5); // keep small gaps so short list items can follow on
+      if (pin != null) {
+        // A time you've written is kept as is, even over placement/a shift (e.g. lunch on placement).
+        const clash = busyBlocks.find(b => !b.optional && b.s < pin + len && b.e > pin);
+        free = free.flatMap(([a, b2]) => b2 <= pin || a >= pin + len ? [[a, b2]] : [[a, pin], [pin + len, b2]].filter(([x, y]) => y - x >= 5));
+        blocks.push({ s: pin, e: pin + len, title, type: 'daylist', dayItem: it.id, item: it, session: sess, during: clash ? clash.title : null });
+        cursor = Math.max(cursor, pin + len);
+        return;
+      }
+      const got = take(len, c => c[0], cursor, 5); // keep small gaps so short list items can follow on
       if (!got) { blocks.push({ s: null, e: null, title, type: 'daylist', dayItem: it.id, item: it, session: sess, why: 'no free time left in the day' }); return; }
       blocks.push({ s: got[0], e: got[1], title, type: 'daylist', dayItem: it.id, item: it, session: sess });
       if (leave !== Infinity && cursor < leave && got[0] >= leave) pushed.push(it);
@@ -5217,7 +5225,7 @@ function planBlocksHtml(plan, opts = {}) {
     if (b.type === 'revision') sub = 'suggested · ' + b.items.map(i => i.set && !i.catchup && !i.moved ? '30 questions' : i.text).join(', ');
     if (b.type === 'task') sub = [`${b.len} min`, b.task && b.task.revSwap ? 'revision swapped in' : '', b.after || ''].filter(Boolean).join(' · ');
     if (b.type === 'task-unplaced') sub = b.why;
-    if (b.type === 'daylist') sub = b.s == null ? b.why : [`${b.item.dur || 15} min`, b.session ? `your list: “${escHtml(b.item.text)}”` : 'your list'].join(' · ');
+    if (b.type === 'daylist') sub = b.s == null ? b.why : [`${b.item.dur || 15} min`, b.session ? `your list: “${escHtml(b.item.text)}”` : 'your list', b.during ? `during ${escHtml(b.during)}` : ''].filter(Boolean).join(' · ');
     if (b.type === 'osce') sub = `${b.station.type} · ${b.station.focus.join(' · ')}`;
     if (b.type === 'done') return '';
     const _todayS = new Date().toLocaleDateString('en-CA'), _nowM = new Date().getHours() * 60 + new Date().getMinutes();
