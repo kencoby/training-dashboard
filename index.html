@@ -3577,7 +3577,9 @@ function renderDayList() {
   // Times from the plan, so you can see where each one landed.
   let times = {}, linked = {}, note = null;
   try {
-    const pl = planDay(ds, { tasks: ds === today ? planTasksForToday(ds) : planTasksForDay(ds), notBefore: 0 });
+    // Today: anything not yet done goes from now, not from this morning.
+    const nowM = new Date().getHours() * 60 + new Date().getMinutes();
+    const pl = planDay(ds, { tasks: ds === today ? planTasksForToday(ds) : planTasksForDay(ds), notBefore: ds === today ? Math.ceil(nowM / 5) * 5 : 0 });
     pl.blocks.filter(b => b.dayItem).forEach(b => { times[b.dayItem] = b.s == null ? 'no time' : _hm(b.s); if (b.session) linked[b.dayItem] = b.session.type; });
     note = pl.listNote;
   } catch {}
@@ -5168,7 +5170,10 @@ function planDay(ds, opts = {}) {
         cursor = Math.max(cursor, pin + len);
         return;
       }
-      const got = take(len, c => c[0], cursor, 5); // keep small gaps so short list items can follow on
+      let got = take(len, c => c[0], cursor, 5); // keep small gaps so short list items can follow on
+      // Late in the evening the planned day (until 22:00) has run out, but a listed
+      // job still gets done now: put it straight after the last one if nothing's booked then.
+      if (!got && cursor + len <= 24 * 60 && !hard.some(([a, b]) => a < cursor + len && b > cursor)) got = [cursor, cursor + len];
       if (!got) { blocks.push({ s: null, e: null, title, type: 'daylist', dayItem: it.id, item: it, session: sess, why: 'no free time left in the day' }); return; }
       blocks.push({ s: got[0], e: got[1], title, type: 'daylist', dayItem: it.id, item: it, session: sess });
       if (leave !== Infinity && cursor < leave && got[0] >= leave) pushed.push(it);
