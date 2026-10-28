@@ -1532,6 +1532,31 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 <div id="planner-zones-form" style="display:none"></div>
 <div id="planner-week-label" style="display:none"></div>
 
+<!-- DAY LIST: small things for one day, in order (see renderDayList) -->
+<div class="section">
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+  <div style="width:10px;height:10px;border-radius:50%;background:#4A3B2E;flex-shrink:0"></div>
+  <div style="flex:1;min-width:160px">
+    <div style="font-size:15px;font-weight:700" id="daylist-title">📋 Things to do today</div>
+    <div style="font-size:11px;color:#A6937F">In the order you'll do them. They go straight into the day plan; other tasks fit around them.</div>
+  </div>
+  <div style="display:flex;gap:4px;align-items:center">
+    <button id="daylist-btn-today" onclick="setDayListDate(new Date().toLocaleDateString('en-CA'))" style="border:1px solid #E5DACB;border-radius:99px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Today</button>
+    <button id="daylist-btn-tomorrow" onclick="(()=>{const t=new Date();t.setDate(t.getDate()+1);setDayListDate(t.toLocaleDateString('en-CA'))})()" style="border:1px solid #E5DACB;border-radius:99px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Tomorrow</button>
+    <input id="daylist-date" type="date" onchange="setDayListDate(this.value)" title="Pick any day" style="border:1px solid #E5DACB;border-radius:8px;padding:4px 6px;font-size:12px;font-family:inherit;color:#4A3B2E">
+  </div>
+</div>
+<div class="card" style="padding:4px 14px 10px">
+  <div id="daylist-items"></div>
+  <div style="display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid #FAF3EC">
+    <input id="daylist-input" type="text" placeholder="e.g. brush teeth, run, shower, lunch 12:30"
+      onkeydown="if(event.key==='Enter')addDayListItem()"
+      style="flex:1;border:1.5px solid #CDBFAE;border-radius:8px;padding:7px 10px;font-size:13px;outline:none;font-family:inherit">
+    <button onclick="addDayListItem()" style="background:#4A3B2E;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:16px;font-weight:700;cursor:pointer;line-height:1">+</button>
+  </div>
+</div>
+</div>
+
 <!-- TOP PRIORITY (capped at one active task — the only thing shown on the Home dashboard card) -->
 <div class="section">
 <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
@@ -2584,7 +2609,7 @@ const SYNC_KEYS = [
   'mood_log', 'habit_streaks', 'habit_reset_date',
   'weight_goal', 'cst_grades', 'audit_cycle', 'ukmla_progress', 'macro_targets',
   'wardrobe_items', 'wardrobe_wears',
-  'hm_race', 'hm_prediction_log', 'ukmla_scores', 'task_day_choices'
+  'hm_race', 'hm_prediction_log', 'ukmla_scores', 'task_day_choices', 'day_lists'
 ];
 
 function getSyncMeta() {
@@ -2926,7 +2951,8 @@ function swapTaskForDay(ds, outId, inId) {
   _refreshPlan();
 }
 
-function _refreshPlan() { try { if (typeof renderDailyBriefing === 'function') renderDailyBriefing(); } catch {} try { if (typeof renderCalendarTab === 'function') renderCalendarTab(); } catch {} }
+function _refreshPlan() { try { if (typeof renderDayList === 'function') renderDayList(); } catch {} _refreshPlanInner(); }
+function _refreshPlanInner() { try { if (typeof renderDailyBriefing === 'function') renderDailyBriefing(); } catch {} try { if (typeof renderCalendarTab === 'function') renderCalendarTab(); } catch {} }
 
 function toggleTask(id) {
   let items = getTasks();
@@ -3428,6 +3454,111 @@ function renderDashTasks() {
         style="width:15px;height:15px;cursor:pointer;flex-shrink:0;accent-color:${TASK_TIER_COLORS.top}">
     </div>${upHtml}`;
 }
+
+// ── Day list ─────────────────────────────────────────────────────────────────
+// Small things for a particular day, in the order you'll do them (written the
+// night before or that morning). The day plan puts them in first, in order,
+// from wake-up (or from now, for today), around placement/shifts/calendar
+// events; training, tasks and revision then fill the space left.
+// Stored as day_lists: { 'YYYY-MM-DD': [{ id, text, dur, done }] } (synced, kept 14 days).
+const DAY_LIST_DUR_GUESS = [
+  [/brush|teeth|floss/i, 5], [/\bshower\b|bath/i, 15], [/breakfast/i, 15], [/lunch/i, 30], [/dinner|\btea\b/i, 45],
+  [/\b(gym|push|pull|legs|upper|lower|weights|lift|workout)\b/i, 75], [/\bwalk\b/i, 20], [/stretch|mobility|yoga/i, 15],
+  [/meditat|journal/i, 10], [/pack|get ready|dress/i, 15], [/anki/i, 30], [/nap/i, 30], [/shop|groceries/i, 45],
+];
+const _DL_RUN = /\b(run|jog|running)\b/i;
+// Optional fixed time in the text, e.g. "lunch 12:30" or "call mum at 6pm" → start no earlier than that.
+function _dlPinned(text) {
+  let m = text.match(/(?:^|\s)(?:at\s+|@\s*)?(\d{1,2})[:.](\d{2})\s*(am|pm)?(?=\s|$)/i);
+  if (!m) m = text.match(/(?:^|\s)(?:at\s+|@\s*)?(\d{1,2})\s*(am|pm)(?=\s|$)/i), m = m && [m[0], m[1], '00', m[2]];
+  if (!m) return null;
+  let h = +m[1]; const mi = +m[2], ap = (m[3] || '').toLowerCase();
+  if (ap === 'pm' && h < 12) h += 12; if (ap === 'am' && h === 12) h = 0;
+  return h < 24 && mi < 60 ? h * 60 + mi : null;
+}
+const _DL_GYM = /\b(gym|push|pull|legs|upper|lower|weights|lift|workout)\b/i;
+let _dayListDate = null; // date being edited on the Tasks tab
+
+function _dayLists() { try { return JSON.parse(localStorage.getItem('day_lists') || '{}') || {}; } catch { return {}; } }
+function getDayList(ds) { return (_dayLists()[ds] || []).filter(i => i && i.text); }
+function _saveDayLists(all) {
+  const cut = new Date(); cut.setDate(cut.getDate() - 14); const cutStr = cut.toLocaleDateString('en-CA');
+  Object.keys(all).forEach(d => { if (d < cutStr || !(all[d] || []).length) delete all[d]; });
+  localStorage.setItem('day_lists', JSON.stringify(all));
+  if (typeof syncPush === 'function') syncPush('day_lists', all);
+}
+function _setDayList(ds, items) { const all = _dayLists(); all[ds] = items; _saveDayLists(all); renderDayList(); if (typeof _refreshPlan === 'function') _refreshPlan(); }
+function dayListGuess(text, ds) {
+  if (_DL_RUN.test(text)) { try { const s = getTodaysSessions(new Date(ds + 'T12:00:00')).find(x => x.session.tag === 'run'); if (s) return _runMinutes(s.session.type, ds); } catch {} return 45; }
+  const g = DAY_LIST_DUR_GUESS.find(([re]) => re.test(text));
+  if (g) return g[1];
+  const t = (typeof TASK_DUR_GUESS !== 'undefined') ? TASK_DUR_GUESS.find(([re]) => re.test(text)) : null;
+  return t ? t[1] : 15;
+}
+
+function addDayListItem() {
+  const inp = document.getElementById('daylist-input');
+  const text = (inp && inp.value || '').trim();
+  if (!text) return;
+  const ds = _dayListDate || new Date().toLocaleDateString('en-CA');
+  // Several at once: "brush teeth, run, shower, lunch"
+  const parts = text.split(/\s*[,;\n]\s*/).filter(Boolean);
+  const items = getDayList(ds);
+  parts.forEach((p, k) => items.push({ id: 'dl' + Date.now() + k, text: p, dur: dayListGuess(p, ds), done: false }));
+  inp.value = '';
+  _setDayList(ds, items);
+  setTimeout(() => { const i = document.getElementById('daylist-input'); if (i) i.focus(); }, 0);
+}
+function toggleDayListItem(ds, id) { _setDayList(ds, getDayList(ds).map(i => i.id === id ? { ...i, done: !i.done } : i)); }
+function removeDayListItem(ds, id) { _setDayList(ds, getDayList(ds).filter(i => i.id !== id)); }
+function moveDayListItem(ds, id, dir) {
+  const items = getDayList(ds), i = items.findIndex(x => x.id === id), j = i + dir;
+  if (i < 0 || j < 0 || j >= items.length) return;
+  [items[i], items[j]] = [items[j], items[i]];
+  _setDayList(ds, items);
+}
+function cycleDayListDur(ds, id) {
+  const steps = [5, 10, 15, 20, 30, 45, 60, 75, 90, 120];
+  _setDayList(ds, getDayList(ds).map(i => i.id === id ? { ...i, dur: steps[(steps.findIndex(m => m >= (i.dur || 15)) + 1) % steps.length] || 15 } : i));
+}
+function setDayListDate(v) { _dayListDate = v || new Date().toLocaleDateString('en-CA'); renderDayList(); }
+function clearDoneDayList() { const ds = _dayListDate || new Date().toLocaleDateString('en-CA'); _setDayList(ds, getDayList(ds).filter(i => !i.done)); }
+
+function renderDayList() {
+  const el = document.getElementById('daylist-items');
+  if (!el) return;
+  const today = new Date().toLocaleDateString('en-CA');
+  const tm = new Date(); tm.setDate(tm.getDate() + 1); const tomorrow = tm.toLocaleDateString('en-CA');
+  const ds = _dayListDate || today;
+  const dateEl = document.getElementById('daylist-date'); if (dateEl && dateEl.value !== ds) dateEl.value = ds;
+  ['today', 'tomorrow'].forEach(k => { const b = document.getElementById('daylist-btn-' + k); if (b) { const on = ds === (k === 'today' ? today : tomorrow); b.style.background = on ? '#4A3B2E' : '#fff'; b.style.color = on ? '#fff' : '#4A3B2E'; } });
+  const items = getDayList(ds);
+  // Times from the plan, so you can see where each one landed.
+  let times = {}, linked = {}, note = null;
+  try {
+    const pl = planDay(ds, { tasks: ds === today ? planTasksForToday(ds) : planTasksForDay(ds), notBefore: 0 });
+    pl.blocks.filter(b => b.dayItem).forEach(b => { times[b.dayItem] = b.s == null ? 'no time' : _hm(b.s); if (b.session) linked[b.dayItem] = b.session.type; });
+    note = pl.listNote;
+  } catch {}
+  const tEl = document.getElementById('daylist-title');
+  if (tEl) tEl.textContent = '📋 Things to do ' + (ds === today ? 'today' : ds === tomorrow ? 'tomorrow' : new Date(ds + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }));
+  const btn = 'border:none;background:none;cursor:pointer;color:#A6937F;font-size:13px;padding:2px 4px;line-height:1';
+  el.innerHTML = items.length ? items.map((it, k) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #FAF3EC;${it.done ? 'opacity:.5' : ''}">
+      <span style="font-size:11px;color:#A6937F;width:16px;text-align:right">${k + 1}</span>
+      <input type="checkbox" ${it.done ? 'checked' : ''} onchange="toggleDayListItem('${ds}','${it.id}')" style="cursor:pointer;flex-shrink:0">
+      <span style="flex:1;font-size:13px;${it.done ? 'text-decoration:line-through' : ''}">${escHtml(it.text)}${linked[it.id] ? ` <span style="font-size:10px;color:#2D7A47">· planned ${escHtml(linked[it.id])}</span>` : ''}</span>
+      <span style="font-size:11px;color:#7A6656;min-width:38px;text-align:right">${times[it.id] || ''}</span>
+      <button onclick="cycleDayListDur('${ds}','${it.id}')" title="Tap to change how long it takes" style="border:1px solid #F0E1D2;background:#fff;border-radius:6px;font-size:11px;padding:2px 6px;cursor:pointer;color:#4A3B2E">${it.dur || 15}m</button>
+      <button onclick="moveDayListItem('${ds}','${it.id}',-1)" title="Move up" style="${btn}" ${k === 0 ? 'disabled' : ''}>↑</button>
+      <button onclick="moveDayListItem('${ds}','${it.id}',1)" title="Move down" style="${btn}" ${k === items.length - 1 ? 'disabled' : ''}>↓</button>
+      <button onclick="removeDayListItem('${ds}','${it.id}')" title="Remove" style="${btn}">✕</button>
+    </div>`).join('')
+    + (note ? `<div style="font-size:12px;color:#b45309;padding-top:6px">⏰ ${escHtml(note.text)}${note.wake ? ` <button onclick="setWakeTime('${ds}','${note.wake}');_refreshPlan()" style="border:1px solid #E5C99A;background:#FFF7E6;color:#8A5A0B;border-radius:6px;font-size:11px;padding:2px 6px;cursor:pointer">Wake at ${note.wake} instead</button>` : ''}</div>` : '')
+    + (items.some(i => i.done) ? `<div style="text-align:right;padding-top:4px"><button onclick="clearDoneDayList()" style="${btn};font-size:11px">Clear ticked</button></div>` : '')
+    : `<div style="font-size:12px;color:#A6937F;padding:8px 0">Nothing listed for ${ds === today ? 'today' : ds === tomorrow ? 'tomorrow' : new Date(ds + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}. Add things in the order you'll do them, e.g. brush teeth, run, shower, lunch.</div>`;
+}
+function tickDayItemFromPlan(ds, id) { toggleDayListItem(ds, id); }
 
 function renderTasks() {
   autoEscalateDueDates();
@@ -4706,6 +4837,9 @@ function _runMinutes(type, ds) {
 }
 function planDay(ds, opts = {}) {
   const busyBlocks = getBusyBlocks(ds);
+  const dayList = (typeof getDayList === 'function') ? getDayList(ds) : [];
+  const listHasRoutine = dayList.some(i => /\bshower\b|breakfast/i.test(i.text));
+  const listHasDinner = dayList.some(i => /dinner/i.test(i.text));
   const hard = busyBlocks.filter(b => !b.optional).map(b => [b.s, b.e]);
   const blocks = busyBlocks.map(b => ({ ...b, type: b.kind === 'shift' ? 'shift' : b.optional ? 'optional' : 'event' }));
   // Wake, then breakfast + shower: just before leaving on placement/shift days, straight after waking otherwise.
@@ -4716,11 +4850,14 @@ function planDay(ds, opts = {}) {
   if (!wakeFixed && leave !== Infinity && leave - MORNING_ROUTINE - 10 < wake) wake = leave - MORNING_ROUTINE - 10;
   const routineS = leave !== Infinity && leave - MORNING_ROUTINE >= wake ? leave - MORNING_ROUTINE : wake;
   blocks.push({ s: wake, e: wake, title: '⏰ Wake up', type: 'wake' });
-  blocks.push({ s: routineS, e: routineS + MORNING_ROUTINE, title: '🥣 Breakfast · 🚿 Shower', type: 'routine' });
-  hard.push([routineS, routineS + MORNING_ROUTINE]);
+  if (!listHasRoutine) { // listed shower/breakfast replaces the default morning block
+    blocks.push({ s: routineS, e: routineS + MORNING_ROUTINE, title: '🥣 Breakfast · 🚿 Shower', type: 'routine' });
+    hard.push([routineS, routineS + MORNING_ROUTINE]);
+  }
   // Dinner at 18:30 if free, otherwise the first free 45 min between 17:30 and 21:00.
   const meals = [];
   PLAN_MEALS.forEach(([s, e, t]) => {
+    if (listHasDinner && /Dinner/.test(t)) return; // listed dinner replaces the default
     if (!hard.some(([a, b]) => a < e && b > s)) { meals.push([s, e, t]); return; }
     const gap = _freeIntervals(hard, wake).find(([a, b]) => a >= 17 * 60 + 30 && a <= 21 * 60 && b - a >= 45);
     if (gap) meals.push([gap[0], gap[0] + 45, t]);
@@ -4731,13 +4868,13 @@ function planDay(ds, opts = {}) {
   const notBefore = opts.notBefore || 0;
   if (notBefore) free = free.map(([a, b]) => [Math.max(a, notBefore), b]).filter(([a, b]) => b - a >= 10);
   // Take `len` minutes from a free gap chosen by `pick`, starting no earlier than minStart.
-  const take = (len, pick, minStart = 0) => {
+  const take = (len, pick, minStart = 0, minRest = 20) => { // minRest: smallest leftover gap worth keeping
     const cands = free.map(([s, e]) => [Math.max(s, minStart), e, s, e]).filter(([s, e]) => e - s >= len);
     if (!cands.length) return null;
     const got = pick(cands);
     if (!got) return null;
     const [start, , os, oe] = got;
-    free = free.flatMap(([a, b]) => a === os && b === oe ? [[a, start], [start + len, b]].filter(([x, y]) => y - x >= (x === a ? 10 : 20)) : [[a, b]]);
+    free = free.flatMap(([a, b]) => a === os && b === oe ? [[a, start], [start + len, b]].filter(([x, y]) => y - x >= (x === a ? Math.min(10, minRest) : minRest)) : [[a, b]]);
     return [start, start + len];
   };
   // Tasks, at their own length, from when they're available. A chained chore
@@ -4802,6 +4939,36 @@ function planDay(ds, opts = {}) {
     ? Object.fromEntries(_weather.hourly.time.map((t, i) => [t, _weather.hourly.precipitation_probability[i]])) : null;
   const rainAt = m => wetHours ? wetHours[`${ds}T${String(Math.floor(m / 60)).padStart(2, '0')}:00`] : null;
   const longShift = busyBlocks.some(b => b.kind === 'shift' && b.e - b.s >= 10 * 60);
+  // Your day list, in order, before anything flexible: from wake-up (or now).
+  // A listed run/gym uses that day's planned session, so it isn't planned twice.
+  let listNote = null;
+  if (dayList.length) {
+    let cursor = Math.max(wake, notBefore);
+    const pushed = []; // items that only fit after you've left for placement/a shift
+    dayList.forEach(it => {
+      const isRun = _DL_RUN.test(it.text), isGym = !isRun && _DL_GYM.test(it.text);
+      const sIdx = isRun ? sessions.findIndex(x => x.session.tag === 'run') : isGym ? sessions.findIndex(x => _isGym(x.session)) : -1;
+      const sess = sIdx >= 0 ? sessions[sIdx].session : null;
+      if (sIdx >= 0) sessions.splice(sIdx, 1);
+      if (it.done) { blocks.push({ s: null, e: null, title: it.text, type: 'done', dayItem: it.id }); return; }
+      const len = it.dur || 15;
+      const title = sess ? `${sess.emoji} ${sess.type}` : `📝 ${it.text}`;
+      const pin = _dlPinned(it.text);
+      const got = take(len, c => c[0], pin != null ? Math.max(cursor, pin) : cursor, 5); // keep small gaps so short list items can follow on
+      if (!got) { blocks.push({ s: null, e: null, title, type: 'daylist', dayItem: it.id, item: it, session: sess, why: 'no free time left in the day' }); return; }
+      blocks.push({ s: got[0], e: got[1], title, type: 'daylist', dayItem: it.id, item: it, session: sess });
+      if (leave !== Infinity && cursor < leave && got[0] >= leave) pushed.push(it);
+      else if (pushed.length && got[0] >= leave) pushed.push(it);
+      cursor = got[1];
+    });
+    // Morning list doesn't fit before leaving: say so, and offer an earlier wake-up.
+    if (pushed.length && !notBefore) {
+      const before = dayList.filter(i => !i.done && !pushed.includes(i));
+      const need = before.concat(pushed).reduce((m, i) => m + (i.dur || 15), 0);
+      const sugg = Math.max(4 * 60, Math.floor((leave - need) / 5) * 5);
+      listNote = { text: `Your list doesn't all fit before you leave at ${_hm(leave)}, so ${pushed.map(i => `“${i.text}”`).join(', ')} moved to later.`, wake: sugg < wake ? _hm(sugg) : null };
+    }
+  }
   // Runs are placed first. Only rule on order: legs must come after a speed
   // session (Speed Run / Intervals) on the same day; anything else can go either way.
   sessions = sessions.slice().sort((x, y) => (x.session.tag === 'run' ? 0 : 1) - (y.session.tag === 'run' ? 0 : 1));
@@ -4904,9 +5071,9 @@ function planDay(ds, opts = {}) {
   const shortBy = queue.reduce((s, q) => s + q.min, 0);
   const freeLeft = free.reduce((s, [a, b]) => s + (b - a), 0);
   blocks.sort((a, b) => (a.s ?? 9999) - (b.s ?? 9999));
-  return { ds, blocks, shortBy, queueLeft: queue, free, freeLeft, hasCal: _liveCal.length > 0 };
+  return { ds, blocks, shortBy, queueLeft: queue, free, freeLeft, hasCal: _liveCal.length > 0, listNote };
 }
-const PLAN_COLORS = { walk: '#EAF7F0', done: '#FFFFFF', 'task-next': '#F2F7FB', 'task-unplaced': '#F7F3EE', wake: '#FFFFFF', routine: '#F7F3EE', shift: '#fee2e2', event: '#F2F2F7', optional: '#FAFAFA', meal: '#FFF7E6', training: '#E5F5EA', 'training-unplaced': '#FFF7E6', revision: '#EEE8FF', task: '#E0F2FE', osce: '#E8F4F8' };
+const PLAN_COLORS = { walk: '#EAF7F0', done: '#FFFFFF', 'task-next': '#F2F7FB', 'task-unplaced': '#F7F3EE', wake: '#FFFFFF', routine: '#F7F3EE', shift: '#fee2e2', event: '#F2F2F7', optional: '#FAFAFA', meal: '#FFF7E6', training: '#E5F5EA', 'training-unplaced': '#FFF7E6', revision: '#EEE8FF', task: '#E0F2FE', osce: '#E8F4F8', daylist: '#FBEFE3' };
 function planBlocksHtml(plan, opts = {}) {
   const rows = plan.blocks.map(b => {
     const time = b.s == null ? 'no slot' : b.s === b.e ? _hm(b.s) : `${_hm(b.s)}–${_hm(b.e)}`;
@@ -4922,6 +5089,7 @@ function planBlocksHtml(plan, opts = {}) {
     if (b.type === 'revision') sub = 'suggested · ' + b.items.map(i => i.set && !i.catchup ? '30 questions' : i.text).join(', ');
     if (b.type === 'task') sub = [`${b.len} min`, b.task && b.task.revSwap ? 'revision swapped in' : '', b.after || ''].filter(Boolean).join(' · ');
     if (b.type === 'task-unplaced') sub = b.why;
+    if (b.type === 'daylist') sub = b.s == null ? b.why : [`${b.item.dur || 15} min`, b.session ? `your list: “${escHtml(b.item.text)}”` : 'your list'].join(' · ');
     if (b.type === 'osce') sub = `${b.station.type} · ${b.station.focus.join(' · ')}`;
     if (b.type === 'done') return '';
     const swapBtn = (b.task && plan.ds && ['task', 'task-unplaced', 'task-next'].includes(b.type))
@@ -4932,6 +5100,7 @@ function planBlocksHtml(plan, opts = {}) {
       const plainSub = sub.replace(/<[^>]+>/g, '');
       return `<div class="plan-row" onclick="this.classList.toggle('open')" title="${escHtml(plainSub)}" style="display:flex;gap:8px;align-items:baseline;padding:3px 8px;margin:2px 0;border-radius:6px;background:${PLAN_COLORS[b.type] || '#F2F2F7'};${now ? 'box-shadow:inset 3px 0 0 var(--primary);' : ''}${faded}cursor:pointer">
         <span style="font-size:11px;font-weight:700;color:#7A6656;min-width:72px;flex-shrink:0">${time}</span>
+        ${b.type === 'daylist' ? `<input type="checkbox" onclick="event.stopPropagation();tickDayItemFromPlan('${plan.ds}','${b.dayItem}')" title="Done" style="width:13px;height:13px;margin:0;flex-shrink:0;align-self:center;cursor:pointer">` : ''}
         ${b.type === 'osce' && plan.ds === new Date().toLocaleDateString('en-CA') ? `<input type="checkbox" onclick="event.stopPropagation();tickOsceFromPlan()" title="Done (ticks your OSCE revision habit)" style="width:13px;height:13px;margin:0;flex-shrink:0;align-self:center;cursor:pointer">` : ''}
         ${b.task ? `<input type="checkbox" onclick="event.stopPropagation();${b.task.revSwap ? `tickRevSwap('${plan.ds}','${b.task.id}')` : `toggleTask('${b.task.id}')`}" title="Done" style="width:13px;height:13px;margin:0;flex-shrink:0;align-self:center;cursor:pointer">` : ''}
         <span style="font-size:12.5px;font-weight:600;flex-shrink:0;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${title}</span>${swapBtn}
@@ -4945,7 +5114,8 @@ function planBlocksHtml(plan, opts = {}) {
     </div>`;
   }).join('');
   const warn = plan.shortBy > 0 ? `<div style="font-size:12px;color:#b45309;margin-top:4px">⚠ ~${_fmtHrs(plan.shortBy)} of revision doesn't fit today: ${escHtml(plan.queueLeft.map(q => q.set ? '30 questions' : q.text).slice(0, 4).join(', '))}${plan.queueLeft.length > 4 ? '…' : ''}</div>` : '';
-  return rows + warn;
+  const listWarn = plan.listNote ? `<div style="font-size:12px;color:#b45309;margin-top:4px">⏰ ${escHtml(plan.listNote.text)}${plan.listNote.wake ? ` <button onclick="setWakeTime('${plan.ds}','${plan.listNote.wake}');_refreshPlan()" style="border:1px solid #E5C99A;background:#FFF7E6;color:#8A5A0B;border-radius:6px;font-size:11px;padding:2px 6px;cursor:pointer">Wake at ${plan.listNote.wake} instead</button>` : ''}</div>` : '';
+  return rows + warn + listWarn;
 }
 
 // ── Training / shift clash checker ──────────────────────────────────────────
@@ -10313,6 +10483,7 @@ function switchTab(name) {
   localStorage.setItem('active_tab', name);
   if (name === 'shopping') renderShopping();
   if (name === 'notes') renderNotes();
+  if (name === 'planner') { try { renderDayList(); } catch {} }
   if (name === 'habits') { renderHabitHistory(); }
   if (name === 'year4') renderYear4Cal();
   if (name === 'calendar') renderCalendarTab();
@@ -12362,6 +12533,7 @@ renderDailyBriefing(); // initial render from local data; re-fires after weather
 renderHomeGoals();
 renderTasks();
 renderDashTasks();
+try { renderDayList(); } catch (e) { console.warn('day list render failed', e); }
 renderShopping();
 renderNotes();
 renderSystemAlerts();
@@ -12500,6 +12672,7 @@ function applySyncUpdates(updated) {
   if (updated.includes('monthly_km_goal')) safe(() => renderMonthlyGoal(_acts));
   if (updated.includes('tasks_priority')) safe(() => { renderTasks(); if (typeof renderHabits === 'function') renderHabits(); });
   if (updated.includes('task_day_choices')) safe(_refreshPlan);
+  if (updated.includes('day_lists')) safe(() => { renderDayList(); _refreshPlan(); });
   if (updated.includes('shopping_items')) safe(renderShopping);
   if (updated.includes('notes_data')) safe(renderNotes);
   if (updated.includes('cst_grades')) safe(renderCstScorecard);
