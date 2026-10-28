@@ -13792,7 +13792,8 @@ function renderReadinessChip() {
   const hasData = _healthLatest('heart_rate_variability', 1) != null || _healthLatest('resting_heart_rate', 1) != null;
   if (!hasData) return;
   const { score, label, color } = computeReadinessScore();
-  chip.style.display = 'block';
+  // The stat card below the briefing already shows readiness, so the date-bar chip stays hidden.
+  chip.style.display = 'none';
   chip.style.background = color + '22';
   chip.style.borderLeft = `3px solid ${color}`;
   const scoreEl = document.getElementById('readiness-chip-score');
