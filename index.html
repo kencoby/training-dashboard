@@ -6737,7 +6737,7 @@ function renderUkmlaSummary() {
     done += c.done; total += c.total;
   });
   const pct = total ? Math.round(done / total * 100) : 0;
-  const exam = new Date(REV_EXAM); const now = new Date(); now.setHours(0,0,0,0);
+  const exam = new Date('2026-11-23T00:00:00'); const now = new Date(); now.setHours(0,0,0,0); // UKMLA mock (same as REV_EXAM, which is declared later, so can't be used here at load)
   const daysLeft = Math.max(0, Math.ceil((exam - now) / 86400000));
   el.innerHTML = `<div class="card" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
     <div><div style="font-size:22px;font-weight:800;color:#2D7A47">${pct}%</div><div class="sub">${done} / ${total} sections done</div></div>
