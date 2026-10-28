@@ -574,11 +574,24 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 </div>
 
 <div class="section">
+<h2>Score breakdown <span class="fx-h2-sub">last night</span></h2>
+<div class="card" id="sleep-score-breakdown"></div>
+</div>
+
+<div class="section">
 <h2>Sleep stages <button class="info-i" data-t="whoop-sleep-stages">ⓘ</button></h2>
 <div class="card">
   <div id="whoop-sleep-stagebar"></div>
   <div id="whoop-sleep-legend" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:14px"></div>
 </div>
+<div class="card" id="sleep-stage-norms"></div>
+<div class="card"><div class="lbl">Stages — 30 nights</div><div style="height:220px"><canvas id="sleep-stage-trend-chart"></canvas></div></div>
+</div>
+
+<div class="section">
+<h2>Timing <span class="fx-h2-sub">asleep → awake</span></h2>
+<div class="card"><div style="font-size:12px;color:var(--fx-muted,#999);margin-bottom:8px"><span style="color:#8B7CF6">■</span> weekday morning &nbsp; <span style="color:#F2BE2E">■</span> weekend morning &nbsp; <span style="color:#C7C7CC">■</span> nap merged in</div><div style="height:240px"><canvas id="sleep-timing-chart"></canvas></div></div>
+<div class="card" id="sleep-timing-stats"></div>
 </div>
 
 <div class="section">
@@ -589,6 +602,11 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 <div class="section">
 <h2>Sleep coach</h2>
 <div class="card whoop-contrib-card" id="whoop-sleep-coach"></div>
+</div>
+
+<div class="section">
+<h2>What goes with your better nights</h2>
+<div class="card" id="sleep-habits"></div>
 </div>
 
 <div class="section">
@@ -1949,7 +1967,7 @@ const TIPS = {
   'sleep-performance':{what:'Compares your logged training sessions against your sleep score the same day, bucketed into good/average/poor sleep, to see whether better sleep actually shows up as more "increase"/"progressed" verdicts.',how:'Needs a handful of sessions across different sleep qualities before the comparison means anything — treat early readings as provisional.'},
   'whoop-recovery':{what:'Recovery score (0–100%) estimates how ready your body is for strain today, based on HRV, resting heart rate, and sleep performance compared against your own rolling baselines.',how:'66–100% = green, ready for strain. 34–65% = yellow, moderate caution. 0–33% = red, prioritise rest. The score gets more accurate after 2–3 weeks of consistent data feeding your baseline.'},
   'whoop-hrv':{what:'Heart Rate Variability (HRV) is the variation in time between heartbeats, in milliseconds. Higher generally means a well-recovered nervous system; lower signals accumulated stress or fatigue. There\'s no universal "good" number — a reading like 60ms could be high or low depending on your own baseline, so the trend against your 30-day average is what matters.',how:'To raise your baseline over time: keep sleep/wake times consistent, watch alcohol (one evening of drinking can suppress HRV for 24–48h), avoid stacking hard sessions back-to-back, and manage stress. Day-to-day swings of 10–20% are normal — only a sustained drop over a week or more is meaningful.'},
-  'whoop-sleep-score':{what:'Sleep Performance compares how much sleep you actually got against your personal sleep need, which is calculated from recent strain, sleep debt, and your baseline.',how:'Aim for 85%+. The biggest lever is usually total time asleep rather than time in bed — an earlier bedtime moves this more reliably than anything else.'},
+  'whoop-sleep-score':{what:'Sleep score (0–100) is built from five parts: duration against your 8h need (45%), deep sleep share (15%), REM share (15%), efficiency — time in bed actually asleep (10%) — and bedtime consistency against your previous 7 nights (15%). A part with no data is left out and the rest re-weighted. The breakdown below shows each part.',how:'85+ is a great night, 70+ good. Duration carries the most weight, so an earlier, regular bedtime moves it more than anything else.'},
   'whoop-sleep-stages':{what:'Each night splits into Light, Deep (slow-wave), REM, and Awake. Deep sleep drives physical recovery and tissue repair; REM drives memory consolidation and cognitive recovery.',how:'Healthy adults typically see roughly 13–23% deep and 20–25% REM. Both stages tend to rise after high training load (more recovery demand) and fall with alcohol, late caffeine, or irregular sleep timing.'},
   'whoop-strain-score':{what:'Day Strain (0–21 scale) is your cumulative cardiovascular load for the whole day, driven mainly by heart rate and time spent in each HR zone — not just logged workouts.',how:'0–9 = light, 10–13 = moderate, 14–17 = strenuous, 18–21 = all-out. Strain should generally track recovery — push on green days, hold back on red ones.'},
   'whoop-rhr':{what:'Resting Heart Rate (RHR) is your lowest heart rate during sleep, in bpm — a simple fitness and fatigue signal. It tends to fall as cardiovascular fitness improves, and rises temporarily with illness, dehydration, heat, alcohol, or under-recovery.',how:'Watch the trend, not single nights. A RHR several beats above your own baseline for two or more nights in a row is a more reliable cue to back off than any one bad night.'},
@@ -11167,7 +11185,6 @@ function computeSleepForDate(dateStr) {
   const raw = entry.raw || {};
   const totalSleep = raw.totalSleep !== undefined ? raw.totalSleep : entry.value;
   const need = SLEEP_NEED_HOURS;
-  const score = Math.max(0, Math.min(100, Math.round((totalSleep / need) * 100)));
 
   let efficiency = null;
   if (raw.inBedStart && raw.inBedEnd) {
@@ -11178,12 +11195,65 @@ function computeSleepForDate(dateStr) {
     }
   }
 
+  const deep = raw.deep || 0, rem = raw.rem || 0, core = raw.core || 0, awake = raw.awake || 0;
+  const staged = deep + rem + core > 0;
+  const deepPct = staged && totalSleep ? deep / totalSleep * 100 : null;
+  const remPct = staged && totalSleep ? rem / totalSleep * 100 : null;
+
+  // Bedtime consistency: how far tonight's bedtime is from the median of the
+  // previous 7 nights (needs 3+ of them).
+  const bed = _sleepBedMin(raw);
+  let bedDev = null;
+  if (bed != null) {
+    const prev = Object.keys(m.byDate).filter(d => d < dateStr).sort().slice(-7)
+      .map(d => _sleepBedMin((m.byDate[d] || {}).raw || {})).filter(v => v != null).sort((a, b) => a - b);
+    if (prev.length >= 3) bedDev = Math.abs(bed - prev[Math.floor(prev.length / 2)]);
+  }
+
+  // Sleep score: weighted parts, each 0–100. A part with no data is left out
+  // and the others are re-weighted.
+  const parts = [
+    { k: 'duration', label: 'Duration', w: 45, v: Math.min(100, Math.round(totalSleep / need * 100)), detail: `${fmtHrsMin(totalSleep)} of ${need}h` },
+    { k: 'deep', label: 'Deep sleep', w: 15, v: deepPct == null ? null : _sleepRamp(deepPct, 5, 15), detail: deepPct == null ? '' : `${deepPct.toFixed(0)}% of sleep · full marks at 15%+` },
+    { k: 'rem', label: 'REM sleep', w: 15, v: remPct == null ? null : _sleepRamp(remPct, 8, 20), detail: remPct == null ? '' : `${remPct.toFixed(0)}% of sleep · full marks at 20%+` },
+    { k: 'efficiency', label: 'Efficiency', w: 10, v: efficiency == null ? null : _sleepRamp(efficiency, 70, 90), detail: efficiency == null ? '' : `${efficiency.toFixed(0)}% of time in bed asleep · full marks at 90%+` },
+    { k: 'consistency', label: 'Bedtime consistency', w: 15, v: bedDev == null ? null : _sleepRamp(120 - bedDev, 0, 100), detail: bedDev == null ? '' : `${Math.round(bedDev)} min from your usual bedtime · full marks within 20 min` },
+  ].filter(p => p.v != null);
+  const wSum = parts.reduce((a, p) => a + p.w, 0) || 1;
+  parts.forEach(p => { p.weight = p.w / wSum * 100; p.lost = (100 - p.v) * p.w / wSum; });
+  const score = Math.round(parts.reduce((a, p) => a + p.v * p.w, 0) / wSum);
+
   return {
-    date: dateStr, score, totalSleep, need,
-    deep: raw.deep || 0, rem: raw.rem || 0, core: raw.core || 0, awake: raw.awake || 0,
+    date: dateStr, score, parts, totalSleep, need,
+    deep, rem, core, awake, deepPct, remPct, bedDev,
     efficiency, sleepStart: raw.sleepStart, sleepEnd: raw.sleepEnd
   };
 }
+const _sleepRamp = (x, lo, hi) => Math.max(0, Math.min(100, Math.round((x - lo) / (hi - lo) * 100)));
+// Bedtime as minutes after noon (23:30 → 690, 01:30 → 810), so after-midnight bedtimes sort after evening ones.
+// Clock times are read as written in the record (the watch's local time), so a
+// night abroad shows the time you actually went to bed there, not UK time.
+function _sleepClock(str) { const m = String(str || '').match(/[ T](\d{2}):(\d{2})/); return m ? +m[1] * 60 + +m[2] : null; }
+// A "split" night: the time from start to end is 3h+ longer than the time asleep
+// and awake, i.e. a nap was merged into the night. Its bed/wake times aren't
+// real, so it's left out of timing averages and consistency.
+function _sleepSplit(raw) {
+  const a = parseHealthDate(raw && raw.sleepStart), b = parseHealthDate(raw && raw.sleepEnd);
+  const slept = ((raw && raw.totalSleep) || 0) + ((raw && raw.awake) || 0);
+  return !!(a && b && slept > 0 && (b - a) / 3600000 > slept + 3);
+}
+function _sleepBedMin(raw, keepSplit) {
+  if (!raw || (!keepSplit && _sleepSplit(raw))) return null;
+  const m = _sleepClock(raw.sleepStart);
+  if (m == null) return null;
+  return m >= 12 * 60 ? m - 12 * 60 : m + 12 * 60;
+}
+// Wake time as minutes after midnight.
+function _sleepWakeMin(raw, keepSplit) {
+  if (!raw || (!keepSplit && _sleepSplit(raw))) return null;
+  return _sleepClock(raw.sleepEnd);
+}
+const _clockFromNoon = m => _hm(((Math.round(m) + 12 * 60) % (24 * 60) + 24 * 60) % (24 * 60));
 
 // Lightweight version used by the trend chart, which only needs the score —
 // avoids recomputing efficiency/stage breakdown for every day in the series.
@@ -11215,12 +11285,9 @@ function computeSleepDebt() {
 
 // Recommends a bedtime: average wake time over the last week, minus sleep need.
 function computeSleepCoach() {
-  const nights = _healthRawSeries('sleep_analysis', 7).filter(n => n.raw.sleepEnd);
+  const nights = _healthRawSeries('sleep_analysis', 7).filter(n => _sleepWakeMin(n.raw) != null);
   if (!nights.length) return null;
-  const wakeMins = nights.map(n => {
-    const d = parseHealthDate(n.raw.sleepEnd);
-    return d.getHours() * 60 + d.getMinutes();
-  });
+  const wakeMins = nights.map(n => _sleepWakeMin(n.raw));
   const avgWakeMins = _avg(wakeMins);
   let bedMins = avgWakeMins - SLEEP_NEED_HOURS * 60;
   if (bedMins < 0) bedMins += 24 * 60;
@@ -11240,13 +11307,8 @@ function computeSleepCoach() {
 // 00:30) is treated as a continuation of the evening before, not a wraparound.
 function computeSleepConsistency() {
   const nights = _healthRawSeries('sleep_analysis', 14).filter(n => n.raw.sleepStart);
-  if (nights.length < 3) return null;
-  const mins = nights.map(n => {
-    const d = parseHealthDate(n.raw.sleepStart);
-    let m = d.getHours() * 60 + d.getMinutes();
-    if (d.getHours() < 12) m += 24 * 60;
-    return m;
-  });
+  const mins = nights.map(n => _sleepBedMin(n.raw)).filter(m => m != null);
+  if (mins.length < 3) return null;
   const mean = _avg(mins);
   const stdev = Math.sqrt(_avg(mins.map(m => (m - mean) ** 2)));
   const score = Math.max(0, Math.min(100, Math.round(100 - (stdev / 120) * 100)));
@@ -11282,7 +11344,8 @@ function renderWhoopSleep() {
   }
   const color = scoreColor(s.score);
   buildScoreRing('whoop-sleep-ring', s.score, 100, color);
-  set('whoop-sleep-label', s.score >= 67 ? 'Well rested' : s.score >= 34 ? 'Sleep debt building' : 'Significant sleep debt');
+  set('whoop-sleep-label', s.score >= 85 ? 'Great night' : s.score >= 70 ? 'Good night' : s.score >= 50 ? 'Fair night' : 'Poor night');
+  try { renderSleepDeepDive(s); } catch (e) { console.warn('sleep deep dive failed', e); }
   set('whoop-sleep-date', whoopDateLabel(s.date));
 
   const stages = [
@@ -11312,12 +11375,165 @@ function renderWhoopSleep() {
     ${coach ? `<div class="whoop-contrib-row"><span class="wc-label">Recommended bedtime</span><span class="wc-value">${coach.recommendedBedtime}</span></div>` : ''}
     ${coach ? `<div class="whoop-contrib-row"><span class="wc-label">Based on avg wake time</span><span class="wc-value">${coach.avgWakeTime} (${coach.nights}d avg)</span></div>` : ''}
     ${debt ? `<div class="whoop-contrib-row"><span class="wc-label">Sleep debt (${debt.nights}d)</span><span class="wc-value">${fmtHrsMin(debt.debtHours)}</span></div>` : ''}
-    ${consistency ? `<div class="whoop-contrib-row"><span class="wc-label">Sleep consistency</span><span class="wc-value">${consistency.score}%</span></div>` : ''}
+    ${consistency ? `<div class="whoop-contrib-row"><span class="wc-label">Bedtime spread (${consistency.nights} nights)</span><span class="wc-value">± ${fmtHrsMin(consistency.stdevMinutes / 60)}</span></div>` : ''}
     ${(!coach && !debt && !consistency) ? `<div class="sub" style="font-style:italic;color:#bbb">Not enough data yet</div>` : ''}
   `);
 
-  if (initialised['whoop-sleep']) buildSleepTrendChart();
-  else pendingCharts['whoop-sleep'] = buildSleepTrendChart;
+  const charts = () => { buildSleepTrendChart(); buildSleepDeepCharts(); if (typeof buildSleepHrvScatter === 'function') buildSleepHrvScatter(); };
+  if (initialised['whoop-sleep']) charts();
+  else pendingCharts['whoop-sleep'] = charts;
+}
+
+// ── Sleep deep dive: score breakdown, stages vs norms, timing & habits ──────
+// Typical adult ranges (share of total sleep, from lab sleep studies). Watches
+// estimate stages from movement and heart rate, so these are a rough guide.
+const SLEEP_STAGE_NORMS = [
+  { k: 'deep', label: 'Deep', color: '#6d28d9', lo: 13, hi: 23 },
+  { k: 'rem', label: 'REM', color: '#3b82f6', lo: 20, hi: 25 },
+  { k: 'core', label: 'Core (light)', color: '#60a5fa', lo: 50, hi: 60 },
+];
+function _sleepNights(days) {
+  const m = _healthData && _healthData['sleep_analysis'];
+  if (!m || !m.byDate) return [];
+  const cut = new Date(); cut.setDate(cut.getDate() - days); const c = cut.toLocaleDateString('en-CA');
+  return Object.keys(m.byDate).filter(d => d > c).sort().map(d => computeSleepForDate(d)).filter(Boolean);
+}
+const _sAvg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
+const _sBar = (v, color) => `<div style="height:6px;border-radius:3px;background:var(--fx-track,#eee);overflow:hidden;margin-top:5px"><div style="height:100%;width:${Math.max(0, Math.min(100, v))}%;background:${color};border-radius:3px"></div></div>`;
+
+function renderSleepDeepDive(s) {
+  // 1) Score breakdown
+  const drag = (s.parts || []).filter(p => p.lost >= 3).sort((a, b) => b.lost - a.lost)[0];
+  setH('sleep-score-breakdown', (s.parts || []).map(p => `
+    <div style="padding:9px 0;border-bottom:1px solid var(--fx-line,#eee)">
+      <div style="display:flex;align-items:baseline;gap:8px">
+        <span style="font-size:14px;font-weight:600;flex:1">${p.label} <span style="font-size:11px;font-weight:500;color:var(--fx-muted,#999)">${Math.round(p.weight)}% of score</span></span>
+        <span style="font-size:14px;font-weight:700;color:${scoreColor(p.v)}">${p.v}</span>
+      </div>
+      ${_sBar(p.v, scoreColor(p.v))}
+      <div style="font-size:12px;color:var(--fx-muted,#999);margin-top:4px">${p.detail}</div>
+    </div>`).join('')
+    + `<div style="font-size:13px;color:var(--fx-text2,#555);margin-top:10px;line-height:1.45">${drag
+      ? `Biggest drag: <b>${drag.label.toLowerCase()}</b>, costing about ${Math.round(drag.lost)} points.`
+      : 'Every part scored well last night.'}</div>`);
+
+  // 2) Stages vs norms
+  const n30 = _sleepNights(30).filter(n => n.deepPct != null);
+  const rows = SLEEP_STAGE_NORMS.map(st => {
+    const last = s.totalSleep ? s[st.k] / s.totalSleep * 100 : null;
+    const avg = _sAvg(n30.map(n => n[st.k] / n.totalSleep * 100));
+    const tag = v => v == null ? '—' : `<span style="color:${st.k !== 'core' && v < st.lo ? '#D99A0B' : 'var(--fx-text,#222)'}">${v.toFixed(0)}%</span>`;
+    return `<tr><td style="padding:7px 4px"><span class="stage-legend-dot" style="background:${st.color}"></span> ${st.label}</td>
+      <td style="text-align:right">${tag(last)} <span style="font-size:11px;color:var(--fx-muted,#999)">${fmtHrsMin(s[st.k])}</span></td>
+      <td style="text-align:right">${tag(avg)}</td>
+      <td style="text-align:right;color:var(--fx-muted,#999)">${st.lo}–${st.hi}%</td></tr>`;
+  });
+  const awakeAvg = _sAvg(n30.map(n => n.awake * 60));
+  setH('sleep-stage-norms', `
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="font-size:11px;color:var(--fx-muted,#999);text-align:right"><th style="text-align:left;font-weight:600;padding:0 4px 4px">Stage</th><th style="font-weight:600">Last night</th><th style="font-weight:600">${n30.length}-night avg</th><th style="font-weight:600">Typical</th></tr></thead>
+      <tbody>${rows.join('')}</tbody>
+    </table>
+    <div style="font-size:12px;color:var(--fx-muted,#999);margin-top:8px;line-height:1.45">Awake ${Math.round(s.awake * 60)} min last night${awakeAvg != null ? ` (avg ${Math.round(awakeAvg)} min)` : ''}. Typical ranges are from lab sleep studies; a watch estimates stages from movement and heart rate, so compare against your own average more than the range.</div>`);
+
+  // 3) Timing: weekday vs weekend mornings, social jet lag
+  const tn = _sleepNights(30).map(n => {
+    const m = _healthData.sleep_analysis.byDate[n.date].raw || {};
+    const bed = _sleepBedMin(m), wake = _sleepWakeMin(m);
+    const dow = new Date(n.date + 'T12:00:00').getDay();
+    return { ...n, bed, wake, weekend: dow === 0 || dow === 6, mid: bed != null && wake != null ? (bed + (wake + 12 * 60)) / 2 : null };
+  }).filter(n => n.bed != null && n.wake != null);
+  const grp = w => { const g = tn.filter(n => n.weekend === w); return g.length ? { n: g.length, bed: _sAvg(g.map(x => x.bed)), wake: _sAvg(g.map(x => x.wake)), dur: _sAvg(g.map(x => x.totalSleep)), mid: _sAvg(g.map(x => x.mid)), score: _sAvg(g.map(x => x.score)) } : null; };
+  const wd = grp(false), we = grp(true);
+  const col = g => g ? `<td style="text-align:right">${_clockFromNoon(g.bed)}</td><td style="text-align:right">${_hm(Math.round(g.wake))}</td><td style="text-align:right">${fmtHrsMin(g.dur)}</td><td style="text-align:right;color:${scoreColor(g.score)};font-weight:600">${Math.round(g.score)}</td>` : '<td colspan="4" style="text-align:right;color:var(--fx-muted,#999)">no data</td>';
+  const jet = wd && we ? Math.abs(we.mid - wd.mid) : null;
+  setH('sleep-timing-stats', tn.length < 4 ? '<div class="fx-empty">Not enough nights with bed and wake times yet.</div>' : `
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="font-size:11px;color:var(--fx-muted,#999);text-align:right"><th style="text-align:left;font-weight:600;padding-bottom:4px">Last 30 nights</th><th style="font-weight:600">Asleep</th><th style="font-weight:600">Wake</th><th style="font-weight:600">Slept</th><th style="font-weight:600">Score</th></tr></thead>
+      <tbody>
+        <tr><td style="padding:6px 0">Weekday mornings${wd ? ` <span style="font-size:11px;color:var(--fx-muted,#999)">(${wd.n})</span>` : ''}</td>${col(wd)}</tr>
+        <tr><td style="padding:6px 0">Weekend mornings${we ? ` <span style="font-size:11px;color:var(--fx-muted,#999)">(${we.n})</span>` : ''}</td>${col(we)}</tr>
+      </tbody>
+    </table>
+    ${jet != null ? `<div style="font-size:13px;margin-top:10px;line-height:1.45"><b>Social jet lag: ${fmtHrsMin(jet / 60)}</b> <span style="color:var(--fx-muted,#999)">· the shift in the middle of your sleep between weekdays and weekends. Under 1h is good; over 2h is like flying a couple of time zones every weekend.</span></div>` : ''}`);
+
+  // 4) What goes with your better nights (the day before each night)
+  renderSleepHabits();
+}
+
+function renderSleepHabits() {
+  const nights = _sleepNights(90);
+  const acts = (typeof _acts !== 'undefined' && _acts) ? _acts : [];
+  const prevDay = ds => { const d = new Date(ds + 'T12:00:00'); d.setDate(d.getDate() - 1); return d.toLocaleDateString('en-CA'); };
+  const factors = [
+    { label: 'Trained that day', test: (day) => acts.some(a => (a.start_local || '').slice(0, 10) === day), no: 'rest day' },
+    { label: 'Trained after 7pm', test: (day) => acts.some(a => (a.start_local || '').slice(0, 10) === day && +(a.start_local || '').slice(11, 13) >= 19), no: 'no late session' },
+    { label: 'Hard day (strain 14+)', test: (day) => { try { const st = computeStrainForDate(day); return st && st.activeEnergySynced ? st.strain >= 14 : null; } catch { return null; } }, no: 'lighter day' },
+    { label: '200mg+ caffeine logged', test: (day) => { const c = _healthValueOnDate('caffeine', day); return c == null ? null : c >= 200; }, no: 'under 200mg logged' },
+    { label: 'Placement that day', test: (day) => { try { const ev = getDayEvents(day); if (!_liveCalCovers(day) && !(gcalEvents || []).some(e => e.date === day)) return null; return ev.some(e => /placement/i.test(e.title || '')); } catch { return null; } }, no: 'no placement' },
+    { label: 'Asleep before midnight', test: (day, n) => { const b = _sleepBedMin((_healthData.sleep_analysis.byDate[n.date] || {}).raw || {}); return b == null ? null : b < 12 * 60; }, no: 'after midnight', self: true },
+  ];
+  const out = factors.map(f => {
+    const yes = [], no = [];
+    nights.forEach(n => { const r = f.test(prevDay(n.date), n); if (r === true) yes.push(n); else if (r === false) no.push(n); });
+    if (yes.length < 3 || no.length < 3) return { ...f, short: true, yes: yes.length, no: no.length };
+    const sy = _sAvg(yes.map(n => n.score)), sn = _sAvg(no.map(n => n.score));
+    const dy = _sAvg(yes.map(n => n.totalSleep)), dn = _sAvg(no.map(n => n.totalSleep));
+    const ddy = _sAvg(yes.filter(n => n.deepPct != null).map(n => n.deepPct)), ddn = _sAvg(no.filter(n => n.deepPct != null).map(n => n.deepPct));
+    return { ...f, ny: yes.length, nn: no.length, diff: sy - sn, sy, sn, durDiff: (dy - dn) * 60, ddy, ddn };
+  });
+  const shown = out.filter(f => !f.short).sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+  const short = out.filter(f => f.short);
+  const sign = (v, unit, dp = 0) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(dp)}${unit}`;
+  setH('sleep-habits', (shown.length ? shown.map(f => {
+    const c = Math.abs(f.diff) < 3 ? 'var(--fx-muted,#999)' : f.diff > 0 ? '#2D7A47' : '#C53030';
+    return `<div style="padding:9px 0;border-bottom:1px solid var(--fx-line,#eee)">
+      <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:14px;font-weight:600;flex:1">${f.label}</span>
+        <span style="font-size:14px;font-weight:700;color:${c}">${Math.abs(f.diff) < 3 ? 'no real difference' : sign(f.diff, ' pts')}</span></div>
+      <div style="font-size:12px;color:var(--fx-muted,#999);margin-top:3px">Score ${Math.round(f.sy)} over ${f.ny} nights vs ${Math.round(f.sn)} over ${f.nn} (${f.no}) · ${Math.abs(f.durDiff) < 5 ? 'similar sleep time' : `${Math.round(Math.abs(f.durDiff))} min ${f.durDiff > 0 ? 'more' : 'less'} sleep`}${f.ddy != null && f.ddn != null ? ` · deep ${f.ddy.toFixed(0)}% vs ${f.ddn.toFixed(0)}%` : ''}</div>
+    </div>`;
+  }).join('') : '<div class="fx-empty">Not enough nights yet to compare.</div>')
+    + (short.length ? `<div style="font-size:12px;color:var(--fx-muted,#999);margin-top:8px">Not enough nights yet (3+ each way) for: ${short.map(f => f.label.toLowerCase()).join(', ')}.</div>` : '')
+    + `<div style="font-size:12px;color:var(--fx-muted,#999);margin-top:8px;line-height:1.45">Last ${nights.length} nights, each matched to the day before it. These are patterns in your own data, not proof of cause, and a few nights either way can swing them.</div>`);
+}
+
+let _sleepStageChart, _sleepTimingChart;
+function buildSleepDeepCharts() {
+  if (typeof Chart === 'undefined') return;
+  const nights = _sleepNights(30);
+  const labels = nights.map(n => fmtDate(n.date));
+  const c1 = document.getElementById('sleep-stage-trend-chart');
+  if (c1 && nights.length) {
+    if (_sleepStageChart) _sleepStageChart.destroy();
+    _sleepStageChart = new Chart(c1, {
+      type: 'bar',
+      data: { labels, datasets: [
+        { label: 'Deep', data: nights.map(n => +n.deep.toFixed(2)), backgroundColor: '#6d28d9' },
+        { label: 'REM', data: nights.map(n => +n.rem.toFixed(2)), backgroundColor: '#3b82f6' },
+        { label: 'Core', data: nights.map(n => +n.core.toFixed(2)), backgroundColor: '#93c5fd' },
+        { label: 'Awake', data: nights.map(n => +n.awake.toFixed(2)), backgroundColor: '#E5E5EA' },
+      ] },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } },
+          tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmtHrsMin(ctx.raw)}` } } },
+        scales: { x: { stacked: true, ticks: { font: { size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } }, y: { stacked: true, title: { display: true, text: 'hours', font: { size: 10 } } } } }
+    });
+  }
+  const c2 = document.getElementById('sleep-timing-chart');
+  const tn = nights.map(n => { const r = _healthData.sleep_analysis.byDate[n.date].raw || {}; const b = _sleepBedMin(r, true), w = _sleepWakeMin(r, true); return b != null && w != null ? { n, b, w: w + 12 * 60 + (w + 12 * 60 < b ? 24 * 60 : 0), split: _sleepSplit(r) } : null; }).filter(Boolean);
+  if (c2 && tn.length) {
+    if (_sleepTimingChart) _sleepTimingChart.destroy();
+    const lo = Math.floor((Math.min(...tn.map(t => t.b)) - 30) / 60) * 60, hi = Math.ceil((Math.max(...tn.map(t => t.w)) + 30) / 60) * 60;
+    _sleepTimingChart = new Chart(c2, {
+      type: 'bar',
+      data: { labels: tn.map(t => fmtDate(t.n.date)), datasets: [{ data: tn.map(t => [t.b, t.w]),
+        backgroundColor: tn.map(t => { if (t.split) return '#D1D1D6'; const d = new Date(t.n.date + 'T12:00:00').getDay(); return d === 0 || d === 6 ? '#F2BE2E' : '#8B7CF6'; }), borderRadius: 4, borderSkipped: false }] },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${_clockFromNoon(ctx.raw[0])} → ${_clockFromNoon(ctx.raw[1])} · ${fmtHrsMin(tn[ctx.dataIndex].n.totalSleep)} asleep${tn[ctx.dataIndex].split ? ' (includes a nap, left out of averages)' : ''}` } } },
+        scales: { x: { ticks: { font: { size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
+          y: { reverse: true, min: lo, max: hi, ticks: { stepSize: 60, font: { size: 10 }, callback: v => _clockFromNoon(v) } } } }
+    });
+  }
 }
 
 // ── Strain ────────────────────────────────────────────────────────────────
@@ -13185,7 +13401,7 @@ function buildSleepHrvScatter() {
     const sd = typeof computeSleepForDate === 'function' ? computeSleepForDate(dStr) : null;
     const hrv = _healthValueOnDate ? _healthValueOnDate('heart_rate_variability', dStr) : null;
     if (sd && sd.totalSleep && hrv) {
-      points.push({ x: sd.totalSleep / 3600, y: hrv });
+      points.push({ x: +sd.totalSleep.toFixed(2), y: Math.round(hrv) }); // totalSleep is in hours
     }
   }
   if (points.length < 4) {
