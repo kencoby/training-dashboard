@@ -497,6 +497,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
   <div class="card home-training-col" style="padding:12px 14px;overflow-x:hidden;overflow-y:auto;min-height:0">
     <div id="home-suggestion"></div>
     <div id="training-todo"></div>
+    <div id="home-life" style="margin-top:12px;padding-top:12px;border-top:1px solid #FBF1E7"></div>
   </div>
 
   <!-- Habits -->
@@ -10131,7 +10132,9 @@ function renderDailyBriefing() {
   if (typeof planDay === 'function') {
     try { sections.push(`<div style="${sectionStyle}">${todayPlanHtml(todayDateStr, isToday, labelStyle, rowStyle)}</div>`); } catch (err) { console.warn('day plan failed', err); }
   }
-  try { sections.push(lfHomeHtml(todayDateStr, isToday, labelStyle, sectionStyle)); } catch (err) { console.warn('life section failed', err); }
+  // Energy, check-in, goals, ask your data and the Sunday review go in the middle column (below training).
+  const midSections = [];
+  try { midSections.push(lfHomeHtml(todayDateStr, isToday, labelStyle, sectionStyle)); } catch (err) { console.warn('life section failed', err); }
   if (typeof getClashes === 'function') {
     const cl = getClashes(todayDateStr);
     if (cl.length) sections.push(`<div style="${sectionStyle}"><div style="${labelStyle}">⚠️ Clash</div>${cl.map(x => `<div style="${rowStyle}"><span>${escHtml(x.why)}</span></div>`).join('')}</div>`);
@@ -10286,8 +10289,9 @@ function renderDailyBriefing() {
     const nextTops = getTasks().filter(t => t.priority === 'top' && !t.done && t.forDate && nextDays.includes(t.forDate)).sort((a, b) => a.forDate.localeCompare(b.forDate));
     recapHtml += `<div style="${rowStyle}">🎯 <span>${nextTops.length ? `Top priorities: ${nextTops.map(t => `${escHtml(t.text)} · ${_topDateLabel(t.forDate)}`).join(', ')}` : 'No top priorities scheduled yet — set them in Tasks'}</span></div>`;
     try { recapHtml += `<div style="margin-top:10px">${lfGoalsHtml(lfWeekStart(_lfDay(todayDateStr, 1)), labelStyle, '🎯 Goals for next week')}</div>`; } catch {}
-    sections.push(`<div style="${sectionStyle}">${recapHtml}</div>`);
+    midSections.unshift(`<div style="${sectionStyle}">${recapHtml}</div>`);
   }
+  try { const hl = document.getElementById('home-life'); if (hl) hl.innerHTML = midSections.join(''); } catch {}
 
   setH('today-sections', sections.join(''));
 }
