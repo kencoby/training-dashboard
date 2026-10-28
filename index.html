@@ -2609,7 +2609,7 @@ const SYNC_KEYS = [
   'mood_log', 'habit_streaks', 'habit_reset_date',
   'weight_goal', 'cst_grades', 'audit_cycle', 'ukmla_progress', 'macro_targets',
   'wardrobe_items', 'wardrobe_wears',
-  'hm_race', 'hm_prediction_log', 'ukmla_scores', 'task_day_choices', 'day_lists'
+  'hm_race', 'hm_prediction_log', 'ukmla_scores', 'task_day_choices', 'day_lists', 'plan_moves'
 ];
 
 function getSyncMeta() {
@@ -3559,6 +3559,105 @@ function renderDayList() {
     : `<div style="font-size:12px;color:#A6937F;padding:8px 0">Nothing listed for ${ds === today ? 'today' : ds === tomorrow ? 'tomorrow' : new Date(ds + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}. Add things in the order you'll do them, e.g. brush teeth, run, shower, lunch.</div>`;
 }
 function tickDayItemFromPlan(ds, id) { toggleDayListItem(ds, id); }
+
+// ── Missed blocks ────────────────────────────────────────────────────────────
+// On the Calendar page, a revision/task/list/OSCE block whose time has passed
+// gets a "Missed" button: it's taken off that day and put on another one.
+// plan_moves (synced, kept 14 days):
+//   rev:   [{ from, idx, to }]  a UKMLA topic (from-day's plan, item idx) moved to another day
+//   osce:  [{ from, to }]       that day's OSCE station moved to another day
+//   ghost: { ds: [{ s, e, title, to }] } the slot it was in stays marked "missed"
+//          so the rest of that day doesn't slide back into time that's gone
+function _planMoves() {
+  try { const m = JSON.parse(localStorage.getItem('plan_moves') || '{}') || {}; return { rev: m.rev || [], osce: m.osce || [], ghost: m.ghost || {} }; }
+  catch { return { rev: [], osce: [], ghost: {} }; }
+}
+function _savePlanMoves(m) {
+  const cut = new Date(); cut.setDate(cut.getDate() - 14); const c = cut.toLocaleDateString('en-CA');
+  m.rev = m.rev.filter(r => r.to >= c); m.osce = m.osce.filter(r => r.to >= c);
+  Object.keys(m.ghost).forEach(d => { if (d < c || !m.ghost[d].length) delete m.ghost[d]; });
+  localStorage.setItem('plan_moves', JSON.stringify(m));
+  if (typeof syncPush === 'function') syncPush('plan_moves', m);
+}
+// A topic that's been moved to a day that hasn't passed yet isn't "missed" — it's scheduled.
+function _revMovePending(date, idx) {
+  const today = new Date().toLocaleDateString('en-CA');
+  return _planMoves().rev.some(r => r.from === date && r.idx === idx && r.to >= today);
+}
+function _ukmlaItem(date, idx) {
+  const day = (typeof UKMLA_REVISION_PLAN !== 'undefined') ? UKMLA_REVISION_PLAN.find(d => d.date === date) : null;
+  if (!day) return null;
+  let i = 0, hit = null;
+  ukmlaGroups(day).forEach(g => g.items.forEach(it => { if (i++ === idx) hit = { subject: g.subject, text: it }; }));
+  return hit;
+}
+
+let _missedReg = {}, _missedSeq = 0;
+function _missedKey(info) { const k = 'mb' + (++_missedSeq); _missedReg[k] = info; return k; }
+function closeMissed() { const p = document.getElementById('missed-pop'); if (p) p.remove(); }
+function openMissed(ev, key) {
+  closeMissed();
+  const info = _missedReg[key]; if (!info) return;
+  const today = new Date().toLocaleDateString('en-CA');
+  const start = new Date((info.ds > today ? info.ds : today) + 'T12:00:00');
+  const days = [];
+  for (let i = 1; days.length < 6 && i < 14; i++) {
+    const d = new Date(start); d.setDate(d.getDate() + i);
+    const ds = d.toLocaleDateString('en-CA');
+    let spare = null;
+    try { const pl = planDay(ds, { tasks: planTasksForDay(ds) }); spare = pl.freeLeft; } catch {}
+    days.push({ ds, label: d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }), spare });
+  }
+  const pop = document.createElement('div');
+  pop.id = 'missed-pop';
+  pop.style.cssText = 'position:fixed;z-index:3000;background:#fff;border:1px solid #EADFD1;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:10px;width:min(290px,92vw);max-height:60vh;overflow-y:auto;font-size:13px';
+  const row = (onclick, label, sub) => `<button onclick="${onclick}" style="display:block;width:100%;text-align:left;border:none;background:none;padding:7px 8px;border-radius:8px;cursor:pointer;font:inherit;color:inherit" onmouseover="this.style.background='#F7F1EA'" onmouseout="this.style.background='none'">${label}${sub ? `<span style="display:block;font-size:11px;color:#A6937F">${sub}</span>` : ''}</button>`;
+  const dropSub = info.kind === 'revision' ? 'Leaves it in your UKMLA catch-up list' : info.kind === 'osce' ? 'A new station comes up each day' : 'It comes back on a later day as usual';
+  pop.innerHTML = `<div style="font-size:11px;font-weight:700;color:#A6937F;text-transform:uppercase;letter-spacing:.05em;padding:2px 8px 6px">Missed “${escHtml(info.title)}” · move it to</div>`
+    + days.map(d => row(`markMissed('${key}','${d.ds}')`, d.label + (d.ds === today ? ' (later today)' : ''), d.spare != null ? `${_fmtHrs(d.spare)} spare` : '')).join('')
+    + `<div style="border-top:1px solid #F3EADF;margin-top:4px;padding-top:4px">${row(`markMissed('${key}',null)`, '🗑 Just drop it', dropSub)}</div>`
+    + `<div style="text-align:right;padding-top:2px"><button onclick="closeMissed()" style="border:none;background:none;color:#A6937F;cursor:pointer;font:inherit;font-size:12px">Cancel</button></div>`;
+  document.body.appendChild(pop);
+  const r = ev.target.getBoundingClientRect();
+  pop.style.top = Math.max(8, Math.min(r.bottom + 6, window.innerHeight - pop.offsetHeight - 8)) + 'px';
+  pop.style.left = Math.max(8, Math.min(r.left - 160, window.innerWidth - pop.offsetWidth - 8)) + 'px';
+  setTimeout(() => document.addEventListener('click', function h(e) { if (!pop.contains(e.target)) { closeMissed(); document.removeEventListener('click', h); } }), 0);
+}
+function markMissed(key, to) {
+  const info = _missedReg[key]; if (!info) return;
+  const m = _planMoves(), from = info.ds;
+  // keep the slot on the day it was missed, so the rest of the day stays put
+  if (info.s != null) (m.ghost[from] = m.ghost[from] || []).push({ s: info.s, e: info.e, title: info.title, to: to || null });
+  if (info.kind === 'revision') {
+    info.refs.forEach(ref => {
+      const ex = m.rev.find(r => r.from === ref.date && r.idx === ref.idx);
+      if (!to) { if (ex) m.rev = m.rev.filter(r => r !== ex); else m.rev.push({ from: ref.date, idx: ref.idx, to: from }); return; } // drop: off this day, back to catch-up
+      if (ex) { if (to === ref.date) m.rev = m.rev.filter(r => r !== ex); else ex.to = to; }
+      else if (to !== ref.date) m.rev.push({ from: ref.date, idx: ref.idx, to });
+    });
+  } else if (info.kind === 'osce') {
+    const ex = m.osce.find(r => r.from === info.osceFrom);
+    if (ex) ex.to = to || info.osceFrom + '#dropped'; else m.osce.push({ from: info.osceFrom, to: to || info.osceFrom + '#dropped' });
+  } else if (info.kind === 'task') {
+    const all = _taskChoices(), c = all[from] = all[from] || { skip: [], add: [] };
+    _swapOut(from, c, info.taskId);
+    if (to) {
+      const t = all[to] = all[to] || { skip: [], add: [] };
+      t.skip = (t.skip || []).filter(id => id !== info.taskId); t.add = t.add || []; t.rev = t.rev || [];
+      if (String(info.taskId).startsWith('rev:')) { const r = _revSwapTasks(from).find(x => x.id === info.taskId); if (r && !r.revSwap.extra) t.rev.push({ date: r.revSwap.date, idx: r.revSwap.idx }); else t.rev.push({ extra: true }); }
+      else if (!t.add.includes(info.taskId)) t.add.push(info.taskId);
+    }
+    _saveTaskChoices(all);
+  } else if (info.kind === 'daylist') {
+    const lists = _dayLists(), src = lists[from] || [], it = src.find(i => i.id === info.itemId);
+    lists[from] = src.filter(i => i.id !== info.itemId);
+    if (to && it) (lists[to] = lists[to] || []).push({ ...it, done: false });
+    _saveDayLists(lists);
+  }
+  _savePlanMoves(m);
+  closeMissed();
+  _refreshPlan();
+}
 
 function renderTasks() {
   autoEscalateDueDates();
@@ -4842,6 +4941,11 @@ function planDay(ds, opts = {}) {
   const listHasDinner = dayList.some(i => /dinner/i.test(i.text));
   const hard = busyBlocks.filter(b => !b.optional).map(b => [b.s, b.e]);
   const blocks = busyBlocks.map(b => ({ ...b, type: b.kind === 'shift' ? 'shift' : b.optional ? 'optional' : 'event' }));
+  const _pm = (typeof _planMoves === 'function') ? _planMoves() : { rev: [], osce: [], ghost: {} };
+  (_pm.ghost[ds] || []).forEach(g => {
+    hard.push([g.s, g.e]);
+    blocks.push({ s: g.s, e: g.e, title: g.title, type: 'missed', note: g.to ? `missed · moved to ${new Date(g.to + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}` : 'missed · dropped' });
+  });
   // Wake, then breakfast + shower: just before leaving on placement/shift days, straight after waking otherwise.
   let wake = getWakeTime(ds);
   const leave = busyBlocks.filter(b => !b.optional && (b.kind === 'placement' || b.kind === 'shift') && b.s < 12 * 60).reduce((m, b) => Math.min(m, b.s), Infinity);
@@ -5021,9 +5125,20 @@ function planDay(ds, opts = {}) {
   if (day) {
     const groups = (typeof ukmlaGroups === 'function') ? ukmlaGroups(day) : day.groups;
     const ticked = (typeof getUkmlaProgress === 'function' ? getUkmlaProgress()[ds] : null) || [];
+    const movedOut = new Set(_pm.rev.filter(r => r.from === ds).map(r => r.idx));
     let fi = 0;
-    groups.forEach(g => g.items.forEach(it => { if (!ticked[fi++]) queue.push(g.subject ? { text: it, min: STUDY_DAY.perTopic } : { text: it, min: STUDY_DAY.questionSet, set: true }); }));
+    groups.forEach(g => g.items.forEach(it => { const i = fi++; if (!ticked[i] && !movedOut.has(i)) queue.push(g.subject ? { text: it, min: STUDY_DAY.perTopic, ref: { date: ds, idx: i } } : { text: it, min: STUDY_DAY.questionSet, set: true, ref: { date: ds, idx: i } }); }));
   }
+  // topics moved here from another day (Missed → move), first
+  try {
+    const prog = getUkmlaProgress();
+    _pm.rev.filter(r => r.to === ds && r.from !== ds && !(prog[r.from] || [])[r.idx]).slice().reverse().forEach(r => {
+      const hit = _ukmlaItem(r.from, r.idx); if (!hit) return;
+      const when = new Date(r.from + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short' });
+      queue.unshift(hit.subject ? { text: `${hit.text} (from ${when})`, min: STUDY_DAY.perTopic, ref: { date: r.from, idx: r.idx } }
+                                : { text: `30 questions (from ${when})`, min: STUDY_DAY.questionSet, set: true, moved: true, ref: { date: r.from, idx: r.idx } });
+    });
+  } catch {}
   while (queue.length) {
     const slot0 = free.find(([s, e]) => e - s >= queue[0].min);
     if (!slot0) break;
@@ -5040,12 +5155,14 @@ function planDay(ds, opts = {}) {
   }
   // OSCE station of the day: 20 min after revision, until the "OSCE revision" habit is ticked.
   try {
-    const st = (typeof ukmlaOsceFor === 'function') ? ukmlaOsceFor(ds) : null;
-    if (st && !_osceDoneOn(ds)) {
+    const own = _pm.osce.some(r => r.from === ds) ? [] : [ds];
+    const stations = own.concat(_pm.osce.filter(r => r.to === ds && r.from !== ds).map(r => r.from))
+      .map(from => ({ from, st: (typeof ukmlaOsceFor === 'function') ? ukmlaOsceFor(from) : null })).filter(x => x.st);
+    if (stations.length && !_osceDoneOn(ds)) stations.forEach(({ from, st }) => {
       const got = take(20, c => c[0]);
-      blocks.push(got ? { s: got[0], e: got[1], title: `🩺 OSCE: ${st.title}`, type: 'osce', station: st }
-                      : { s: null, e: null, title: `🩺 OSCE: ${st.title}`, type: 'osce', station: st });
-    }
+      blocks.push(got ? { s: got[0], e: got[1], title: `🩺 OSCE: ${st.title}`, type: 'osce', station: st, osceFrom: from }
+                      : { s: null, e: null, title: `🩺 OSCE: ${st.title}`, type: 'osce', station: st, osceFrom: from });
+    });
   } catch {}
   // Walking pad top-up (10–30 min) on low-mileage days, or when today's steps are behind.
   try {
@@ -5073,7 +5190,7 @@ function planDay(ds, opts = {}) {
   blocks.sort((a, b) => (a.s ?? 9999) - (b.s ?? 9999));
   return { ds, blocks, shortBy, queueLeft: queue, free, freeLeft, hasCal: _liveCal.length > 0, listNote };
 }
-const PLAN_COLORS = { walk: '#EAF7F0', done: '#FFFFFF', 'task-next': '#F2F7FB', 'task-unplaced': '#F7F3EE', wake: '#FFFFFF', routine: '#F7F3EE', shift: '#fee2e2', event: '#F2F2F7', optional: '#FAFAFA', meal: '#FFF7E6', training: '#E5F5EA', 'training-unplaced': '#FFF7E6', revision: '#EEE8FF', task: '#E0F2FE', osce: '#E8F4F8', daylist: '#FBEFE3' };
+const PLAN_COLORS = { walk: '#EAF7F0', done: '#FFFFFF', 'task-next': '#F2F7FB', 'task-unplaced': '#F7F3EE', wake: '#FFFFFF', routine: '#F7F3EE', shift: '#fee2e2', event: '#F2F2F7', optional: '#FAFAFA', meal: '#FFF7E6', training: '#E5F5EA', 'training-unplaced': '#FFF7E6', revision: '#EEE8FF', task: '#E0F2FE', osce: '#E8F4F8', daylist: '#FBEFE3', missed: '#F7F4F1' };
 function planBlocksHtml(plan, opts = {}) {
   const rows = plan.blocks.map(b => {
     const time = b.s == null ? 'no slot' : b.s === b.e ? _hm(b.s) : `${_hm(b.s)}–${_hm(b.e)}`;
@@ -5086,12 +5203,26 @@ function planBlocksHtml(plan, opts = {}) {
       sub = ['suggested', b.session.swappedFrom ? `instead of ${b.session.swappedFrom} (short sleep)` : '', b.session.lighter ? 'go lighter — short sleep' : '', st ? st.title : '', shoe ? `👟 ${shoe.short}` : '', b.rain != null ? `${b.rain}% rain` : ''].filter(Boolean).join(' · ');
     }
     if (b.type === 'training-unplaced') sub = b.why || 'no free slot today — move it to another day';
-    if (b.type === 'revision') sub = 'suggested · ' + b.items.map(i => i.set && !i.catchup ? '30 questions' : i.text).join(', ');
+    if (b.type === 'revision') sub = 'suggested · ' + b.items.map(i => i.set && !i.catchup && !i.moved ? '30 questions' : i.text).join(', ');
     if (b.type === 'task') sub = [`${b.len} min`, b.task && b.task.revSwap ? 'revision swapped in' : '', b.after || ''].filter(Boolean).join(' · ');
     if (b.type === 'task-unplaced') sub = b.why;
     if (b.type === 'daylist') sub = b.s == null ? b.why : [`${b.item.dur || 15} min`, b.session ? `your list: “${escHtml(b.item.text)}”` : 'your list'].join(' · ');
     if (b.type === 'osce') sub = `${b.station.type} · ${b.station.focus.join(' · ')}`;
     if (b.type === 'done') return '';
+    const _todayS = new Date().toLocaleDateString('en-CA'), _nowM = new Date().getHours() * 60 + new Date().getMinutes();
+    const passed = b.s != null && b.e != null && (plan.ds < _todayS || (plan.ds === _todayS && b.e <= _nowM));
+    let missBtn = '';
+    if (!opts.compact && passed && typeof _missedKey === 'function') {
+      let info = null;
+      if (b.type === 'revision') info = { kind: 'revision', refs: b.items.filter(i => i.ref).map(i => i.ref) };
+      else if (b.type === 'task' && b.task) info = { kind: 'task', taskId: b.task.id };
+      else if (b.type === 'daylist' && !b.session) info = { kind: 'daylist', itemId: b.dayItem };
+      else if (b.type === 'osce') info = { kind: 'osce', osceFrom: b.osceFrom || plan.ds };
+      if (info && (info.kind !== 'revision' || info.refs.length)) {
+        const key = _missedKey({ ...info, ds: plan.ds, s: b.s, e: b.e, title: b.title });
+        missBtn = ` <button onclick="event.stopPropagation();openMissed(event,'${key}')" title="Didn't do it: take it off this day and move it" style="border:1px solid #E7C3B8;background:#FFF4F1;border-radius:6px;font-size:11px;line-height:1;padding:2px 6px;cursor:pointer;vertical-align:1px;color:#B4462E">Missed</button>`;
+      }
+    }
     const swapBtn = (b.task && plan.ds && ['task', 'task-unplaced', 'task-next'].includes(b.type))
       ? ` <button onclick="event.stopPropagation();openTaskSwap(event,'${plan.ds}','${b.task.id}')" title="Swap this task for another, or move it off this day" style="border:1px solid #E5DACB;background:#fff;border-radius:6px;font-size:11px;line-height:1;padding:2px 5px;cursor:pointer;vertical-align:1px;color:#7A6656">⇄</button>` : '';
     const faded = b.type === 'optional' ? 'opacity:.55;' : '';
@@ -5110,7 +5241,7 @@ function planBlocksHtml(plan, opts = {}) {
     const dashed = ['training', 'revision', 'task', 'osce'].includes(b.type) ? 'border:1px dashed #C9BFAF;' : 'border:1px solid transparent;';
     return `<div style="display:flex;gap:10px;align-items:flex-start;padding:6px 8px;margin:3px 0;border-radius:8px;background:${PLAN_COLORS[b.type] || '#F2F2F7'};${dashed}${faded}">
       <span style="font-size:11px;font-weight:700;color:#7A6656;min-width:78px;flex-shrink:0;padding-top:1px">${time}</span>
-      <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">${title}${swapBtn}</div>${sub ? `<div style="font-size:11px;color:#7A6656;line-height:1.35">${sub}</div>` : ''}</div>
+      <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;${b.type === 'missed' ? 'text-decoration:line-through;color:#A6937F' : ''}">${title}${swapBtn}${missBtn}</div>${sub ? `<div style="font-size:11px;color:#7A6656;line-height:1.35">${sub}</div>` : ''}</div>
     </div>`;
   }).join('');
   const warn = plan.shortBy > 0 ? `<div style="font-size:12px;color:#b45309;margin-top:4px">⚠ ~${_fmtHrs(plan.shortBy)} of revision doesn't fit today: ${escHtml(plan.queueLeft.map(q => q.set ? '30 questions' : q.text).slice(0, 4).join(', '))}${plan.queueLeft.length > 4 ? '…' : ''}</div>` : '';
@@ -6641,7 +6772,7 @@ function ukmlaPastIncompleteByDay(progress, todayStr) {
       ukmlaGroups(day).forEach(g => {
         g.items.forEach(item => {
           const i = idx++;
-          if (!arr[i]) items.push({ idx: i, subject: g.subject, text: item });
+          if (!arr[i] && !(typeof _revMovePending === 'function' && _revMovePending(day.date, i))) items.push({ idx: i, subject: g.subject, text: item });
         });
       });
       return { day, items };
@@ -12674,6 +12805,7 @@ function applySyncUpdates(updated) {
   if (updated.includes('tasks_priority')) safe(() => { renderTasks(); if (typeof renderHabits === 'function') renderHabits(); });
   if (updated.includes('task_day_choices')) safe(_refreshPlan);
   if (updated.includes('day_lists')) safe(() => { renderDayList(); _refreshPlan(); });
+  if (updated.includes('plan_moves')) safe(() => { _refreshPlan(); if (typeof renderUkmlaCatchup === 'function') renderUkmlaCatchup(); });
   if (updated.includes('shopping_items')) safe(renderShopping);
   if (updated.includes('notes_data')) safe(renderNotes);
   if (updated.includes('cst_grades')) safe(renderCstScorecard);
