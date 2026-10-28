@@ -6404,12 +6404,12 @@ const UKMLA_REVISION_PLAN = [
   },
   {
     "date": "2026-11-23",
-    "label": "Exam day",
+    "label": "UKMLA mock (AKT)",
     "groups": [
       {
         "subject": null,
         "items": [
-          "UKMLA AKT"
+          "UKMLA mock AKT"
         ]
       }
     ]
@@ -6737,11 +6737,11 @@ function renderUkmlaSummary() {
     done += c.done; total += c.total;
   });
   const pct = total ? Math.round(done / total * 100) : 0;
-  const exam = new Date('2026-11-23T00:00:00'); const now = new Date(); now.setHours(0,0,0,0);
+  const exam = new Date(REV_EXAM); const now = new Date(); now.setHours(0,0,0,0);
   const daysLeft = Math.max(0, Math.ceil((exam - now) / 86400000));
   el.innerHTML = `<div class="card" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
     <div><div style="font-size:22px;font-weight:800;color:#2D7A47">${pct}%</div><div class="sub">${done} / ${total} sections done</div></div>
-    <div style="margin-left:auto;text-align:right"><div style="font-size:22px;font-weight:800">${daysLeft}</div><div class="sub">days to exam</div></div>
+    <div style="margin-left:auto;text-align:right"><div style="font-size:22px;font-weight:800">${daysLeft}</div><div class="sub">days to the UKMLA mock</div></div>
   </div>`;
 }
 renderUkmlaPlan();
@@ -6759,7 +6759,8 @@ renderUkmlaCompleted();
 // never wired to anything, always read a sync key nothing wrote to) — removed
 // 2026-09-26. REV_EXAM is the one piece still genuinely used, by the exam
 // countdown chip below.
-const REV_EXAM = new Date('2026-11-23T00:00:00'); // real UKMLA AKT date
+// 23 Nov is the UKMLA *mock* AKT; the full UKMLA + OSCE plan starts in December.
+const REV_EXAM = new Date('2026-11-23T00:00:00'); // UKMLA mock AKT date
 
 // ── Training Calendar ───────────────────────────────────────────────────────
 // Standard week (agreed Oct 2026): one speed/interval run (Mon) and one
@@ -9983,7 +9984,7 @@ function renderDailyBriefing() {
     const examDays = Math.ceil((REV_EXAM - new Date(viewDate.toDateString())) / 864e5);
     const behind = ukmlaPastIncompleteByDay(prog, todayDateStr).reduce((s, d) => s + d.items.length, 0);
     const lowDay = UKMLA_REVISION_PLAN.filter(d => wkDays.includes(d.date) && scores[d.date] != null).sort((a, b) => scores[a.date] - scores[b.date])[0];
-    if (examDays >= 0) recapHtml += `<div style="${rowStyle}">🩺 <span>UKMLA in <strong>${examDays} days</strong> · ${behind ? `<strong style="color:#b45309">${behind} items behind</strong>` : 'on schedule'}${lowDay ? ` · lowest: ${escHtml(lowDay.label)} ${scores[lowDay.date]}%` : ''}</span></div>`;
+    if (examDays >= 0) recapHtml += `<div style="${rowStyle}">🩺 <span>UKMLA mock in <strong>${examDays} days</strong> · ${behind ? `<strong style="color:#b45309">${behind} items behind</strong>` : 'on schedule'}${lowDay ? ` · lowest: ${escHtml(lowDay.label)} ${scores[lowDay.date]}%` : ''}</span></div>`;
     // 7. top priorities
     const tpDone = wkDays.filter(ds => { const t = getTopTaskForDate(ds); return t && t.done; }).length;
     recapHtml += `<div style="${rowStyle}">🎯 <span>Top priority done on <strong>${tpDone}/7</strong> days</span></div>`;
@@ -13775,10 +13776,10 @@ function renderExamCountdown() {
 
   let countdownHtml;
   if (daysLeft <= 0) {
-    countdownHtml = `<span style="background:#FBF1E7;color:#7A6656;border-radius:99px;padding:5px 14px;font-size:13px;font-weight:600">🎓 Exam complete!</span>`;
+    countdownHtml = `<span style="background:#FBF1E7;color:#7A6656;border-radius:99px;padding:5px 14px;font-size:13px;font-weight:600">🎓 UKMLA mock done</span>`;
   } else {
     const urgColor = daysLeft <= 7 ? '#dc2626' : daysLeft <= 14 ? '#d97706' : '#6366f1';
-    countdownHtml = `<span style="background:${urgColor}18;color:${urgColor};border:1px solid ${urgColor}44;border-radius:99px;padding:5px 14px;font-size:13px;font-weight:700">📅 ${daysLeft} day${daysLeft===1?'':'s'} to exam</span>`;
+    countdownHtml = `<span style="background:${urgColor}18;color:${urgColor};border:1px solid ${urgColor}44;border-radius:99px;padding:5px 14px;font-size:13px;font-weight:700">📅 ${daysLeft} day${daysLeft===1?'':'s'} to the UKMLA mock</span>`;
   }
 
   el.innerHTML = `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
