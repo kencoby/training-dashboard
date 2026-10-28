@@ -615,6 +615,11 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 </div>
 
 <div class="section">
+<h2>Experiments <span class="fx-h2-sub">try one change, see what it does</span></h2>
+<div class="card" id="lf-experiments"></div>
+</div>
+
+<div class="section">
 <h2>Sleep trend — 30 days</h2>
 <div class="card"><div class="cht-sm"><canvas id="whoop-sleep-trend-chart"></canvas></div></div>
 </div>
@@ -1579,6 +1584,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
     <button id="daylist-btn-tomorrow" onclick="(()=>{const t=new Date();t.setDate(t.getDate()+1);setDayListDate(t.toLocaleDateString('en-CA'))})()" style="border:1px solid #E5DACB;border-radius:99px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Tomorrow</button>
     <input id="daylist-date" type="date" onchange="setDayListDate(this.value)" title="Pick any day" style="border:1px solid #E5DACB;border-radius:8px;padding:4px 6px;font-size:12px;font-family:inherit;color:#4A3B2E">
     <span id="daylist-wake"></span>
+    <span id="daylist-life"></span>
   </div>
 </div>
 <div class="card" style="padding:4px 14px 10px">
@@ -2644,7 +2650,8 @@ const SYNC_KEYS = [
   'mood_log', 'habit_streaks', 'habit_reset_date',
   'weight_goal', 'cst_grades', 'audit_cycle', 'ukmla_progress', 'macro_targets',
   'wardrobe_items', 'wardrobe_wears',
-  'hm_race', 'hm_prediction_log', 'ukmla_scores', 'task_day_choices', 'day_lists', 'plan_moves', 'sleep_target', 'wake_defaults'
+  'hm_race', 'hm_prediction_log', 'ukmla_scores', 'task_day_choices', 'day_lists', 'plan_moves', 'sleep_target', 'wake_defaults',
+  'checkins', 'life_status', 'sleep_payback', 'weekly_goals', 'experiments', 'shutdowns'
 ];
 
 function getSyncMeta() {
@@ -3572,6 +3579,7 @@ function renderDayList() {
   const ds = _dayListDate || today;
   const dateEl = document.getElementById('daylist-date'); if (dateEl && dateEl.value !== ds) dateEl.value = ds;
   try { const w = document.getElementById('daylist-wake'); if (w) w.innerHTML = wakeChipHtml(ds); } catch {}
+  try { const l = document.getElementById('daylist-life'); if (l) l.innerHTML = `${lfStatusChipHtml()} <button onclick="lfOpenShutdown()" title="Review today, move what's left, check in and set up tomorrow" style="border:none;background:#8B7CF6;color:#fff;border-radius:99px;padding:3px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">🌙 End day</button>`; } catch {}
   ['today', 'tomorrow'].forEach(k => { const b = document.getElementById('daylist-btn-' + k); if (b) { const on = ds === (k === 'today' ? today : tomorrow); b.style.background = on ? '#4A3B2E' : '#fff'; b.style.color = on ? '#fff' : '#4A3B2E'; } });
   const items = getDayList(ds);
   // Times from the plan, so you can see where each one landed.
@@ -4793,7 +4801,9 @@ function sleepByFor(ds) {
   const tds = t.toLocaleDateString('en-CA');
   const target = getSleepTarget(), wakeT = getWakeTime(tds);
   const forNeed = wakeT - Math.round(SLEEP_NEED_HOURS * 60) + 1440;
-  return { by: Math.max(21 * 60 + 30, Math.min(target, forNeed)), target, wake: wakeT, forNeed: forNeed % 1440 };
+  let pay = null; try { pay = lfPayback(); } catch {}
+  const payback = !!(pay && pay.active);
+  return { by: Math.max(21 * 60 + 30, Math.min(target - (payback ? 30 : 0), forNeed)), target, wake: wakeT, forNeed: forNeed % 1440, payback };
 }
 function _wakeOverrides() { try { return JSON.parse(localStorage.getItem('wake_overrides') || '{}'); } catch { return {}; } }
 (function seedWake() { // Phil: up at 07:00 on Mon 26 Oct 2026
@@ -4979,7 +4989,7 @@ function todayPlanHtml(ds, isToday, labelStyle, rowStyle) {
     if (sl) extras.push(`😴 Slept ${fmtHrsMin(sl.hrs)}${sl.wakeMin != null ? `, up at ${_hm(sl.wakeMin)}` : ''}${sl.hrs < 6 ? ' — hard sessions swapped to easier versions today.' : '.'}`);
     const sb = sleepByFor(ds);
     extras.push(sb.by < sb.target
-      ? `😴 Asleep by ${_hm(sb.by)} tonight for ${SLEEP_NEED_HOURS}h before tomorrow's ${_hm(sb.wake)} wake (${_hm(sb.target)} at the latest).`
+      ? `😴 Asleep by ${_hm(sb.by)} tonight ${sb.payback && sb.by === sb.target - 30 ? 'to pay back sleep debt' : `for ${SLEEP_NEED_HOURS}h before tomorrow's ${_hm(sb.wake)} wake`} (${_hm(sb.target)} at the latest).`
       : `😴 Asleep by ${_hm(sb.by)} tonight at the latest.${sb.forNeed < 12 * 60 || sb.forNeed > sb.by ? ` That gives ${fmtHrsMin((sb.wake + 1440 - sb.by) / 60)} before tomorrow's ${_hm(sb.wake)} wake.` : ''}`);
   }
   try { const aw = getAutoWeek(new Date(ds + 'T12:00:00')); (aw ? aw.changes : []).filter(c => c.ds === ds || c.to === ds).forEach(c => extras.push(`🔁 ${escHtml(c.text)}`)); } catch {}
@@ -5134,10 +5144,16 @@ function planDay(ds, opts = {}) {
     done.forEach(({ session }) => blocks.push({ s: null, e: null, title: `${session.emoji} ${session.type}`, type: 'done' }));
     sessions = sessions.filter(x => !done.includes(x));
   } catch {}
-  // Short sleep last night: hard runs become the easy 5 km, heavy legs go lighter.
+  // Status (sick, injured, travelling, exam week) pauses or eases training.
+  try {
+    const adj = lfAdjustSessions(ds, sessions); sessions = adj.sessions;
+    if (adj.paused.length) { const st = lfStatusOn(ds); blocks.push({ s: null, e: null, title: `⏸ ${adj.paused.map(x => x.session.type).join(', ')}`, type: 'training-unplaced', session: adj.paused[0].session, why: `paused: ${lfStatusTypes()[st.type].label.toLowerCase()}` }); }
+  } catch {}
+  // Short sleep last night, or low recovery: hard runs become the easy 5 km, heavy legs go lighter.
   const slept = _sleepFor(ds);
   const shortSleep = slept && slept.hrs < 6 ? slept.hrs : null;
-  if (shortSleep != null) {
+  const lowRec = (() => { try { return lfLowRecovery(ds); } catch { return false; } })();
+  if (shortSleep != null || lowRec) {
     sessions = sessions.map(x => ['Speed Run', 'Intervals', 'Tempo Run'].includes(x.session.type)
       ? { ...x, session: { ...x.session, type: 'Easy Run', intensity: 'easy', swappedFrom: x.session.type } }
       : /Heavy/.test(x.session.type) ? { ...x, session: { ...x.session, lighter: true } } : x);
@@ -5254,17 +5270,22 @@ function planDay(ds, opts = {}) {
                                 : { text: `30 questions (from ${when})`, min: STUDY_DAY.questionSet, set: true, moved: true, ref: { date: r.from, idx: r.idx } });
     });
   } catch {}
+  // Revision goes in your energy peaks when there's room there (see lfEnergyWindows).
+  let _peaks = []; try { _peaks = lfEnergyWindows(ds).filter(w => w.kind === 'peak'); } catch {}
   while (queue.length) {
-    const slot0 = free.find(([s, e]) => e - s >= queue[0].min);
+    const need = queue[0].min;
+    const inPeak = free.map(([s, e]) => { const p = _peaks.find(pk => Math.max(s, pk.s) + need <= Math.min(e, pk.e)); return p ? [Math.max(s, p.s), e, s, p] : null; }).find(Boolean);
+    let slot0 = inPeak ? [inPeak[0], inPeak[1]] : free.find(([s, e]) => e - s >= need);
     if (!slot0) break;
-    let room = Math.min(90, slot0[1] - slot0[0]);
+    const _peakNote = inPeak ? inPeak[3].label.toLowerCase() : null;
+    let room = Math.min(90, (inPeak ? Math.min(slot0[1], inPeak[3].e + 30) : slot0[1]) - slot0[0]);
     const items = [];
     let used = 0;
     while (queue.length && used + queue[0].min <= room) { const it = queue.shift(); items.push(it); used += it.min; }
     if (!items.length) break;
-    const got = take(used, c => c.find(x => x[0] === slot0[0] && x[1] === slot0[1]) || c[0]);
+    const got = take(used, c => c.find(x => x[0] === slot0[0] && x[1] === slot0[1]) || c[0], slot0[0]);
     if (!got) break;
-    blocks.push({ s: got[0], e: got[1], title: items.some(i => i.set) && items.length === 1 ? '📝 30 Passmedicine questions' : '📚 Revision', items, type: 'revision' });
+    blocks.push({ s: got[0], e: got[1], title: items.some(i => i.set) && items.length === 1 ? '📝 30 Passmedicine questions' : '📚 Revision', items, type: 'revision', peak: _peakNote });
     // short break after a revision block
     free = free.map(([a, b]) => a === got[1] ? [a + 15, b] : [a, b]).filter(([a, b]) => b - a >= 20);
   }
@@ -5294,7 +5315,7 @@ function planDay(ds, opts = {}) {
     } else if (runKm < 8 && !busyBlocks.some(b => /football|5.?a.?side/i.test(b.title || ''))) {
       padMin = 20; padWhy = runKm ? `low-mileage day (${Math.round(runKm)} km run) — skip if you're already near ${STEP_GOAL.toLocaleString()}` : `no run today — skip if you're already near ${STEP_GOAL.toLocaleString()}`;
     }
-    if (padMin && !(DAY_ADJUSTMENTS[ds] || {}).stayOver) { // walking pad is at home
+    if (padMin && !(DAY_ADJUSTMENTS[ds] || {}).stayOver && !lfStatusOn(ds)) { // walking pad is at home
       const got = take(padMin, c => c.find(([s0]) => s0 >= 19 * 60) || c[c.length - 1]) || take(padMin, c => c[0]);
       if (got) blocks.push({ s: got[0], e: got[1], title: '🚶 Walking pad', type: 'walk', note: padWhy });
     }
@@ -5305,7 +5326,7 @@ function planDay(ds, opts = {}) {
     const sb = sleepByFor(ds);
     if (!hard.some(([a, b]) => a < sb.by && b > sb.by - 30)) {
       blocks.push({ s: sb.by - 30, e: sb.by, title: '🌙 Wind down', type: 'wind', note: 'screens off, lights low' });
-      blocks.push({ s: sb.by, e: sb.by, title: '😴 Asleep', type: 'wake', note: sb.by < sb.target ? `earlier than your ${_hm(sb.target)} latest, for ${SLEEP_NEED_HOURS}h before ${_hm(sb.wake)}` : `your latest · ${_hm(sb.wake)} wake tomorrow` });
+      blocks.push({ s: sb.by, e: sb.by, title: '😴 Asleep', type: 'wake', note: sb.by < sb.target ? (sb.payback && sb.by === sb.target - 30 ? `30 min early to pay back sleep debt` : `earlier than your ${_hm(sb.target)} latest, for ${SLEEP_NEED_HOURS}h before ${_hm(sb.wake)}`) : `your latest · ${_hm(sb.wake)} wake tomorrow` });
     }
   } catch {}
   const shortBy = queue.reduce((s, q) => s + q.min, 0);
@@ -5326,7 +5347,7 @@ function planBlocksHtml(plan, opts = {}) {
       sub = ['suggested', b.session.swappedFrom ? `instead of ${b.session.swappedFrom} (short sleep)` : '', b.session.lighter ? 'go lighter — short sleep' : '', st ? st.title : '', shoe ? `👟 ${shoe.short}` : '', b.rain != null ? `${b.rain}% rain` : ''].filter(Boolean).join(' · ');
     }
     if (b.type === 'training-unplaced') sub = b.why || 'no free slot today — move it to another day';
-    if (b.type === 'revision') sub = 'suggested · ' + b.items.map(i => i.set && !i.catchup && !i.moved ? '30 questions' : i.text).join(', ');
+    if (b.type === 'revision') sub = 'suggested · ' + (b.peak ? `⚡ ${b.peak} · ` : '') + b.items.map(i => i.set && !i.catchup && !i.moved ? '30 questions' : i.text).join(', ');
     if (b.type === 'task') sub = [`${b.len} min`, b.task && b.task.revSwap ? 'revision swapped in' : '', b.after || ''].filter(Boolean).join(' · ');
     if (b.type === 'task-unplaced') sub = b.why;
     if (b.type === 'daylist') sub = b.s == null ? b.why : [`${b.item.dur || 15} min`, b.session ? `your list: “${escHtml(b.item.text)}”` : 'your list', b.during ? `during ${escHtml(b.during)}` : ''].filter(Boolean).join(' · ');
@@ -10110,6 +10131,7 @@ function renderDailyBriefing() {
   if (typeof planDay === 'function') {
     try { sections.push(`<div style="${sectionStyle}">${todayPlanHtml(todayDateStr, isToday, labelStyle, rowStyle)}</div>`); } catch (err) { console.warn('day plan failed', err); }
   }
+  try { sections.push(lfHomeHtml(todayDateStr, isToday, labelStyle, sectionStyle)); } catch (err) { console.warn('life section failed', err); }
   if (typeof getClashes === 'function') {
     const cl = getClashes(todayDateStr);
     if (cl.length) sections.push(`<div style="${sectionStyle}"><div style="${labelStyle}">⚠️ Clash</div>${cl.map(x => `<div style="${rowStyle}"><span>${escHtml(x.why)}</span></div>`).join('')}</div>`);
@@ -10248,6 +10270,14 @@ function renderDailyBriefing() {
     const overdue = tasks.filter(t => !t.done && t.dueDate && t.dueDate < new Date().toLocaleDateString('en-CA')).length;
     recapHtml += `<div style="${rowStyle}">✅ <span>Tasks: ${completed} completed this week${overdue ? ` · <strong style="color:#b45309">${overdue} overdue</strong>` : ' · none overdue'}</span></div>`;
 
+    try {
+      const ss = lfWeekSleepStats(wkDays);
+      if (ss && ss.nights) recapHtml += `<div style="${rowStyle}">🌙 <span>Asleep by ${_hm(getSleepTarget())}: <strong>${ss.onTime}/${ss.nights}</strong> nights</span></div>`;
+      const ck = wkDays.filter(d => (lfCheckinFor(d) || {}).saved).length;
+      recapHtml += `<div style="${rowStyle}">📝 <span>Evening check-ins: <strong>${ck}/7</strong></span></div>`;
+      const g = lfGoalsFor(lfWeekStart(wkDays[6]));
+      if (g.length) recapHtml += `<div style="${rowStyle}">🎯 <span>Goals: <strong>${g.filter(x => x.done).length}/${g.length}</strong> done${g.filter(x => !x.done).length ? ` · not done: ${g.filter(x => !x.done).map(x => escHtml(x.text)).join(', ')}` : ''}</span></div>`;
+    } catch {}
     recapHtml += `<div style="${labelStyle};margin-top:10px">🗓 Next week</div>`;
     recapHtml += `<div style="${rowStyle}">🏃 <span>${nextSessions} sessions planned${nextPlan ? ` · ~${nextPlan.km.toFixed(0)} km running, long run ~${nextPlan.longKm.toFixed(0)} km` : ''}</span></div>`;
     if (nextShifts) recapHtml += `<div style="${rowStyle}">🏥 <span>${nextShifts} shift day${nextShifts !== 1 ? 's' : ''}${nextClashes ? ` · <strong style="color:#b45309">${nextClashes} clash${nextClashes !== 1 ? 'es' : ''}</strong> — see the training calendar` : ' · no clashes'}</span></div>`;
@@ -10255,6 +10285,7 @@ function renderDailyBriefing() {
     const nextDays = [...Array(7)].map((_, i) => { const d = new Date(nws); d.setDate(d.getDate() + i); return d.toLocaleDateString('en-CA'); });
     const nextTops = getTasks().filter(t => t.priority === 'top' && !t.done && t.forDate && nextDays.includes(t.forDate)).sort((a, b) => a.forDate.localeCompare(b.forDate));
     recapHtml += `<div style="${rowStyle}">🎯 <span>${nextTops.length ? `Top priorities: ${nextTops.map(t => `${escHtml(t.text)} · ${_topDateLabel(t.forDate)}`).join(', ')}` : 'No top priorities scheduled yet — set them in Tasks'}</span></div>`;
+    try { recapHtml += `<div style="margin-top:10px">${lfGoalsHtml(lfWeekStart(_lfDay(todayDateStr, 1)), labelStyle, '🎯 Goals for next week')}</div>`; } catch {}
     sections.push(`<div style="${sectionStyle}">${recapHtml}</div>`);
   }
 
@@ -10629,14 +10660,28 @@ function recomputeAllStreaks() {
     // Count consecutive days backward from lastDate
     let count = 0;
     const cur = new Date(lastDate + 'T12:00:00');
-    while (true) {
+    let guard = 0;
+    while (guard++ < 1000) {
       const curStr = cur.toLocaleDateString('en-CA');
       if (resetDateStr && curStr < resetDateStr) break;
-      if (!isDone(curStr)) break;
+      if (!isDone(curStr)) {
+        // A sick/injured/travelling day doesn't break the streak (it just doesn't add to it).
+        if (typeof lfStreakPaused === 'function' && lfStreakPaused(curStr)) { cur.setDate(cur.getDate() - 1); continue; }
+        break;
+      }
       count++;
       cur.setDate(cur.getDate() - 1);
     }
-    streaks[h.id] = { count, lastDate };
+    // Days since the last done one that were all sick/injured/travelling keep the streak live.
+    let liveDate = lastDate;
+    if (typeof lfStreakPaused === 'function') {
+      const t = new Date(today); const d2 = new Date(lastDate + 'T12:00:00'); d2.setDate(d2.getDate() + 1);
+      let ok = true, last = lastDate;
+      while (d2 < t && ok) { const x = d2.toLocaleDateString('en-CA'); if (lfStreakPaused(x)) last = x; else ok = false; d2.setDate(d2.getDate() + 1); }
+      if (ok) liveDate = last;
+      if (ok && lfStreakPaused(t.toLocaleDateString('en-CA'))) liveDate = t.toLocaleDateString('en-CA');
+    }
+    streaks[h.id] = { count, lastDate: liveDate };
   });
   saveHabitStreaks(streaks);
   return streaks;
@@ -11323,8 +11368,10 @@ function _sleepSplit(raw) {
   const slept = ((raw && raw.totalSleep) || 0) + ((raw && raw.awake) || 0);
   return !!(a && b && slept > 0 && (b - a) / 3600000 > slept + 3);
 }
+function _sleepNightDate(raw) { const m = String((raw && raw.sleepEnd) || '').match(/^(\d{4}-\d{2}-\d{2})/); return m ? m[1] : null; }
 function _sleepBedMin(raw, keepSplit) {
   if (!raw || (!keepSplit && _sleepSplit(raw))) return null;
+  if (!keepSplit && typeof lfNightExcluded === 'function' && _sleepNightDate(raw) && lfNightExcluded(_sleepNightDate(raw))) return null;
   const m = _sleepClock(raw.sleepStart);
   if (m == null) return null;
   return m >= 12 * 60 ? m - 12 * 60 : m + 12 * 60;
@@ -11332,6 +11379,7 @@ function _sleepBedMin(raw, keepSplit) {
 // Wake time as minutes after midnight.
 function _sleepWakeMin(raw, keepSplit) {
   if (!raw || (!keepSplit && _sleepSplit(raw))) return null;
+  if (!keepSplit && typeof lfNightExcluded === 'function' && _sleepNightDate(raw) && lfNightExcluded(_sleepNightDate(raw))) return null;
   return _sleepClock(raw.sleepEnd);
 }
 const _clockFromNoon = m => _hm(((Math.round(m) + 12 * 60) % (24 * 60) + 24 * 60) % (24 * 60));
@@ -11427,6 +11475,7 @@ function renderWhoopSleep() {
   buildScoreRing('whoop-sleep-ring', s.score, 100, color);
   set('whoop-sleep-label', s.score >= 85 ? 'Great night' : s.score >= 70 ? 'Good night' : s.score >= 50 ? 'Fair night' : 'Poor night');
   try { renderSleepDeepDive(s); } catch (e) { console.warn('sleep deep dive failed', e); }
+  try { lfRenderExperiments(); } catch (e) { console.warn('experiments failed', e); }
   set('whoop-sleep-date', whoopDateLabel(s.date));
 
   const stages = [
@@ -11456,6 +11505,9 @@ function renderWhoopSleep() {
     ${(() => { try { const sb = sleepByFor(todayStr()); return `<div class="whoop-contrib-row"><span class="wc-label">Asleep tonight by</span><span class="wc-value">${_hm(sb.by)}</span></div><div class="whoop-contrib-row"><span class="wc-label">Planned wake tomorrow</span><span class="wc-value">${_hm(sb.wake)}</span></div>`; } catch { return ''; } })()}
     ${coach ? `<div class="whoop-contrib-row"><span class="wc-label">Actual avg wake time</span><span class="wc-value">${coach.avgWakeTime} (${coach.nights}d avg)</span></div>` : ''}
     ${debt ? `<div class="whoop-contrib-row"><span class="wc-label">Sleep debt (${debt.nights}d)</span><span class="wc-value">${fmtHrsMin(debt.debtHours)}</span></div>` : ''}
+    ${(() => { try { const p = lfPayback(); if (!p) return ''; return `<div style="font-size:13px;line-height:1.5;color:var(--fx-text2,#555);padding:8px 0 2px">${p.debt >= 2
+      ? (lfPaybackOn() ? `<b>Paying it back:</b> your asleep-by time is 30 min earlier until the debt is under 1h. The debt only counts the last 14 nights, so each full night both adds back sleep and pushes an old short night out of the count. A lie-in on a day off helps too.` : `Payback is off. Turning it on moves your asleep-by time 30 min earlier until the debt is under 1h.`)
+      : 'Debt is small, so no payback needed.'}${p.debt >= 2 ? ` <a href="javascript:void(0)" onclick="lfTogglePayback()" style="color:var(--fx-muted,#999)">${lfPaybackOn() ? 'turn off' : 'turn on'}</a>` : ''}</div>`; } catch { return ''; } })()}
     ${consistency ? `<div class="whoop-contrib-row"><span class="wc-label">Bedtime spread (${consistency.nights} nights)</span><span class="wc-value">± ${fmtHrsMin(consistency.stdevMinutes / 60)}</span></div>` : ''}
     ${(!coach && !debt && !consistency) ? `<div class="sub" style="font-style:italic;color:#bbb">Not enough data yet</div>` : ''}
   `);
@@ -11588,6 +11640,7 @@ function renderSleepHabits() {
     { label: 'Trained after 7pm', test: (day) => acts.some(a => (a.start_local || '').slice(0, 10) === day && +(a.start_local || '').slice(11, 13) >= 19), no: 'no late session' },
     { label: 'Hard day (strain 14+)', test: (day) => { try { const st = computeStrainForDate(day); return st && st.activeEnergySynced ? st.strain >= 14 : null; } catch { return null; } }, no: 'lighter day' },
     { label: '200mg+ caffeine logged', test: (day) => { const c = _healthValueOnDate('caffeine', day); return c == null ? null : c >= 200; }, no: 'under 200mg logged' },
+    ...((typeof lfCheckinItems === 'function') ? lfCheckinItems().map(it => ({ label: it.label.replace(/^\S+\s/, '') + ' (check-in)', test: (day) => { const c = lfCheckinFor(day); return c && c.saved ? !!c[it.k] : null; }, no: 'not ticked' })) : []),
     { label: 'Placement that day', test: (day) => { try { const ev = getDayEvents(day); if (!_liveCalCovers(day) && !(gcalEvents || []).some(e => e.date === day)) return null; return ev.some(e => /placement/i.test(e.title || '')); } catch { return null; } }, no: 'no placement' },
     { label: `Asleep by ${_hm(getSleepTarget())}`, test: (day, n) => { const b = _sleepBedMin((_healthData.sleep_analysis.byDate[n.date] || {}).raw || {}); return b == null ? null : b <= getSleepTarget() - 12 * 60; }, no: 'later', self: true },
   ];
@@ -11743,7 +11796,7 @@ function renderWhoopStrain() {
 
   const coach = computeCoachAdvice();
   setH('whoop-strain-coach', coach
-    ? `<div class="whoop-contrib-row"><span class="wc-label">Target strain today</span><span class="wc-value">${coach.strainTarget[0]}–${coach.strainTarget[1]}</span></div>
+    ? `${(() => { try { return lfStrainBarHtml(todayStr()); } catch { return ''; } })()}<div class="whoop-contrib-row"><span class="wc-label">Target strain today</span><span class="wc-value">${coach.strainTarget[0]}–${coach.strainTarget[1]}</span></div>
        <div style="font-size:13px;line-height:1.5;color:#666;margin-top:4px">${coach.advice}</div>`
     : `<div class="sub" style="font-style:italic;color:#bbb">Not enough data yet</div>`);
 
@@ -13031,6 +13084,450 @@ renderShopping();
 renderNotes();
 renderSystemAlerts();
 if (localStorage.getItem('task_notif_enabled') === '1') checkUrgentTaskNotifications();
+try { lfStartReminders(); } catch {}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Life features (Oct 2026): check-in, status, energy schedule, end-of-day,
+// strain target, sleep payback, weekly goals, experiments, ask your data,
+// reminders. Ideas from Bevel, WHOOP, RISE, Sunsama, Exist, Gentler Streak.
+// Everything here is a function (hoisted), so it's safe to call from code
+// that runs earlier at load time.
+// ═══════════════════════════════════════════════════════════════════════════
+function _lfGet(key, def) { try { const v = JSON.parse(localStorage.getItem(key)); return v == null ? def : v; } catch { return def; } }
+function _lfSet(key, val) { localStorage.setItem(key, JSON.stringify(val)); if (typeof syncPush === 'function') try { syncPush(key, val); } catch {} }
+function _lfDay(ds, n) { const d = new Date(ds + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toLocaleDateString('en-CA'); }
+function _lfToday() { return new Date().toLocaleDateString('en-CA'); }
+function _lfNowMin() { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
+function _lfPrettyDay(ds) { return new Date(ds + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }); }
+function _lfRefresh() { try { _refreshPlan(); } catch {} try { renderDailyBriefing(); } catch {} }
+
+// ── 1. Evening check-in ─────────────────────────────────────────────────────
+// checkins: { 'YYYY-MM-DD': { saved, caffeineLate, alcohol, screens, lateMeal, stress, nap, energy, mood, exp: { id: bool } } }
+function lfCheckinItems() {
+  return [
+    { k: 'caffeineLate', label: '☕ Caffeine after 2pm' },
+    { k: 'alcohol', label: '🍺 Alcohol' },
+    { k: 'screens', label: '📱 Screens in bed' },
+    { k: 'lateMeal', label: '🍝 Ate within 2h of bed' },
+    { k: 'stress', label: '😣 Stressful day' },
+    { k: 'nap', label: '😴 Napped' },
+  ];
+}
+function lfCheckins() { return _lfGet('checkins', {}); }
+function lfCheckinFor(ds) { return lfCheckins()[ds] || null; }
+function lfSetCheckin(ds, patch) {
+  const all = lfCheckins(); all[ds] = { ...(all[ds] || {}), ...patch };
+  const cut = _lfDay(_lfToday(), -400); Object.keys(all).forEach(d => { if (d < cut) delete all[d]; });
+  _lfSet('checkins', all);
+}
+function lfToggleCheckin(ds, k) {
+  const c = lfCheckinFor(ds) || {};
+  lfSetCheckin(ds, { [k]: !c[k], saved: true });
+  lfRerenderCheckins(ds);
+}
+function lfToggleExpDone(ds, id) {
+  const c = lfCheckinFor(ds) || {}; const exp = { ...(c.exp || {}) }; exp[id] = !exp[id];
+  lfSetCheckin(ds, { exp, saved: true }); lfRerenderCheckins(ds);
+}
+function lfSetScale(ds, k, v) { lfSetCheckin(ds, { [k]: v, saved: true }); lfRerenderCheckins(ds); }
+function lfSaveCheckin(ds) { lfSetCheckin(ds, { saved: true }); lfRerenderCheckins(ds); }
+function lfRerenderCheckins(ds) {
+  document.querySelectorAll(`[data-checkin="${ds}"]`).forEach(el => { el.outerHTML = lfCheckinHtml(ds); });
+}
+function lfCheckinHtml(ds) {
+  const c = lfCheckinFor(ds) || {};
+  const chip = (on, onclick, label) => `<button onclick="${onclick}" style="border:1px solid ${on ? '#8B7CF6' : '#E5DACB'};background:${on ? '#F3EFFD' : '#fff'};color:${on ? '#4B3FA8' : '#4A3B2E'};border-radius:99px;padding:4px 10px;font:inherit;font-size:12px;font-weight:600;cursor:pointer;margin:0 4px 6px 0">${label}</button>`;
+  const scale = (k, label, faces) => `<div style="display:flex;align-items:center;gap:6px;margin:2px 0 6px"><span style="font-size:12px;color:#7A6656;min-width:52px">${label}</span>${faces.map((f, i) => `<button onclick="lfSetScale('${ds}','${k}',${i + 1})" title="${i + 1}/5" style="border:1px solid ${c[k] === i + 1 ? '#8B7CF6' : '#E5DACB'};background:${c[k] === i + 1 ? '#F3EFFD' : '#fff'};border-radius:8px;padding:2px 6px;font-size:15px;cursor:pointer;line-height:1.2">${f}</button>`).join('')}</div>`;
+  const exps = lfActiveExperiments(ds);
+  return `<div data-checkin="${ds}">
+    <div style="font-size:12px;color:#7A6656;margin-bottom:6px">Tap anything that happened${ds === _lfToday() ? ' today' : ` on ${_lfPrettyDay(ds)}`}. Untapped counts as no once you've saved.</div>
+    <div style="display:flex;flex-wrap:wrap">${lfCheckinItems().map(it => chip(!!c[it.k], `lfToggleCheckin('${ds}','${it.k}')`, it.label)).join('')}</div>
+    ${exps.map(x => chip(!!(c.exp || {})[x.id], `lfToggleExpDone('${ds}','${x.id}')`, `🧪 Did: ${escHtml(x.name)}`)).join('')}
+    ${scale('energy', 'Energy', ['😩', '😕', '😐', '🙂', '⚡'])}
+    ${scale('mood', 'Mood', ['😞', '🙁', '😐', '🙂', '😄'])}
+    <div style="display:flex;align-items:center;gap:8px">
+      ${c.saved ? `<span style="font-size:12px;color:#2D7A47;font-weight:600">✓ Saved</span>` : `<button onclick="lfSaveCheckin('${ds}')" style="background:#4A3B2E;color:#fff;border:none;border-radius:8px;padding:5px 12px;font:inherit;font-size:12px;font-weight:600;cursor:pointer">Save — nothing else happened</button>`}
+    </div>
+  </div>`;
+}
+
+// ── 2. Status: sick / injured / travelling / exam week ─────────────────────
+// life_status: [{ id, type, from, to }]
+function lfStatusTypes() {
+  return {
+    sick: { label: 'Sick', emoji: '🤒', note: 'training paused, streaks protected' },
+    injured: { label: 'Injured', emoji: '🩹', note: 'training paused, streaks protected' },
+    travel: { label: 'Travelling', emoji: '✈️', note: 'gym and walking pad off, streaks protected, nights left out of sleep timing' },
+    exam: { label: 'Exam week', emoji: '📝', note: 'training kept easy' },
+  };
+}
+function lfStatusList() { return _lfGet('life_status', []); }
+function lfStatusOn(ds) { return lfStatusList().find(s => s.from <= ds && (!s.to || s.to >= ds)) || null; }
+function lfSetStatus(type, to) {
+  const today = _lfToday();
+  let list = lfStatusList().map(s => (s.from <= today && (!s.to || s.to >= today)) ? { ...s, to: _lfDay(today, -1) } : s).filter(s => !s.to || s.to >= s.from);
+  if (type) list.push({ id: 'st' + Date.now(), type, from: today, to: to || null });
+  _lfSet('life_status', list.filter(s => !s.to || s.to >= _lfDay(today, -400)));
+  lfCloseStatus(); _lfRefresh();
+  try { recomputeAllStreaks(); renderHabits(); } catch {}
+}
+function lfCloseStatus() { const p = document.getElementById('lf-status-pop'); if (p) p.remove(); }
+function lfStatusChipHtml() {
+  const st = lfStatusOn(_lfToday()), T = lfStatusTypes();
+  return `<button onclick="event.stopPropagation();lfOpenStatus(event)" title="Set a status (sick, injured, travelling, exam week)" style="border:1px solid ${st ? '#F2BE2E' : '#E5DACB'};background:${st ? '#FFF7E0' : '#fff'};border-radius:99px;padding:1px 8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;color:#4A3B2E;white-space:nowrap">${st ? `${T[st.type].emoji} ${T[st.type].label}${st.to ? ` to ${_lfPrettyDay(st.to)}` : ''}` : '🟢 Normal'}</button>`;
+}
+function lfOpenStatus(ev) {
+  lfCloseStatus();
+  const T = lfStatusTypes(), cur = lfStatusOn(_lfToday());
+  const pop = document.createElement('div');
+  pop.id = 'lf-status-pop';
+  pop.style.cssText = 'position:fixed;z-index:3000;background:#fff;border:1px solid #EADFD1;border-radius:14px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:12px;width:min(300px,92vw);font-size:13px;color:#4A3B2E';
+  pop.innerHTML = `<div style="font-size:11px;font-weight:700;color:#A6937F;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Status from today</div>
+    ${Object.entries(T).map(([k, t]) => `<button onclick="lfSetStatus('${k}', document.getElementById('lf-status-to').value)" style="display:block;width:100%;text-align:left;border:1px solid ${cur && cur.type === k ? '#F2BE2E' : '#F0E6DA'};background:${cur && cur.type === k ? '#FFF7E0' : '#fff'};border-radius:10px;padding:7px 10px;margin-bottom:6px;font:inherit;cursor:pointer">${t.emoji} <b>${t.label}</b><span style="display:block;font-size:11px;color:#A6937F">${t.note}</span></button>`).join('')}
+    <label style="display:flex;align-items:center;justify-content:space-between;font-size:12px;color:#7A6656;margin:4px 0 8px">Until (optional) <input id="lf-status-to" type="date" min="${_lfToday()}" value="${cur && cur.to ? cur.to : ''}" style="border:1px solid #E5DACB;border-radius:6px;padding:2px 4px;font:inherit;font-size:12px"></label>
+    ${cur ? `<button onclick="lfSetStatus(null)" style="width:100%;border:none;background:#E9F7EE;color:#2D7A47;border-radius:10px;padding:7px;font:inherit;font-weight:700;cursor:pointer">🟢 Back to normal</button>` : ''}`;
+  document.body.appendChild(pop);
+  const r = ev.target.getBoundingClientRect();
+  pop.style.top = Math.max(8, Math.min(r.bottom + 6, window.innerHeight - pop.offsetHeight - 8)) + 'px';
+  pop.style.left = Math.max(8, Math.min(r.left - 120, window.innerWidth - pop.offsetWidth - 8)) + 'px';
+  setTimeout(() => document.addEventListener('click', function h(e) { if (!pop.contains(e.target)) { lfCloseStatus(); document.removeEventListener('click', h); } }), 0);
+}
+// Planner: adjust a day's training sessions for the status.
+function lfAdjustSessions(ds, sessions) {
+  const st = lfStatusOn(ds);
+  if (!st) return { sessions, paused: [] };
+  if (st.type === 'sick' || st.type === 'injured') return { sessions: [], paused: sessions };
+  if (st.type === 'travel') return { sessions: sessions.filter(x => x.session.tag === 'run'), paused: sessions.filter(x => x.session.tag !== 'run') };
+  if (st.type === 'exam') return { sessions: sessions.map(x => ['Speed Run', 'Intervals', 'Tempo Run', 'Long Run'].includes(x.session.type) ? { ...x, session: { ...x.session, type: 'Easy Run', intensity: 'easy', swappedFrom: x.session.type } } : /Heavy/.test(x.session.type) ? { ...x, session: { ...x.session, lighter: true } } : x), paused: [] };
+  return { sessions, paused: [] };
+}
+// Streaks: a paused day (sick, injured, travelling) doesn't break a streak.
+function lfStreakPaused(ds) { const st = lfStatusOn(ds); return !!(st && st.type !== 'exam'); }
+// Sleep: travel nights (and the morning after) are left out of timing averages.
+function lfNightExcluded(ds) { const st = lfStatusOn(ds) || lfStatusOn(_lfDay(ds, -1)); return !!(st && st.type === 'travel'); }
+
+// ── 3. Energy schedule (RISE-style, from your wake time) ───────────────────
+// Rough circadian pattern relative to wake time; an estimate, not a measurement.
+function lfEnergyWindows(ds) {
+  const w = getWakeTime(ds);
+  let by = 23 * 60; try { by = sleepByFor(ds).by; } catch {}
+  return [
+    { kind: 'groggy', label: 'Grogginess', s: w, e: w + 60, color: '#C7C7CC', tip: 'Light jobs, daylight, water. Not the time for hard revision.' },
+    { kind: 'peak', label: 'Morning peak', s: w + 120, e: w + 300, color: '#22B8B0', tip: 'Your sharpest hours: hardest topics and question sets.' },
+    { kind: 'dip', label: 'Afternoon dip', s: w + 420, e: w + 540, color: '#F2BE2E', tip: 'Admin, chores, a walk or a 20-min nap before 3pm.' },
+    { kind: 'peak', label: 'Evening peak', s: w + 600, e: Math.min(w + 720, by - 60), color: '#22B8B0', tip: 'Second wind: good for training or review.' },
+    { kind: 'wind', label: 'Wind-down', s: by - 60, e: by, color: '#8B7CF6', tip: 'Melatonin rising: dim lights, no screens, nothing stimulating.' },
+  ].filter(x => x.e > x.s);
+}
+function lfEnergyNow(ds, m) { return lfEnergyWindows(ds).find(x => m >= x.s && m < x.e) || null; }
+function lfEnergyStripHtml(ds, isToday) {
+  const wins = lfEnergyWindows(ds); if (!wins.length) return '';
+  const a = wins[0].s, b = wins[wins.length - 1].e, span = b - a || 1;
+  const now = isToday ? _lfNowMin() : null;
+  const cur = isToday ? lfEnergyNow(ds, now) : null;
+  return `<div style="margin:4px 0 8px">
+    <div style="position:relative;height:10px;border-radius:5px;background:#EFEFF4;overflow:hidden">
+      ${wins.map(x => `<div title="${x.label} ${_hm(x.s)}–${_hm(x.e)}" style="position:absolute;top:0;bottom:0;left:${(x.s - a) / span * 100}%;width:${(x.e - x.s) / span * 100}%;background:${x.color}"></div>`).join('')}
+      ${now != null && now >= a && now <= b ? `<div style="position:absolute;top:-2px;bottom:-2px;left:${(now - a) / span * 100}%;width:2px;background:#1C1C1E"></div>` : ''}
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:#A6937F;margin-top:2px"><span>${_hm(a)}</span><span>${wins.filter(x => x.kind === 'peak').map(x => `peak ${_hm(x.s)}–${_hm(x.e)}`).join(' · ')}</span><span>${_hm(b)}</span></div>
+    ${cur ? `<div style="font-size:12px;color:#7A6656;margin-top:2px">Now: <b>${cur.label.toLowerCase()}</b> — ${cur.tip}</div>` : ''}
+  </div>`;
+}
+
+// ── 4. Strain target ────────────────────────────────────────────────────────
+function lfStrainTarget(ds) {
+  let rec = null; try { rec = computeRecoveryForDate(ds); } catch {}
+  if (!rec) return null;
+  const sc = rec.score;
+  const range = sc >= 67 ? [12, 18] : sc >= 34 ? [7, 12] : [0, 8];
+  let strain = null; try { strain = computeStrainForDate(ds).strain; } catch {}
+  return { recovery: sc, range, strain };
+}
+function lfStrainBarHtml(ds) {
+  const t = lfStrainTarget(ds); if (!t) return '';
+  const pct = v => Math.max(0, Math.min(100, v / 21 * 100));
+  const st = t.strain || 0;
+  const verdict = st < t.range[0] ? `${(t.range[0] - st).toFixed(1)} to reach your target` : st <= t.range[1] ? 'in your target range' : `${(st - t.range[1]).toFixed(1)} over your target — ease off`;
+  return `<div style="margin:2px 0 4px">
+    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>💪 Strain <b>${st.toFixed(1)}</b> · target ${t.range[0]}–${t.range[1]}</span><span style="color:#A6937F">recovery ${t.recovery}%</span></div>
+    <div style="position:relative;height:8px;border-radius:4px;background:#EFEFF4">
+      <div style="position:absolute;top:0;bottom:0;left:${pct(t.range[0])}%;width:${pct(t.range[1]) - pct(t.range[0])}%;background:#BFEAD0;border-radius:4px"></div>
+      <div style="position:absolute;top:0;bottom:0;left:0;width:${pct(st)}%;background:${st > t.range[1] ? '#E5484D' : '#2D7A47'};border-radius:4px;opacity:.85"></div>
+    </div>
+    <div style="font-size:11px;color:#A6937F;margin-top:2px">${verdict}</div>
+  </div>`;
+}
+function lfLowRecovery(ds) { try { const r = computeRecoveryForDate(ds); return !!(r && r.score < 34); } catch { return false; } }
+
+// ── 5. Sleep debt payback ───────────────────────────────────────────────────
+// While debt is 2h+, the asleep-by time moves 30 min earlier (not before 21:30) until it's under 1h.
+function lfPaybackOn() { return _lfGet('sleep_payback', true) !== false; }
+function lfTogglePayback() { _lfSet('sleep_payback', !lfPaybackOn()); try { renderWhoopSleep(); } catch {} _lfRefresh(); }
+function lfPayback() {
+  let debt = null; try { debt = computeSleepDebt(); } catch {}
+  if (!debt) return null;
+  const h = debt.debtHours, active = lfPaybackOn() && h >= 2;
+  return { debt: h, active, nights: Math.ceil(h / 0.5), extraMin: 30 };
+}
+
+// ── 6. Weekly goals ─────────────────────────────────────────────────────────
+function lfWeekStart(ds) { const d = new Date(ds + 'T12:00:00'); const k = (d.getDay() + 6) % 7; d.setDate(d.getDate() - k); return d.toLocaleDateString('en-CA'); }
+function lfGoals() { return _lfGet('weekly_goals', {}); }
+function lfGoalsFor(ws) { return lfGoals()[ws] || []; }
+function lfSaveGoals(ws, list) { const all = lfGoals(); all[ws] = list; const cut = _lfDay(_lfToday(), -120); Object.keys(all).forEach(k => { if (k < cut) delete all[k]; }); _lfSet('weekly_goals', all); }
+function lfAddGoal(ws, inputId) {
+  const el = document.getElementById(inputId); const t = (el && el.value || '').trim(); if (!t) return;
+  const list = lfGoalsFor(ws); if (list.length >= 5) return;
+  list.push({ id: 'g' + Date.now(), text: t, done: false }); lfSaveGoals(ws, list); _lfRefresh();
+}
+function lfToggleGoal(ws, id) { lfSaveGoals(ws, lfGoalsFor(ws).map(g => g.id === id ? { ...g, done: !g.done } : g)); _lfRefresh(); }
+function lfRemoveGoal(ws, id) { lfSaveGoals(ws, lfGoalsFor(ws).filter(g => g.id !== id)); _lfRefresh(); }
+function lfGoalsHtml(ws, labelStyle, title) {
+  const list = lfGoalsFor(ws), inId = 'lf-goal-in-' + ws;
+  return `<div style="${labelStyle}">${title || '🎯 This week\'s goals'} <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#bbb">· w/c ${_lfPrettyDay(ws)}</span></div>
+    ${list.map(g => `<div style="display:flex;align-items:center;gap:8px;padding:2px 0;font-size:13px"><input type="checkbox" ${g.done ? 'checked' : ''} onchange="lfToggleGoal('${ws}','${g.id}')" style="cursor:pointer"><span style="flex:1;${g.done ? 'text-decoration:line-through;opacity:.6' : ''}">${escHtml(g.text)}</span><button onclick="lfRemoveGoal('${ws}','${g.id}')" style="border:none;background:none;color:#C9B8A8;cursor:pointer">✕</button></div>`).join('')}
+    ${list.length < 5 ? `<div style="display:flex;gap:6px;margin-top:4px"><input id="${inId}" placeholder="${list.length ? 'Another goal' : 'Up to 3–5 goals, e.g. asleep by 23:00 on 5 nights'}" onkeydown="if(event.key==='Enter')lfAddGoal('${ws}','${inId}')" style="flex:1;border:1px solid #F0E1D2;border-radius:8px;padding:5px 8px;font:inherit;font-size:12px"><button onclick="lfAddGoal('${ws}','${inId}')" style="background:#4A3B2E;color:#fff;border:none;border-radius:8px;padding:5px 10px;font:inherit;font-size:12px;cursor:pointer">+</button></div>` : ''}`;
+}
+// Bedtime hit rate and check-ins for a run of days (for the weekly review).
+function lfWeekSleepStats(days) {
+  const m = _healthData && _healthData.sleep_analysis; if (!m) return null;
+  const tBed = (typeof getSleepTarget === 'function' ? getSleepTarget() : 1380) - 720;
+  const nights = days.map(d => m.byDate[d] ? _sleepBedMin(m.byDate[d].raw || {}) : null).filter(v => v != null);
+  return { nights: nights.length, onTime: nights.filter(b => b <= tBed).length };
+}
+
+// ── 7. Experiments ──────────────────────────────────────────────────────────
+// experiments: [{ id, name, start, days }]
+function lfExperiments() { return _lfGet('experiments', []); }
+function lfActiveExperiments(ds) { return lfExperiments().filter(x => ds >= x.start && ds <= _lfDay(x.start, (x.days || 14) - 1)); }
+function lfAddExperiment() {
+  const n = document.getElementById('lf-exp-name'), d = document.getElementById('lf-exp-days');
+  const name = (n && n.value || '').trim(); if (!name) return;
+  const list = lfExperiments(); list.push({ id: 'x' + Date.now(), name, start: _lfToday(), days: Math.max(5, Math.min(60, +(d && d.value) || 14)) });
+  _lfSet('experiments', list); lfRenderExperiments();
+}
+function lfRemoveExperiment(id) { _lfSet('experiments', lfExperiments().filter(x => x.id !== id)); lfRenderExperiments(); }
+function lfMetricsForDays(days) {
+  const avg = a => { const v = a.filter(x => x != null && isFinite(x)); return v.length ? v.reduce((p, q) => p + q, 0) / v.length : null; };
+  const sl = days.map(d => { try { return computeSleepForDate(d); } catch { return null; } });
+  const rec = days.map(d => { try { const r = computeRecoveryForDate(d); return r ? r.score : null; } catch { return null; } });
+  const st = lfWeekSleepStats(days);
+  return {
+    score: avg(sl.map(s => s && s.score)), hours: avg(sl.map(s => s && s.totalSleep)),
+    recovery: avg(rec), hrv: avg(days.map(d => _healthValueOnDate('heart_rate_variability', d))), rhr: avg(days.map(d => _healthValueOnDate('resting_heart_rate', d))),
+    onTime: st && st.nights ? st.onTime / st.nights * 100 : null, nights: sl.filter(Boolean).length,
+  };
+}
+function lfRenderExperiments() {
+  const el = document.getElementById('lf-experiments'); if (!el) return;
+  const today = _lfToday();
+  const rows = lfExperiments().slice().reverse().map(x => {
+    const len = x.days || 14, end = _lfDay(x.start, len - 1), lastDone = end < today ? end : _lfDay(today, -1);
+    const during = []; for (let d = x.start; d <= lastDone; d = _lfDay(d, 1)) during.push(d);
+    const before = []; for (let i = len; i >= 1; i--) before.push(_lfDay(x.start, -i));
+    // Sleep/recovery for a day reflect the night before, so "during" is shifted a day later.
+    const a = lfMetricsForDays(before.map(d => _lfDay(d, 1))), b = lfMetricsForDays(during.map(d => _lfDay(d, 1)));
+    const cks = lfCheckins(), did = during.filter(d => ((cks[d] || {}).exp || {})[x.id]).length;
+    const fmt = (k, v) => v == null ? '—' : k === 'hours' ? fmtHrsMin(v) : k === 'onTime' ? `${Math.round(v)}%` : Math.round(v);
+    const line = (k, label, better) => {
+      const va = a[k], vb = b[k]; if (va == null && vb == null) return '';
+      const diff = va != null && vb != null ? vb - va : null;
+      const good = diff == null || Math.abs(diff) < (k === 'hours' ? 0.15 : 2) ? null : (better === 'up' ? diff > 0 : diff < 0);
+      return `<tr><td style="padding:3px 0">${label}</td><td style="text-align:right">${fmt(k, va)}</td><td style="text-align:right;font-weight:600;color:${good == null ? 'inherit' : good ? '#2D7A47' : '#C53030'}">${fmt(k, vb)}</td></tr>`;
+    };
+    const status = end < today ? 'finished' : `day ${during.length + 1} of ${len}`;
+    return `<div style="padding:10px 0;border-bottom:1px solid var(--fx-line,#eee)">
+      <div style="display:flex;align-items:baseline;gap:8px"><b style="flex:1">🧪 ${escHtml(x.name)}</b><span style="font-size:12px;color:var(--fx-muted,#999)">${status}</span><button onclick="lfRemoveExperiment('${x.id}')" style="border:none;background:none;color:#C9B8A8;cursor:pointer">✕</button></div>
+      <div style="font-size:12px;color:var(--fx-muted,#999);margin:2px 0 6px">${_lfPrettyDay(x.start)} → ${_lfPrettyDay(end)} · ticked as done on ${did} of ${during.length} day${during.length === 1 ? '' : 's'} so far (tick it in the evening check-in)</div>
+      ${during.length >= 3 ? `<table style="width:100%;font-size:13px;border-collapse:collapse"><thead><tr style="font-size:11px;color:var(--fx-muted,#999)"><th style="text-align:left;font-weight:600">Average</th><th style="text-align:right;font-weight:600">${len} days before</th><th style="text-align:right;font-weight:600">During</th></tr></thead><tbody>
+        ${line('score', 'Sleep score', 'up')}${line('hours', 'Time asleep', 'up')}${line('onTime', 'Asleep on time', 'up')}${line('recovery', 'Recovery', 'up')}${line('hrv', 'HRV (ms)', 'up')}${line('rhr', 'Resting HR', 'down')}
+      </tbody></table>` : `<div style="font-size:12px;color:var(--fx-muted,#999)">Results appear after 3 days.</div>`}
+    </div>`;
+  }).join('');
+  el.innerHTML = (rows || `<div class="fx-empty">No experiments yet. Try one for 2 weeks and the dashboard compares it with the 2 weeks before.</div>`)
+    + `<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+        <input id="lf-exp-name" placeholder="e.g. No caffeine after 2pm" style="flex:1;min-width:160px;border:1px solid var(--fx-line,#eee);border-radius:8px;padding:6px 8px;font:inherit;font-size:13px">
+        <select id="lf-exp-days" style="border:1px solid var(--fx-line,#eee);border-radius:8px;padding:6px;font:inherit;font-size:13px"><option value="7">7 days</option><option value="14" selected>14 days</option><option value="21">21 days</option><option value="28">28 days</option></select>
+        <button onclick="lfAddExperiment()" style="background:#1C1C1E;color:#fff;border:none;border-radius:8px;padding:6px 12px;font:inherit;font-size:13px;font-weight:600;cursor:pointer">Start</button>
+      </div>
+      <div style="font-size:11px;color:var(--fx-muted,#999);margin-top:6px">Ideas: no caffeine after 2pm · screens off at 22:30 · no alcohol · a 10-min walk after dinner. One at a time gives the clearest answer.</div>`;
+}
+
+// ── 8. End-of-day shutdown ──────────────────────────────────────────────────
+function lfCloseShutdown() { const m = document.getElementById('lf-shutdown'); if (m) m.remove(); }
+function lfAddTomorrowItems(ds) {
+  const inp = document.getElementById('lf-sd-list'); const text = (inp && inp.value || '').trim(); if (!text) return;
+  const lists = _dayLists(); const items = (lists[ds] || []).filter(i => i && i.text);
+  text.split(/\s*[,;\n]\s*/).filter(Boolean).forEach((p, k) => items.push({ id: 'dl' + Date.now() + k, text: p, dur: dayListGuess(p, ds), done: false }));
+  lists[ds] = items; _saveDayLists(lists); inp.value = ''; lfOpenShutdown(); _lfRefresh();
+}
+function lfMoveToTomorrow(key) { const tm = _lfDay(_lfToday(), 1); try { markMissed(key, tm); } catch (e) { console.warn(e); } lfOpenShutdown(); }
+function lfFinishShutdown() { const d = _lfGet('shutdowns', {}); d[_lfToday()] = Date.now(); const cut = _lfDay(_lfToday(), -60); Object.keys(d).forEach(k => { if (k < cut) delete d[k]; }); _lfSet('shutdowns', d); lfCloseShutdown(); _lfRefresh(); }
+function lfOpenShutdown() {
+  const ds = _lfToday(), tm = _lfDay(ds, 1);
+  let plan = null; try { plan = planDay(ds, { tasks: planTasksForToday(ds), notBefore: 0 }); } catch {}
+  const blocks = plan ? plan.blocks : [];
+  const done = blocks.filter(b => b.type === 'done');
+  const open = blocks.filter(b => ['task', 'task-unplaced', 'daylist', 'revision', 'osce'].includes(b.type) && !(b.type === 'daylist' && b.session));
+  const openRow = b => {
+    let info = null;
+    if (b.type === 'revision') info = { kind: 'revision', refs: (b.items || []).filter(i => i.ref).map(i => i.ref) };
+    else if ((b.type === 'task' || b.type === 'task-unplaced') && b.task) info = { kind: 'task', taskId: b.task.id };
+    else if (b.type === 'daylist') info = { kind: 'daylist', itemId: b.dayItem };
+    else if (b.type === 'osce') info = { kind: 'osce', osceFrom: b.osceFrom || ds };
+    const key = info && (info.kind !== 'revision' || info.refs.length) ? _missedKey({ ...info, ds, s: b.s, e: b.e, title: b.title }) : null;
+    const tick = b.type === 'daylist' ? `<input type="checkbox" onchange="toggleDayListItem('${ds}','${b.dayItem}');lfOpenShutdown()" style="cursor:pointer">`
+      : b.task ? `<input type="checkbox" onchange="${b.task.revSwap ? `tickRevSwap('${ds}','${b.task.id}')` : `toggleTask('${b.task.id}')`};lfOpenShutdown()" style="cursor:pointer">` : '<span style="width:13px"></span>';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #F5EEE6;font-size:13px">${tick}<span style="flex:1">${escHtml(b.title)}${b.type === 'revision' ? `<span style="display:block;font-size:11px;color:#A6937F">${escHtml((b.items || []).map(i => i.text).join(', '))}</span>` : ''}</span>
+      ${key ? `<button onclick="lfMoveToTomorrow('${key}')" style="border:1px solid #E5DACB;background:#fff;border-radius:8px;padding:3px 8px;font:inherit;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">→ Tomorrow</button><button onclick="openMissed(event,'${key}')" title="Pick another day or drop it" style="border:1px solid #E5DACB;background:#fff;border-radius:8px;padding:3px 6px;font:inherit;font-size:11px;cursor:pointer">…</button>` : ''}</div>`;
+  };
+  const tmList = getDayList(tm);
+  let sb = null; try { sb = sleepByFor(ds); } catch {}
+  const strain = lfStrainTarget(ds);
+  lfCloseShutdown();
+  const m = document.createElement('div');
+  m.id = 'lf-shutdown';
+  m.style.cssText = 'position:fixed;inset:0;z-index:2500;background:rgba(28,28,30,.35);display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:24px 12px';
+  m.onclick = e => { if (e.target === m) lfCloseShutdown(); };
+  const h = (t) => `<div style="font-size:11px;font-weight:700;color:#A6937F;text-transform:uppercase;letter-spacing:.06em;margin:16px 0 6px">${t}</div>`;
+  m.innerHTML = `<div style="background:#fff;border-radius:18px;max-width:520px;width:100%;padding:18px 18px 16px;box-shadow:0 12px 40px rgba(0,0,0,.2);color:#4A3B2E">
+    <div style="display:flex;align-items:center"><div style="font-size:20px;font-weight:800;flex:1">🌙 End your day</div><button onclick="lfCloseShutdown()" style="border:none;background:none;font-size:18px;color:#A6937F;cursor:pointer">✕</button></div>
+    <div style="font-size:13px;color:#7A6656;margin-top:2px">${new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}${strain ? ` · strain ${strain.strain != null ? strain.strain.toFixed(1) : '—'} (target ${strain.range[0]}–${strain.range[1]})` : ''}</div>
+    ${h(`Done today (${done.length})`)}
+    <div style="font-size:13px;line-height:1.6">${done.length ? done.map(b => `✓ ${escHtml(b.title)}`).join('<br>') : '<span style="color:#A6937F">Nothing ticked off in the plan yet.</span>'}</div>
+    ${h(`Not done (${open.length})`)}
+    ${open.length ? open.map(openRow).join('') : '<div style="font-size:13px;color:#2D7A47">Everything planned is done. 🎉</div>'}
+    ${h('Check-in')}
+    ${lfCheckinHtml(ds)}
+    ${h(`Tomorrow · ${_lfPrettyDay(tm)}`)}
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;margin-bottom:6px">Wake ${wakeChipHtml(tm)}${sb ? `<span style="color:#7A6656">· asleep tonight by <b>${_hm(sb.by)}</b></span>` : ''}</div>
+    ${tmList.length ? `<div style="font-size:13px;line-height:1.6;margin-bottom:6px">${tmList.map((i, k) => `${k + 1}. ${escHtml(i.text)}`).join('<br>')}</div>` : ''}
+    <div style="display:flex;gap:6px"><input id="lf-sd-list" placeholder="Things to do tomorrow, e.g. gym, sort bins, lunch 12:30" onkeydown="if(event.key==='Enter')lfAddTomorrowItems('${tm}')" style="flex:1;border:1px solid #E5DACB;border-radius:8px;padding:6px 8px;font:inherit;font-size:13px"><button onclick="lfAddTomorrowItems('${tm}')" style="background:#4A3B2E;color:#fff;border:none;border-radius:8px;padding:6px 12px;font:inherit;cursor:pointer">+</button></div>
+    <button onclick="lfFinishShutdown()" style="margin-top:16px;width:100%;background:#8B7CF6;color:#fff;border:none;border-radius:12px;padding:11px;font:inherit;font-size:15px;font-weight:700;cursor:pointer">Done — day closed</button>
+  </div>`;
+  document.body.appendChild(m);
+}
+
+// ── 9. Ask your data ────────────────────────────────────────────────────────
+// Sends a compact day-by-day table (last 60 days) to /api/claude; the reply
+// names which columns to chart, and the chart is drawn here from the real data.
+function lfDataRows(days) {
+  const out = [], today = _lfToday(), cks = lfCheckins();
+  for (let i = days - 1; i >= 0; i--) {
+    const d = _lfDay(today, -i);
+    let s = null, r = null, st = null; try { s = computeSleepForDate(d); } catch {} try { r = computeRecoveryForDate(d); } catch {} try { st = computeStrainForDate(d); } catch {}
+    const raw = s && _healthData.sleep_analysis.byDate[d] ? _healthData.sleep_analysis.byDate[d].raw || {} : {};
+    const bed = _sleepBedMin(raw), c = cks[d] || {};
+    const acts = (typeof _acts !== 'undefined' && _acts ? _acts : []).filter(a => (a.start_local || '').slice(0, 10) === d).map(a => a.sport_type).join('+');
+    let placement = ''; try { placement = getDayEvents(d).some(e => /placement/i.test(e.title || '')) ? 'Y' : ''; } catch {}
+    const status = (lfStatusOn(d) || {}).type || '';
+    const f = (v, n = 1) => v == null || !isFinite(v) ? '' : (+v).toFixed(n);
+    out.push({
+      date: d, sleep_h: f(s && s.totalSleep, 2), sleep_score: f(s && s.score, 0), asleep_at: bed != null ? _clockFromNoon(bed) : '', woke_at: _sleepWakeMin(raw) != null ? _hm(_sleepWakeMin(raw)) : '',
+      deep_pct: f(s && s.deepPct, 0), rem_pct: f(s && s.remPct, 0), recovery: f(r && r.score, 0), hrv: f(_healthValueOnDate('heart_rate_variability', d), 0), rhr: f(_healthValueOnDate('resting_heart_rate', d), 0),
+      strain: f(st && st.strain), steps: f(_healthValueOnDate('step_count', d), 0), caffeine_mg: f(_healthValueOnDate('caffeine', d), 0), training: acts, placement, status,
+      checkin: c.saved ? lfCheckinItems().filter(it => c[it.k]).map(it => it.k).join('+') || 'none' : '', energy: c.energy || '', mood: c.mood || '',
+    });
+  }
+  return out;
+}
+const LF_CHARTABLE = ['sleep_h', 'sleep_score', 'deep_pct', 'rem_pct', 'recovery', 'hrv', 'rhr', 'strain', 'steps', 'caffeine_mg', 'energy', 'mood'];
+async function lfAsk() {
+  const q = (document.getElementById('lf-ask-q') || {}).value || ''; if (!q.trim()) return;
+  const out = document.getElementById('lf-ask-out'); if (!out) return;
+  out.innerHTML = '<div class="sub">Thinking…</div>';
+  const rows = lfDataRows(60);
+  const cols = Object.keys(rows[0]);
+  const table = [cols.join(',')].concat(rows.map(r => cols.map(c => r[c]).join(','))).join('\n');
+  const prompt = `You answer questions about Phil's own health and training data. He is a final-year medical student. Use ONLY the table below (one row per day, newest last; sleep/recovery on a date are for the night ending that morning; blank = no data). Be specific and honest: give numbers, say how many days the answer rests on, and say when the data is too thin to tell. No medical diagnoses.
+Question: ${q}
+Reply as JSON: {"answer": "2-5 short sentences, plain text", "chart": null or {"type": "line" or "bar", "columns": [up to 2 of ${LF_CHARTABLE.join(', ')}], "days": number of most recent days to show (7-60)}}`;
+  try {
+    const res = await fetch('/api/claude', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt, context: table, json: true }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'AI error');
+    let j; try { j = JSON.parse(data.text); } catch { j = { answer: data.text, chart: null }; }
+    out.innerHTML = `<div style="font-size:13px;line-height:1.55;white-space:pre-wrap">${escHtml(j.answer || '')}</div>${j.chart && Array.isArray(j.chart.columns) && j.chart.columns.length ? '<div style="height:200px;margin-top:8px"><canvas id="lf-ask-chart"></canvas></div>' : ''}`;
+    if (j.chart && Array.isArray(j.chart.columns) && typeof Chart !== 'undefined') {
+      const colsC = j.chart.columns.filter(c => LF_CHARTABLE.includes(c)).slice(0, 2);
+      const n = Math.max(7, Math.min(60, +j.chart.days || 30)), sub = rows.slice(-n);
+      const colors = ['#8B7CF6', '#22B8B0'];
+      if (colsC.length) new Chart(document.getElementById('lf-ask-chart'), {
+        type: j.chart.type === 'bar' ? 'bar' : 'line',
+        data: { labels: sub.map(r => fmtDate(r.date)), datasets: colsC.map((c, i) => ({ label: c.replace(/_/g, ' '), data: sub.map(r => r[c] === '' ? null : +r[c]), borderColor: colors[i], backgroundColor: colors[i] + '66', yAxisID: i ? 'y1' : 'y', spanGaps: true, tension: .3, pointRadius: 2 })) },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } } },
+          scales: { x: { ticks: { font: { size: 9 }, maxTicksLimit: 8, maxRotation: 0 } }, y: { position: 'left' }, ...(colsC.length > 1 ? { y1: { position: 'right', grid: { drawOnChartArea: false } } } : {}) } }
+      });
+    }
+  } catch (e) {
+    out.innerHTML = `<div style="font-size:13px;color:#C53030">Couldn't get an answer: ${escHtml(e.message)}</div>`;
+  }
+}
+function lfAskHtml(labelStyle) {
+  const ex = ['How has my sleep changed since placement started?', 'Does training late affect my HRV?', 'What were my best recovery days and what did they have in common?'];
+  return `<div style="${labelStyle}">💬 Ask your data</div>
+    <div style="display:flex;gap:6px"><input id="lf-ask-q" placeholder="Ask about your sleep, recovery, training…" onkeydown="if(event.key==='Enter')lfAsk()" style="flex:1;border:1px solid #F0E1D2;border-radius:8px;padding:6px 8px;font:inherit;font-size:13px"><button onclick="lfAsk()" style="background:#4A3B2E;color:#fff;border:none;border-radius:8px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer">Ask</button></div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">${ex.map(t => `<button onclick="document.getElementById('lf-ask-q').value=this.textContent;lfAsk()" style="border:1px solid #F0E1D2;background:#FFFBF6;border-radius:99px;padding:2px 8px;font:inherit;font-size:11px;color:#7A6656;cursor:pointer">${t}</button>`).join('')}</div>
+    <div id="lf-ask-out" style="margin-top:8px"></div>`;
+}
+
+// ── 10. Reminders (while the dashboard is open) ─────────────────────────────
+// No push server, so these fire only while a dashboard tab is open (it can be in the background).
+function lfRemindersOn() { return localStorage.getItem('lf_reminders') === '1' && 'Notification' in window && Notification.permission === 'granted'; }
+async function lfEnableReminders() {
+  if (!('Notification' in window)) { alert('This browser doesn\'t support notifications.'); return; }
+  const p = await Notification.requestPermission();
+  if (p === 'granted') { localStorage.setItem('lf_reminders', '1'); new Notification('🔔 Reminders on', { body: 'Wind-down, end of day and a morning summary, while the dashboard is open.' }); }
+  else alert('Notifications are blocked. Allow them for this site in your browser settings.');
+  _lfRefresh();
+}
+function lfDisableReminders() { localStorage.setItem('lf_reminders', '0'); _lfRefresh(); }
+function lfReminderTick() {
+  if (!lfRemindersOn()) return;
+  const ds = _lfToday(), now = _lfNowMin(), sent = _lfGet('lf_sent', {});
+  const fire = (k, title, body) => { if (sent[ds + k]) return; sent[ds + k] = 1; Object.keys(sent).forEach(x => { if (x.slice(0, 10) < _lfDay(ds, -3)) delete sent[x]; }); localStorage.setItem('lf_sent', JSON.stringify(sent)); try { new Notification(title, { body, tag: 'lf-' + k }); } catch {} };
+  let sb = null; try { sb = sleepByFor(ds); } catch {}
+  const wake = getWakeTime(ds);
+  if (now >= wake && now < wake + 180) {
+    let plan = null; try { plan = planDay(ds, { tasks: planTasksForToday(ds), notBefore: now }); } catch {}
+    const next = plan ? plan.blocks.filter(b => b.s != null && b.s >= now && !['wake', 'meal', 'routine'].includes(b.type)).slice(0, 3).map(b => `${_hm(b.s)} ${b.title}`).join(' · ') : '';
+    const t = lfStrainTarget(ds);
+    fire('am', '☀️ Good morning', `${t ? `Recovery ${t.recovery}%, strain target ${t.range[0]}–${t.range[1]}. ` : ''}${next ? `Next: ${next}. ` : ''}${sb ? `Asleep by ${_hm(sb.by)} tonight.` : ''}`);
+  }
+  if (sb && now >= sb.by - 60 && now < sb.by - 30 && !_lfGet('shutdowns', {})[ds]) fire('sd', '🌙 Time to end the day', 'Open the dashboard: move anything unfinished, do the check-in and set tomorrow.');
+  if (sb && now >= sb.by - 30 && now < sb.by) fire('wd', '🌙 Wind down', `Screens off and lights low: asleep by ${_hm(sb.by)}.`);
+}
+function lfStartReminders() { if (window._lfRemTimer) return; window._lfRemTimer = setInterval(lfReminderTick, 60000); setTimeout(lfReminderTick, 5000); }
+
+// ── Home section: status, energy, strain target, check-in, end day, goals, ask ──
+function lfHomeHtml(ds, isToday, labelStyle, sectionStyle) {
+  const parts = [];
+  const now = _lfNowMin();
+  const st = lfStatusOn(ds), T = lfStatusTypes();
+  parts.push(`<div style="${sectionStyle}">
+    <div style="${labelStyle};display:flex;align-items:center;gap:8px">⚡ Today's energy <span style="margin-left:auto;text-transform:none;letter-spacing:0">${lfStatusChipHtml()}</span></div>
+    ${st ? `<div style="font-size:12px;color:#8A5A00;background:#FFF7E0;border-radius:8px;padding:5px 8px;margin-bottom:6px">${T[st.type].emoji} ${T[st.type].label}: ${T[st.type].note}.</div>` : ''}
+    ${lfEnergyStripHtml(ds, isToday)}
+    ${isToday ? lfStrainBarHtml(ds) : ''}
+  </div>`);
+  if (isToday && now >= 17 * 60) {
+    const closed = _lfGet('shutdowns', {})[ds];
+    const c = lfCheckinFor(ds);
+    parts.push(`<div style="${sectionStyle}">
+      <div style="${labelStyle};display:flex;align-items:center">📝 Evening check-in ${closed ? '<span style="margin-left:auto;color:#2D7A47;text-transform:none;letter-spacing:0">✓ day closed</span>' : `<button onclick="lfOpenShutdown()" style="margin-left:auto;border:none;background:#8B7CF6;color:#fff;border-radius:99px;padding:3px 10px;font:inherit;font-size:11px;font-weight:700;text-transform:none;letter-spacing:0;cursor:pointer">🌙 End your day</button>`}</div>
+      ${c && c.saved ? `<div style="font-size:12px;color:#7A6656">${lfCheckinItems().filter(it => c[it.k]).map(it => it.label).join(' · ') || 'Nothing logged'}${c.energy ? ` · energy ${c.energy}/5` : ''}${c.mood ? ` · mood ${c.mood}/5` : ''} <a href="javascript:void(0)" onclick="this.parentElement.outerHTML=lfCheckinHtml('${ds}')" style="color:#A6937F">edit</a></div>` : lfCheckinHtml(ds)}
+    </div>`);
+  }
+  if (isToday) {
+    const ws = lfWeekStart(ds);
+    parts.push(`<div style="${sectionStyle}">${lfGoalsHtml(ws, labelStyle)}</div>`);
+    parts.push(`<div style="${sectionStyle}">${lfAskHtml(labelStyle)}
+      <div style="font-size:11px;color:#A6937F;margin-top:6px">${lfRemindersOn() ? `🔔 Reminders on (morning summary, end of day, wind-down) while the dashboard is open · <a href="javascript:void(0)" onclick="lfDisableReminders()" style="color:#A6937F">turn off</a>` : `<a href="javascript:void(0)" onclick="lfEnableReminders()" style="color:#7A6656;font-weight:600">🔔 Turn on reminders</a> — morning summary, end of day and wind-down notifications while the dashboard is open`}</div>
+    </div>`);
+  }
+  return parts.join('');
+}
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function main() {
@@ -13153,6 +13650,7 @@ function applySyncUpdates(updated) {
   if (updated.includes('daily_habits')) safe(renderHabits);
   if (updated.includes('sleep_target')) safe(() => { renderWhoopSleep(); _refreshPlan(); });
   if (updated.includes('wake_defaults') || updated.includes('wake_overrides')) safe(_refreshPlan);
+  if (['checkins', 'life_status', 'sleep_payback', 'weekly_goals', 'experiments', 'shutdowns'].some(k => updated.includes(k))) safe(() => { _refreshPlan(); renderWhoopSleep(); if (updated.includes('life_status')) { recomputeAllStreaks(); renderHabits(); } });
   if (updated.includes('hm_race') || updated.includes('hm_prediction_log')) safe(renderHmPredictor);
   if (updated.includes('ukmla_scores')) safe(() => { renderUkmlaScores(); renderUkmlaPlan(); });
   if (updated.includes('wardrobe_items') || updated.includes('wardrobe_wears')) safe(() => { if (typeof wdRender === 'function') wdRender(); });
