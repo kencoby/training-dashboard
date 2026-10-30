@@ -1,13 +1,5 @@
--- Pending (needs applying in Supabase → SQL editor): same full-day rule as the
--- Worker fallback in functions/api/health-intake.js, plus a 60s timeout so big
--- exports stop hitting "canceling statement due to statement timeout".
--- 1) In public.health_ingest, add `SET statement_timeout TO '60s'` after LANGUAGE plpgsql.
--- 2) Inside the metrics loop, before the points loop:
---      select coalesce(array_agg(distinct left(value->>'date', 10)), '{}') into pdates
---        from jsonb_array_elements(coalesce(m->'data', '[]'::jsonb));
--- 3) In the is_sum branch, choose the starting day like this:
---      covered := d ~ '^\d{4}-\d{2}-\d{2}$' and to_char(d::date - 1, 'YYYY-MM-DD') = any(pdates);
---      if covered and not d = any(touched) then day := '{"points":{}}'::jsonb;
---      elsif (bydate->d) ? 'points' then day := bydate->d;
---      else day := '{"points":{}}'::jsonb; end if;
--- (declare pdates text[]; covered boolean;)
+-- Applied 2026-10-30 to public.health_ingest (Supabase migration "health_ingest_replace_full_days"):
+--  * SET statement_timeout TO '60s' (big Health Auto Export payloads were timing out)
+--  * a day the export fully covers (it also has the day before) has its stored
+--    entries replaced, so meals deleted/edited in MacroFactor drop out.
+-- Same rule as the Worker fallback in functions/api/health-intake.js.
