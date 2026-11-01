@@ -4778,7 +4778,7 @@ const MORNING_ROUTINE = 20;             // 10 min breakfast + 10 min shower
 // Wake time: 06:30 on placement/shift days, 08:00 on days off; per-day override
 // set from the plan header (stored in 'wake_overrides' as {date: minutes}).
 // Default wake times (synced as wake_defaults {work, off}); a day can be set on its own via wake_overrides.
-function _wakeDefaults() { try { const d = JSON.parse(localStorage.getItem('wake_defaults') || '{}') || {}; return { work: typeof d.work === 'number' ? d.work : 6 * 60 + 30, off: typeof d.off === 'number' ? d.off : 8 * 60 }; } catch { return { work: 390, off: 480 }; } }
+function _wakeDefaults() { try { const d = JSON.parse(localStorage.getItem('wake_defaults') || '{}') || {}; return { work: typeof d.work === 'number' ? d.work : 6 * 60 + 30, off: typeof d.off === 'number' ? d.off : 7 * 60 + 30 }; } catch { return { work: 390, off: 450 }; } }
 function setWakeDefault(kind, hhmm) {
   if (!hhmm) return; const [h, m] = hhmm.split(':').map(Number);
   const d = _wakeDefaults(); d[kind] = h * 60 + m;
@@ -5211,26 +5211,39 @@ function planDay(ds, opts = {}) {
   sessions = sessions.slice().sort((x, y) => (x.session.tag === 'run' ? 0 : 1) - (y.session.tag === 'run' ? 0 : 1));
   const SPEED_RUNS = ['Speed Run', 'Intervals'];
   const isLegs = sess => sess.tag === 'lower' || /\bLegs\b/i.test(sess.type);
+  // Sleep-friendly training times (Bryan Johnson-style): hard sessions finish by
+  // 16:30, everything else by 18:30. A hard session with no slot before 16:30
+  // becomes its easy version by 18:30 instead.
+  const HARD_BY = 16 * 60 + 30, TRAIN_BY = 18 * 60 + 30;
+  const isHardSess = sess => ['Speed Run', 'Intervals', 'Tempo Run', 'Long Run'].includes(sess.type) || (/Heavy/.test(sess.type) && !sess.lighter);
+  const easyVersion = sess => sess.tag === 'run' ? { ...sess, type: 'Easy Run', intensity: 'easy', swappedFrom: sess.type, lateSwap: true } : { ...sess, lighter: true, lateSwap: true };
+  const before = (lim, len, pickFn) => c => { const ok = c.filter(([st]) => st + len <= lim); return ok.length ? pickFn(ok) : null; };
   let runEnd = 0;
   // Speed day with legs: put them back to back (run, then legs) in the earliest slot that fits both.
   const speedS = sessions.find(x => SPEED_RUNS.includes(x.session.type));
   const legsS = sessions.find(x => isLegs(x.session));
   if (!longShift && speedS && legsS) {
     const rl = _runMinutes(speedS.session.type, ds), ll = 75;
-    const pair = take(rl + ll, c => c[0]);
+    const pair = take(rl + ll, before(HARD_BY, rl + ll, c => c[0]));
     if (pair) {
       blocks.push({ s: pair[0], e: pair[0] + rl, title: `${speedS.session.emoji} ${speedS.session.type}`, type: 'training', session: speedS.session, rain: rainAt(pair[0]) });
       blocks.push({ s: pair[0] + rl, e: pair[1], title: `${legsS.session.emoji} ${legsS.session.type}`, type: 'training', session: legsS.session });
       sessions = sessions.filter(x => x !== speedS && x !== legsS);
     }
   }
-  sessions.forEach(({ session }) => {
+  sessions.forEach(({ session: session0 }) => {
+    let session = session0;
     if (longShift) { blocks.push({ s: null, e: null, title: `${session.emoji} ${session.type}`, type: 'training-unplaced', session, why: 'long shift today — move it or make it a rest day' }); return; }
     const isRun = session.tag === 'run';
-    const len = isRun ? _runMinutes(session.type, ds) : session.tag === 'soccer' ? 60 : 75;
+    let len = isRun ? _runMinutes(session.type, ds) : session.tag === 'soccer' ? 60 : 75;
     let slot;
+    // Football and other fixed-time games keep their own times; everything else follows the cut-offs.
+    if (isHardSess(session) && !free.some(([a, b]) => Math.max(a, 0) + len <= Math.min(b, HARD_BY))) {
+      session = easyVersion(session); len = isRun ? _runMinutes(session.type, ds) : len;
+    }
+    const lim2 = session.tag === 'soccer' ? 24 * 60 : isHardSess(session) ? HARD_BY : TRAIN_BY;
     if (isRun) {
-      slot = take(len, c => {
+      slot = take(len, c0 => { const c = c0.filter(([st]) => st + len <= lim2); if (!c.length) return null;
         const morning = c.filter(([s]) => s + len <= firstBusy);
         if (morning.length) return morning[0];
         // Only move to a later slot if it's clearly drier (30+ points) and not late evening.
@@ -5242,11 +5255,11 @@ function planDay(ds, opts = {}) {
       });
     } else {
       const after = isLegs(session) ? runEnd : 0;
-      slot = take(len, c => c.find(([s]) => s >= Math.max(PLACEMENT_FREE_FROM, after)) || c.find(([s]) => s >= after) || c[c.length - 1]);
+      slot = take(len, c0 => { const c = c0.filter(([st]) => st + len <= lim2); if (!c.length) return null; return c.find(([s]) => s >= Math.max(PLACEMENT_FREE_FROM, after)) || c.find(([s]) => s >= after) || c[c.length - 1]; });
     }
     if (slot && isRun && SPEED_RUNS.includes(session.type)) runEnd = Math.max(runEnd, slot[1]);
     if (slot) blocks.push({ s: slot[0], e: slot[1], title: `${session.emoji} ${session.type}`, type: 'training', session, rain: isRun ? rainAt(slot[0]) : null });
-    else blocks.push({ s: null, e: null, title: `${session.emoji} ${session.type}`, type: 'training-unplaced', session });
+    else blocks.push({ s: null, e: null, title: `${session.emoji} ${session.type}`, type: 'training-unplaced', session, why: `no free slot before ${_hm(lim2)} — move it or make it a rest day` });
   });
   _earlyTasks.forEach(placeTask);
   flushPencils();
@@ -5274,6 +5287,10 @@ function planDay(ds, opts = {}) {
   } catch {}
   // Revision goes in your energy peaks when there's room there (see lfEnergyWindows).
   let _peaks = []; try { _peaks = lfEnergyWindows(ds).filter(w => w.kind === 'peak'); } catch {}
+  const REV_BY = 21 * 60 + 30; // no revision after 21:30, so the wind-down starts on time
+  const _freeAll = free;
+  free = free.map(([a, b]) => [a, Math.min(b, REV_BY)]).filter(([a, b]) => b - a >= 10);
+  const _revTail = _freeAll.filter(([a, b]) => b > REV_BY).map(([a, b]) => [Math.max(a, REV_BY), b]);
   while (queue.length) {
     const need = queue[0].min;
     const inPeak = free.map(([s, e]) => { const p = _peaks.find(pk => Math.max(s, pk.s) + need <= Math.min(e, pk.e)); return p ? [Math.max(s, p.s), e, s, p] : null; }).find(Boolean);
@@ -5291,6 +5308,7 @@ function planDay(ds, opts = {}) {
     // short break after a revision block
     free = free.map(([a, b]) => a === got[1] ? [a + 15, b] : [a, b]).filter(([a, b]) => b - a >= 20);
   }
+  free = free.concat(_revTail).sort((x, y) => x[0] - y[0]);
   // OSCE station of the day: 20 min after revision, until the "OSCE revision" habit is ticked.
   try {
     const own = _pm.osce.some(r => r.from === ds) ? [] : [ds];
@@ -5323,11 +5341,13 @@ function planDay(ds, opts = {}) {
     }
   } catch {}
   (opts.fillTasks || []).filter(t => !_earlyTasks.includes(t)).forEach(t => { const before = blocks.length; placeTask(t); if (blocks[before] && blocks[before].type === 'task-unplaced') blocks.pop(); });
+  // Caffeine cut-off at 12:00 (about 10h before bed).
+  if (wake < 12 * 60) blocks.push({ s: 12 * 60, e: 12 * 60, title: '☕ Last caffeine', type: 'wake', note: 'none after this, so it\'s out of your system by bed' });
   // Wind down, then asleep by the target (skipped if a shift or event runs into it, e.g. a night shift).
   try {
     const sb = sleepByFor(ds);
-    if (!hard.some(([a, b]) => a < sb.by && b > sb.by - 30)) {
-      blocks.push({ s: sb.by - 30, e: sb.by, title: '🌙 Wind down', type: 'wind', note: 'screens off, lights low' });
+    if (!hard.some(([a, b]) => a < sb.by && b > sb.by - 60)) {
+      blocks.push({ s: sb.by - 60, e: sb.by, title: '🌙 Wind down', type: 'wind', note: 'screens off, dim warm lights, read or stretch' });
       blocks.push({ s: sb.by, e: sb.by, title: '😴 Asleep', type: 'wake', note: sb.by < sb.target ? (sb.payback && sb.by === sb.target - 30 ? `30 min early to pay back sleep debt` : `earlier than your ${_hm(sb.target)} latest, for ${SLEEP_NEED_HOURS}h before ${_hm(sb.wake)}`) : `your latest · ${_hm(sb.wake)} wake tomorrow` });
     }
   } catch {}
@@ -5346,7 +5366,7 @@ function planBlocksHtml(plan, opts = {}) {
     if (b.type === 'training') {
       const shoe = (typeof getRunShoe === 'function') ? getRunShoe(b.session.type) : null;
       const st = (typeof getRunStructure === 'function') ? getRunStructure(b.session.type, plan.ds) : null;
-      sub = ['suggested', b.session.swappedFrom ? `instead of ${b.session.swappedFrom} (short sleep)` : '', b.session.lighter ? 'go lighter — short sleep' : '', st ? st.title : '', shoe ? `👟 ${shoe.short}` : '', b.rain != null ? `${b.rain}% rain` : ''].filter(Boolean).join(' · ');
+      sub = ['suggested', b.session.swappedFrom ? `instead of ${b.session.swappedFrom} (${b.session.lateSwap ? 'no slot before 16:30' : 'short sleep'})` : '', b.session.lateSwap && !b.session.swappedFrom ? 'kept lighter — no slot before 16:30' : '', b.session.lighter ? 'go lighter — short sleep' : '', st ? st.title : '', shoe ? `👟 ${shoe.short}` : '', b.rain != null ? `${b.rain}% rain` : ''].filter(Boolean).join(' · ');
     }
     if (b.type === 'training-unplaced') sub = b.why || 'no free slot today — move it to another day';
     if (b.type === 'revision') sub = 'suggested · ' + (b.peak ? `⚡ ${b.peak} · ` : '') + b.items.map(i => i.set && !i.catchup && !i.moved ? '30 questions' : i.text).join(', ');
@@ -13503,8 +13523,9 @@ function lfReminderTick() {
     const t = lfStrainTarget(ds);
     fire('am', '☀️ Good morning', `${t ? `Recovery ${t.recovery}%, strain target ${t.range[0]}–${t.range[1]}. ` : ''}${next ? `Next: ${next}. ` : ''}${sb ? `Asleep by ${_hm(sb.by)} tonight.` : ''}`);
   }
-  if (sb && now >= sb.by - 60 && now < sb.by - 30 && !_lfGet('shutdowns', {})[ds]) fire('sd', '🌙 Time to end the day', 'Open the dashboard: move anything unfinished, do the check-in and set tomorrow.');
-  if (sb && now >= sb.by - 30 && now < sb.by) fire('wd', '🌙 Wind down', `Screens off and lights low: asleep by ${_hm(sb.by)}.`);
+  if (now >= 11 * 60 + 45 && now < 12 * 60 + 30) fire('caf', '☕ Last caffeine', 'Caffeine cut-off is 12:00 — none after this so it\'s cleared by bedtime.');
+  if (sb && now >= sb.by - 90 && now < sb.by - 60 && !_lfGet('shutdowns', {})[ds]) fire('sd', '🌙 Time to end the day', 'Open the dashboard: move anything unfinished, do the check-in and set tomorrow.');
+  if (sb && now >= sb.by - 60 && now < sb.by) fire('wd', '🌙 Wind down', `Screens off, dim warm lights: asleep by ${_hm(sb.by)}.`);
 }
 function lfStartReminders() { if (window._lfRemTimer) return; window._lfRemTimer = setInterval(lfReminderTick, 60000); setTimeout(lfReminderTick, 5000); }
 
@@ -13531,7 +13552,7 @@ function lfHomeHtml(ds, isToday, labelStyle, sectionStyle) {
     const ws = lfWeekStart(ds);
     parts.push(`<div style="${sectionStyle}">${lfGoalsHtml(ws, labelStyle)}</div>`);
     parts.push(`<div style="${sectionStyle}">${lfAskHtml(labelStyle)}
-      <div style="font-size:11px;color:#A6937F;margin-top:6px">${lfRemindersOn() ? `🔔 Reminders on (morning summary, end of day, wind-down) while the dashboard is open · <a href="javascript:void(0)" onclick="lfDisableReminders()" style="color:#A6937F">turn off</a>` : `<a href="javascript:void(0)" onclick="lfEnableReminders()" style="color:#7A6656;font-weight:600">🔔 Turn on reminders</a> — morning summary, end of day and wind-down notifications while the dashboard is open`}</div>
+      <div style="font-size:11px;color:#A6937F;margin-top:6px">${lfRemindersOn() ? `🔔 Reminders on (morning summary, 12:00 caffeine cut-off, end of day, wind-down) while the dashboard is open · <a href="javascript:void(0)" onclick="lfDisableReminders()" style="color:#A6937F">turn off</a>` : `<a href="javascript:void(0)" onclick="lfEnableReminders()" style="color:#7A6656;font-weight:600">🔔 Turn on reminders</a> — morning summary, 12:00 caffeine cut-off, end of day and wind-down notifications while the dashboard is open`}</div>
     </div>`);
   }
   return parts.join('');
