@@ -2649,7 +2649,7 @@ const SYNC_KEYS = [
   'tasks_priority',
   'shopping_items',
   'notes_data',
-  'mood_log', 'habit_streaks', 'habit_reset_date',
+  'mood_log', 'habit_reset_date',
   'weight_goal', 'cst_grades', 'audit_cycle', 'ukmla_progress', 'macro_targets',
   'wardrobe_items', 'wardrobe_wears',
   'hm_race', 'hm_prediction_log', 'ukmla_scores', 'task_day_choices', 'day_lists', 'plan_moves', 'sleep_target', 'wake_defaults',
@@ -2665,17 +2665,27 @@ function setSyncTs(key, ts) {
   localStorage.setItem('sync_meta', JSON.stringify(meta));
 }
 
-async function syncPush(key, data) {
+// opts.merge: send only what changed; the server merges it into what's stored
+// (habit_log, daily_habits) and returns the merged result, which replaces the
+// local copy — unless a newer push for the same key has gone out since.
+const _syncSeq = {};
+async function syncPush(key, data, opts = {}) {
   const dot = document.getElementById('sync-dot');
   const ts = Date.now();
+  const seq = _syncSeq[key] = (_syncSeq[key] || 0) + 1;
   try {
     const res = await fetch(`/api/sync?key=${key}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data, _ts: ts })
+      body: JSON.stringify({ data, _ts: ts, ...(opts.merge ? { merge: true } : {}) })
     });
     if (!res.ok) throw new Error('sync push failed');
-    setSyncTs(key, ts);
+    const out = await res.json().catch(() => ({}));
+    if (opts.merge && out && out.data && seq === _syncSeq[key]) {
+      if (key === 'daily_habits' && out.data.date !== new Date().toLocaleDateString('en-CA')) { /* keep today's local state */ }
+      else localStorage.setItem(key, JSON.stringify(out.data));
+    }
+    setSyncTs(key, out && out._ts ? out._ts : ts);
     if (dot) dot.style.background = 'var(--accent)';
   } catch {
     if (dot) dot.style.background = 'var(--danger)';
@@ -2688,13 +2698,29 @@ async function syncPull(key) {
     const res = await fetch(`/api/sync?key=${key}`);
     if (!res.ok) return false;
     const remote = await res.json();
+    return _applyRemote(key, remote);
+  } catch { return false; }
+}
+function _applyRemote(key, remote) {
+  try {
     if (!remote) return false;
     const localTs = getSyncMeta()[key] || 0;
     if (remote._ts && remote._ts > localTs) {
       // For append-only log keys, merge remote + local so neither side loses entries.
       // Remote wins on conflicting individual dates, but local-only dates are kept.
       const MERGE_KEYS = new Set(['habit_log','rev_log','activity_notes','mood_log','pb_log','wardrobe_wears']);
-      if (MERGE_KEYS.has(key) && remote.data && typeof remote.data === 'object' && !Array.isArray(remote.data)) {
+      if (key === 'daily_habits' && remote.data && remote.data.date) {
+        // A copy from an earlier day never replaces today's ticks.
+        let local; try { local = JSON.parse(localStorage.getItem(key)); } catch { local = null; }
+        if (local && local.date && remote.data.date < local.date) { setSyncTs(key, remote._ts); return false; }
+        localStorage.setItem(key, JSON.stringify(remote.data));
+      } else if (key === 'habit_log' && remote.data && typeof remote.data === 'object' && !Array.isArray(remote.data)) {
+        // Per date and habit: the server copy wins, ticks only this device has are kept.
+        let local; try { local = JSON.parse(localStorage.getItem(key)) || {}; } catch { local = {}; }
+        const merged = { ...local };
+        Object.entries(remote.data).forEach(([d, t]) => { merged[d] = { ...(local[d] || {}), ...(t || {}) }; });
+        localStorage.setItem(key, JSON.stringify(merged));
+      } else if (MERGE_KEYS.has(key) && remote.data && typeof remote.data === 'object' && !Array.isArray(remote.data)) {
         let local;
         try { local = JSON.parse(localStorage.getItem(key)); } catch { local = null; }
         const merged = (local && typeof local === 'object' && !Array.isArray(local))
@@ -2711,9 +2737,19 @@ async function syncPull(key) {
   } catch { return false; }
 }
 
+// One request for every key (was one request per key — ~60 on each load).
 async function syncAll() {
-  const updated = await Promise.all(SYNC_KEYS.map(async k => (await syncPull(k)) ? k : null));
-  return updated.filter(Boolean);
+  try {
+    const res = await fetch(`/api/sync?keys=${SYNC_KEYS.join(',')}`);
+    if (!res.ok) throw new Error('batch failed');
+    const rows = await res.json();
+    const updated = [];
+    for (const k of SYNC_KEYS) if (rows[k] && _applyRemote(k, rows[k])) updated.push(k);
+    return updated;
+  } catch {
+    const updated = await Promise.all(SYNC_KEYS.map(async k => (await syncPull(k)) ? k : null));
+    return updated.filter(Boolean);
+  }
 }
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -3970,15 +4006,21 @@ const YR4_TRAVEL = [
 ];
 
 function getHabitLog() { try { return JSON.parse(localStorage.getItem('habit_log')) || {}; } catch { return {}; } }
-function saveHabitLog(log) { localStorage.setItem('habit_log', JSON.stringify(log)); syncPush('habit_log', log); }
+// changes: { date: { habitId: bool } } — only these are sent; the server merges
+// them, so another device's ticks (or a phone still showing yesterday) can't be lost.
+function saveHabitLog(log, changes) {
+  localStorage.setItem('habit_log', JSON.stringify(log));
+  if (changes) syncPush('habit_log', changes, { merge: true });
+}
 
-function saveHabits(data) {
+function saveHabits(data, changedId) {
   localStorage.setItem('daily_habits', JSON.stringify(data));
-  syncPush('daily_habits', data);
-  // Persist today's state to habit_log for history
   const log = getHabitLog();
-  log[data.date] = { ...data.ticked };
-  saveHabitLog(log);
+  log[data.date] = { ...(log[data.date] || {}), ...data.ticked };
+  if (changedId == null) { localStorage.setItem('habit_log', JSON.stringify(log)); return; } // new day: local only, nothing to send
+  const val = !!data.ticked[changedId];
+  syncPush('daily_habits', { date: data.date, ticked: { [changedId]: val } }, { merge: true });
+  saveHabitLog(log, { [data.date]: { [changedId]: val } });
 }
 function getHabits() {
   const today = new Date().toLocaleDateString('en-CA');
@@ -3994,7 +4036,7 @@ function toggleHabit(id) {
   const today = new Date().toLocaleDateString('en-CA');
   const ticked = getHabits();
   ticked[id] = !ticked[id];
-  saveHabits({ date: today, ticked });
+  saveHabits({ date: today, ticked }, id);
   recomputeAllStreaks(); // recompute from actual log after every toggle
   renderHabits();
   if (id === 'h-osce-2' && typeof _refreshPlan === 'function') _refreshPlan(); // OSCE block leaves the plan
@@ -4066,7 +4108,7 @@ function renderHabits() {
   // clear it from the saved log so counts and streaks agree with the list.
   if (ticked['h-calories'] && currentCaloriesKcal != null && currentCaloriesKcal > NUTRITION_GOALS.calories) {
     ticked['h-calories'] = false;
-    saveHabits({ date: today, ticked });
+    saveHabits({ date: today, ticked }, 'h-calories');
   }
 
   const currentProteinG = (typeof _healthValueOnDate === 'function') ? _healthValueOnDate('protein', today) : null;
@@ -10652,7 +10694,12 @@ function toggleHabitDaySquare(habitId, dateStr) {
   if (!confirm(`${verb} "${label}" for ${displayDate}?`)) return;
   if (!log[dateStr]) log[dateStr] = {};
   log[dateStr][habitId] = !current;
-  saveHabitLog(log);
+  saveHabitLog(log, { [dateStr]: { [habitId]: !current } });
+  if (dateStr === new Date().toLocaleDateString('en-CA')) { // keep the Home tracker in step
+    const t = getHabits(); t[habitId] = !current;
+    localStorage.setItem('daily_habits', JSON.stringify({ date: dateStr, ticked: t }));
+    syncPush('daily_habits', { date: dateStr, ticked: { [habitId]: !current } }, { merge: true });
+  }
   recomputeAllStreaks();
   renderHabitHistory();
   renderHabits();
@@ -10962,11 +11009,46 @@ if (initialised.dashboard) renderWeightTrend(); else pendingCharts.dashboard = r
 // _healthData itself is declared near the top of the script (see comment
 // there) — kept here only as the variable it's actually populated/used by.
 
+// The last health data is kept in IndexedDB, so the page (habits, sleep, plan)
+// can draw straight away on load and then update when the fresh copy arrives.
+function _healthCache(op, value) {
+  return new Promise(resolve => {
+    try {
+      const req = indexedDB.open('dash-cache', 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('kv');
+      req.onerror = () => resolve(null);
+      req.onsuccess = () => {
+        try {
+          const tx = req.result.transaction('kv', op === 'get' ? 'readonly' : 'readwrite');
+          const st = tx.objectStore('kv');
+          const r = op === 'get' ? st.get('health-data') : st.put(value, 'health-data');
+          r.onsuccess = () => resolve(op === 'get' ? r.result || null : true);
+          r.onerror = () => resolve(null);
+        } catch { resolve(null); }
+      };
+    } catch { resolve(null); }
+  });
+}
+let _healthFresh = false;
 async function fetchHealthData() {
+  // Cached copy first (if the network one isn't already here).
+  _healthCache('get').then(cached => {
+    if (cached && !_healthFresh && !_healthData) { _healthData = cached; try { _renderAfterHealth(); } catch (e) { console.warn(e); } }
+  });
   try {
     const res = await fetch('/api/health-data');
     if (!res.ok) return;
-    _healthData = await res.json();
+    const fresh = await res.json();
+    _healthFresh = true;
+    _healthData = fresh;
+    if (fresh) _healthCache('put', fresh);
+    _renderAfterHealth();
+  } catch (e) {
+    console.warn('Health data fetch failed', e);
+  }
+}
+function _renderAfterHealth() {
+  {
     if (_healthData) {
       renderHealthCard();
       syncHealthWeight();
@@ -10982,8 +11064,6 @@ async function fetchHealthData() {
       recomputeAllStreaks(); // health data (steps/sleep/weight) just arrived — stale streaks were computed before it existed
       renderHabits(); // re-render with updated auto habit state + sleep suggestion/wake times
     }
-  } catch (e) {
-    console.warn('Health data fetch failed', e);
   }
 }
 
