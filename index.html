@@ -11076,6 +11076,7 @@ function _renderAfterHealth() {
       renderSleepPerformanceLink();
       recomputeAllStreaks(); // health data (steps/sleep/weight) just arrived — stale streaks were computed before it existed
       renderHabits(); // re-render with updated auto habit state + sleep suggestion/wake times
+      if (typeof renderHabitHistory === 'function') renderHabitHistory(); // past days' steps/sleep/calories ticks
     }
   }
 }
@@ -13667,6 +13668,8 @@ async function main() {
 
     const acts = await fetchActivities(tokens);
     _acts = acts;
+    // Cardio/strength habit ticks come from Strava, which only arrives now.
+    try { recomputeAllStreaks(); renderHabits(); if (typeof renderHabitHistory === 'function') renderHabitHistory(); } catch {}
     renderWhoopStrain(); // refresh now that today's workouts are loaded
     renderWhoopMonitor(); // weekly rollup + fitness trend also depend on _acts
     if (initialised['whoop-fitness']) renderFitnessSubTab();
