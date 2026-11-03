@@ -144,18 +144,19 @@ async function handle(context) {
       // value is the sum of its points. Days stored before this change have
       // no points yet; the first sync that includes them rebuilds them.
       const touched = new Set();
-      // Days this export has data for. If it also has the day before, the export
-      // window started before this day, so it carries the whole day: that day's
+      // Days this export has data for. If it also has the days either side, the
+      // export window spans the whole day, so it carries all of it: that day's
       // stored entries are replaced, which drops entries deleted or edited at
       // source (e.g. a meal removed in MacroFactor) instead of counting them forever.
       const pdates = new Set((metric.data || []).map(pt => dateOnly(pt.date)).filter(Boolean));
-      const prevDay = ds => { const t = new Date(ds + 'T12:00:00Z'); t.setUTCDate(t.getUTCDate() - 1); return t.toISOString().slice(0, 10); };
+      const shiftDay = (ds, n) => { const t = new Date(ds + 'T12:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
       for (const point of (metric.data || [])) {
         const date = dateOnly(point.date);
         if (!date) continue;
         const value = pointValue(point);
         if (value === undefined) continue;
-        const covered = pdates.has(prevDay(date));
+        // Only when the export has the days either side too (so never today, which is still filling in).
+        const covered = pdates.has(shiftDay(date, -1)) && pdates.has(shiftDay(date, 1));
         const day = touched.has(date) ? byDate[date] : (!covered && byDate[date] && byDate[date].points ? byDate[date] : { points: {} });
         day.points[`${point.date}|${point.source || ''}`] = value;
         day.raw = point;

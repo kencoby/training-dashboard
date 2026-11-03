@@ -1,5 +1,9 @@
--- Applied 2026-10-30 to public.health_ingest (Supabase migration "health_ingest_replace_full_days"):
---  * SET statement_timeout TO '60s' (big Health Auto Export payloads were timing out)
---  * a day the export fully covers (it also has the day before) has its stored
---    entries replaced, so meals deleted/edited in MacroFactor drop out.
+-- public.health_ingest (Supabase):
+--  * 2026-10-30 "health_ingest_replace_full_days": SET statement_timeout TO '60s';
+--    a day the export fully covers has its stored entries replaced, so meals
+--    deleted/edited in MacroFactor drop out.
+--  * 2026-11-03 "health_ingest_replace_only_middle_days": "fully covers" now means
+--    the export also has the days either side. "Has the day before" alone matched
+--    syncs carrying late watch data from yesterday plus only today's newest
+--    entries, which wiped today's earlier entries (steps showed 143).
 -- Same rule as the Worker fallback in functions/api/health-intake.js.
