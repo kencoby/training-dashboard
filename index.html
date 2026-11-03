@@ -10206,7 +10206,17 @@ function renderDailyBriefing() {
 
   // ── Today's plan: schedule, weather notes, tasks that fit ──────────────
   if (typeof planDay === 'function') {
-    try { sections.push(`<div style="${sectionStyle}">${todayPlanHtml(todayDateStr, isToday, labelStyle, rowStyle)}</div>`); } catch (err) { console.warn('day plan failed', err); }
+    try {
+      const planHtml = todayPlanHtml(todayDateStr, isToday, labelStyle, rowStyle);
+      sections.push(`<div style="${sectionStyle}">${planHtml}</div>`);
+      // Phones hide the briefing column, so today's plan gets its own card at the top of Home there.
+      const mob = document.getElementById('priority-slot-mobile');
+      if (mob) {
+        const phone = typeof _isPhone === 'function' && _isPhone();
+        mob.innerHTML = phone ? planHtml : '';
+        mob.style.display = phone ? 'block' : 'none';
+      }
+    } catch (err) { console.warn('day plan failed', err); }
   }
   // Energy, check-in, goals, ask your data and the Sunday review go in the middle column (below training).
   const midSections = [];
@@ -10905,7 +10915,9 @@ function syncHeaderLayout() {
   const block = document.getElementById('priority-block'), mob = document.getElementById('priority-slot-mobile');
   const desk = document.getElementById('today-sections');
   if (block && mob && desk) {
-    mob.style.display = 'none'; // Top Priority box removed from Home — it's in the day plan; add tasks in Tasks
+    // On phones this slot holds today's plan (see renderDailyBriefing); elsewhere it's hidden.
+    if (!mobile) mob.style.display = 'none';
+    else if (!mob.innerHTML.trim()) { try { renderDailyBriefing(); } catch {} }
   }
 }
 window.addEventListener('resize', syncHeaderLayout);
