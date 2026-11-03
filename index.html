@@ -2712,14 +2712,27 @@ function _applyRemote(key, remote) {
       if (key === 'daily_habits' && remote.data && remote.data.date) {
         // A copy from an earlier day never replaces today's ticks.
         let local; try { local = JSON.parse(localStorage.getItem(key)); } catch { local = null; }
-        if (local && local.date && remote.data.date < local.date) { setSyncTs(key, remote._ts); return false; }
-        localStorage.setItem(key, JSON.stringify(remote.data));
+        if (local && local.date && remote.data.date < local.date) {
+          setSyncTs(key, remote._ts);
+          if (local.ticked && Object.keys(local.ticked).length) syncPush('daily_habits', local, { merge: true }); // server is behind: send today's ticks
+          return false;
+        }
+        if (local && local.date === remote.data.date && local.ticked) {
+          // Same day: keep ticks only this device has, and send them up.
+          const extra = Object.fromEntries(Object.entries(local.ticked).filter(([id]) => !(id in (remote.data.ticked || {}))));
+          localStorage.setItem(key, JSON.stringify({ date: local.date, ticked: { ...remote.data.ticked, ...extra } }));
+          if (Object.keys(extra).length) setTimeout(() => { syncPush('daily_habits', { date: local.date, ticked: extra }, { merge: true }); syncPush('habit_log', { [local.date]: extra }, { merge: true }); }, 0);
+        } else localStorage.setItem(key, JSON.stringify(remote.data));
       } else if (key === 'habit_log' && remote.data && typeof remote.data === 'object' && !Array.isArray(remote.data)) {
         // Per date and habit: the server copy wins, ticks only this device has are kept.
         let local; try { local = JSON.parse(localStorage.getItem(key)) || {}; } catch { local = {}; }
-        const merged = { ...local };
+        const merged = { ...local }, extra = {};
         Object.entries(remote.data).forEach(([d, t]) => { merged[d] = { ...(local[d] || {}), ...(t || {}) }; });
+        // Recent ticks only this device has (e.g. a push that failed) go back up.
+        const cut = new Date(Date.now() - 7 * 864e5).toLocaleDateString('en-CA');
+        Object.entries(local).forEach(([d, t]) => { if (d < cut || !t) return; const e = Object.fromEntries(Object.entries(t).filter(([id]) => !(id in ((remote.data[d]) || {})))); if (Object.keys(e).length) extra[d] = e; });
         localStorage.setItem(key, JSON.stringify(merged));
+        if (Object.keys(extra).length) setTimeout(() => syncPush('habit_log', extra, { merge: true }), 0);
       } else if (MERGE_KEYS.has(key) && remote.data && typeof remote.data === 'object' && !Array.isArray(remote.data)) {
         let local;
         try { local = JSON.parse(localStorage.getItem(key)); } catch { local = null; }

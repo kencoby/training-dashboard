@@ -71,7 +71,9 @@ export async function onRequest(context) {
     const ts = Date.now();
     let data = body.data !== undefined ? body.data : body;
     try {
-      if (MERGERS[key] && body.merge) {
+      // Always merged — also protects against an older copy of the page still open
+      // somewhere, which sends its whole list without the merge flag.
+      if (MERGERS[key]) {
         data = MERGERS[key](await sbGet(env, key), data);
         await sbSet(env, key, data);
         return json(200, { ok: true, _ts: ts, data });
