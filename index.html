@@ -3960,9 +3960,11 @@ const DAILY_HABITS = [
   { id: 'h-weight',    label: 'Weigh in',     auto: 'weight',      group: 'Tracked automatically' },
   { id: 'h-calories',  label: 'Under 2,183 kcal', auto: 'health-calories', group: 'Tracked automatically' },
   { id: 'h-protein',   label: '186g protein',     auto: 'health-protein',  group: 'Tracked automatically' },
-  { id: 'h-anki-100',       label: '100 Anki cards',   group: 'Study' },
-  { id: 'h-passmed-50',     label: '25 PassMed Qs',    group: 'Study' },
-  { id: 'h-osce-2',         label: 'OSCE revision',    group: 'Study' },
+  // Revision (Nov 2026). Ids kept for Anki/Passmed so their history and streaks carry on.
+  // The OSCE station is still ticked from its block in the day plan (h-osce-2).
+  { id: 'h-knowledge-tutor', label: 'Knowledge Tutor',        group: 'Revision' },
+  { id: 'h-passmed-50',      label: '25+ Passmed questions', group: 'Revision' },
+  { id: 'h-anki-100',        label: '100 Anki',              group: 'Revision' },
   { id: 'h-journal',   label: 'Journal',   group: 'Wellness' },
   { id: 'h-read',      label: 'Read',      group: 'Wellness' },
   { id: 'h-water-3l',  label: '3L water',  group: 'Wellness' },
@@ -3973,7 +3975,7 @@ const DAILY_HABITS = [
   { id: 'h-haircare',    label: 'Hair care',    group: 'Personal care' },
   { id: 'h-water-plants', label: 'Checked plants', group: 'Home' },
 ];
-const HABIT_GROUP_ORDER = ['Tracked automatically', 'Study', 'Wellness', 'Personal care', 'Home'];
+const HABIT_GROUP_ORDER = ['Tracked automatically', 'Revision', 'Wellness', 'Personal care', 'Home'];
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Year 4 placement calendar data (module-level so renderYear4Cal, the
