@@ -13663,7 +13663,13 @@ function _nutPoints(metric, ds) {
 }
 // Last time you ate (an entry of 25+ kcal) and last caffeine, as minutes after midnight.
 function lfFoodTimes(ds) {
-  const food = _nutPoints('dietary_energy', ds), caf = _nutPoints('caffeine', ds);
+  // A day runs 05:00–05:00 here, so a 01:00 snack counts as that night's late food, not the next day's.
+  const day = (metric) => {
+    const a = _nutPoints(metric, ds), b = _nutPoints(metric, _lfDay(ds, 1));
+    if (!a && !b) return null;
+    return [...(a || []).filter(p => p.min >= 5 * 60), ...(b || []).filter(p => p.min < 5 * 60).map(p => ({ ...p, min: p.min + 1440 }))];
+  };
+  const food = day('dietary_energy'), caf = day('caffeine');
   const big = food ? food.filter(p => p.v >= 100) : null;
   return {
     lastFood: big && big.length ? Math.max(...big.map(p => p.min)) : null,
@@ -13693,7 +13699,7 @@ function lfFoodTimingHtml(ds) {
   const t = lfFoodTimes(ds); if (t.lastFood == null && t.lastCaffeine == null) return '';
   const bed = _bedFor(ds), foodBy = bed - LF_FOOD_GAP;
   const ok = (good, txt) => `<span style="color:${good ? '#2D7A47' : '#C53030'};font-weight:600">${txt}</span>`;
-  return `<div style="font-size:12px;color:#7A6656;margin:2px 0 6px">${t.lastFood != null ? `🍽 Last food ${ok(t.lastFood <= foodBy, _hm(t.lastFood))} <span style="color:#A6937F">(by ${_hm(((foodBy % 1440) + 1440) % 1440)})</span>` : ''}${t.lastFood != null && t.lastCaffeine != null ? ' · ' : ''}${t.lastCaffeine != null ? `☕ last caffeine ${ok(t.lastCaffeine <= LF_CAFFEINE_BY, _hm(t.lastCaffeine))} <span style="color:#A6937F">(by 12:00)</span>` : t.hasFoodData ? '☕ no caffeine logged ✓' : ''}</div>`;
+  return `<div style="font-size:12px;color:#7A6656;margin:2px 0 6px">${t.lastFood != null ? `🍽 Last food ${ok(t.lastFood <= foodBy, _hm(t.lastFood % 1440))} <span style="color:#A6937F">(by ${_hm(((foodBy % 1440) + 1440) % 1440)})</span>` : ''}${t.lastFood != null && t.lastCaffeine != null ? ' · ' : ''}${t.lastCaffeine != null ? `☕ last caffeine ${ok(t.lastCaffeine <= LF_CAFFEINE_BY, _hm(t.lastCaffeine))} <span style="color:#A6937F">(by 12:00)</span>` : t.hasFoodData ? '☕ no caffeine logged ✓' : ''}</div>`;
 }
 // Hit rates over the last 14 days (Sleep page).
 function lfFoodTimingStats() {
