@@ -13,10 +13,16 @@ export async function onRequest(context) {
   if (request.method !== 'GET') return json(405, { error: 'Method not allowed' });
   try {
     const blob = await sbGet(env, 'blob:health-data');
+    // Food and caffeine keep their entry times for the last 14 days (small), so the
+    // dashboard can tell when you last ate and had caffeine each day.
+    const KEEP_POINTS = new Set(['dietary_energy', 'caffeine']);
+    const cut = new Date(Date.now() - 14 * 864e5).toISOString().slice(0, 10);
     if (blob && typeof blob === 'object') {
-      for (const m of Object.values(blob)) {
+      for (const [name, m] of Object.entries(blob)) {
         if (m && typeof m === 'object' && m.byDate && typeof m.byDate === 'object') {
-          for (const day of Object.values(m.byDate)) if (day && typeof day === 'object') delete day.points;
+          for (const [d, day] of Object.entries(m.byDate)) {
+            if (day && typeof day === 'object' && !(KEEP_POINTS.has(name) && d >= cut)) delete day.points;
+          }
         }
       }
     }
