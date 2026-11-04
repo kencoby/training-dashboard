@@ -3962,8 +3962,9 @@ const DAILY_HABITS = [
   { id: 'h-protein',   label: '186g protein',     auto: 'health-protein',  group: 'Tracked automatically' },
   // Revision (Nov 2026). Ids kept for Anki/Passmed so their history and streaks carry on.
   // OSCE revision shows today's station next to it, and ticks from the plan's OSCE block too.
+  { id: 'h-topics',          label: "Today's topics",        auto: 'ukmla-topics',  group: 'Revision' },
   { id: 'h-knowledge-tutor', label: 'Knowledge Tutor',        group: 'Revision' },
-  { id: 'h-passmed-50',      label: '25+ Passmed questions', group: 'Revision' },
+  { id: 'h-passmed-50',      label: '25+ Passmed questions', auto: 'passmed-score', group: 'Revision' },
   { id: 'h-anki-100',        label: '100 Anki',              group: 'Revision' },
   { id: 'h-osce-2',          label: 'OSCE revision',         group: 'Revision' },
   { id: 'h-journal',   label: 'Journal',   group: 'Wellness' },
@@ -4092,7 +4093,13 @@ function getAutoHabitStateOnDate(dateStr) {
     const tt = getTopTaskForDate(dateStr);
     topDone = !!(tt && tt.done);
   }
+  // Revision: today's high-yield topics all ticked on the UKMLA card; a Passmed score logged for the day.
+  const topics = (typeof ukmlaTopicsDone === 'function') ? ukmlaTopicsDone(dateStr) : null;
+  let passmedScored = false;
+  try { passmedScored = getUkmlaScores()[dateStr] != null; } catch {}
   return {
+    'h-topics':   !!(topics && topics.total && topics.done >= topics.total),
+    'h-passmed-50': passmedScored,
     'h-steps':    steps  != null && steps  >= STEP_GOAL,
     'h-sleep':    sleep  != null && sleep.totalSleep >= 8,
     'h-weight':   weight != null || loggedWeight,
@@ -4171,6 +4178,10 @@ function renderHabits() {
       ? `<span style="font-size:11px;color:${overCalGoal ? 'var(--danger)' : 'var(--text-faint)'};margin-left:5px">${currentCaloriesKcal.toLocaleString()} / ${NUTRITION_GOALS.calories.toLocaleString()} kcal</span>` : '';
     const proteinProgress = (h.id === 'h-protein' && currentProteinG != null)
       ? `<span style="font-size:11px;color:var(--text-faint);margin-left:5px">${Math.round(currentProteinG)} / ${getMacroTargets().protein}g</span>` : '';
+    const _tp = h.id === 'h-topics' && typeof ukmlaTopicsDone === 'function' ? ukmlaTopicsDone(today) : null;
+    const topicsNote = _tp && _tp.total ? `<span style="font-size:11px;color:var(--text-faint);margin-left:5px">${_tp.done} / ${_tp.total} on the UKMLA card</span>` : '';
+    const _ps = h.id === 'h-passmed-50' ? (() => { try { return getUkmlaScores()[today]; } catch { return null; } })() : null;
+    const passmedNote = h.id === 'h-passmed-50' ? `<span style="font-size:11px;color:var(--text-faint);margin-left:5px">${_ps != null ? `score ${_ps}% logged` : 'ticks when you log a score'}</span>` : '';
     const _osceSt = h.id === 'h-osce-2' && typeof ukmlaOsceFor === 'function' ? ukmlaOsceFor(today) : null;
     const osceNote = _osceSt ? `<span style="font-size:11px;color:var(--text-faint);margin-left:5px">— ${escHtml(_osceSt.title)}</span>` : '';
     const topTaskNote = (h.id === 'h-top-priority' && currentTopTask)
@@ -4183,7 +4194,7 @@ function renderHabits() {
     const sameGroupNext = i < ordered.length - 1 && ordered[i+1].group === h.group;
     return `${headerHtml}<div style="display:flex;align-items:center;gap:10px;padding:8px 0;${sameGroupNext?'border-bottom:1px solid var(--border-soft);':''}${isDone?'opacity:0.45':''}">
       <input type="checkbox" ${isDone?'checked':''} onchange="toggleHabit('${h.id}')" style="cursor:pointer;flex-shrink:0;accent-color:var(--accent)"/>
-      <span style="flex:1;font-size:13px;${isDone?'text-decoration:line-through;color:var(--text-faint)':''}">${h.label}${stepsProgress}${caloriesProgress}${proteinProgress}${topTaskNote}${osceNote}${syncedLabel}${missLabel}${streakLabel}</span>
+      <span style="flex:1;font-size:13px;${isDone?'text-decoration:line-through;color:var(--text-faint)':''}">${h.label}${stepsProgress}${caloriesProgress}${proteinProgress}${topTaskNote}${topicsNote}${passmedNote}${osceNote}${syncedLabel}${missLabel}${streakLabel}</span>
     </div>`;
   }).join(''));
   renderTrainingTodo();
@@ -6580,6 +6591,7 @@ function setUkmlaScore(date, val) {
   if (val === '' || isNaN(n)) delete s[date]; else s[date] = Math.max(0, Math.min(100, Math.round(n)));
   localStorage.setItem('ukmla_scores', JSON.stringify(s));
   syncPush('ukmla_scores', s);
+  try { recomputeAllStreaks(); renderHabits(); } catch {}
   renderUkmlaScores();
   const recap = UKMLA_REVISION_PLAN.find(d => d.date === UKMLA_RECAP_DATE);
   if (recap) renderUkmlaDay(UKMLA_RECAP_DATE);
@@ -6668,9 +6680,19 @@ function ukmlaFlatItems(day) {
 function getUkmlaProgress() {
   try { return JSON.parse(localStorage.getItem('ukmla_progress')) || {}; } catch { return {}; }
 }
+// High-yield topics for a plan day, and how many are ticked (bonus topics and the question set don't count).
+function ukmlaTopicsDone(ds) {
+  const day = (typeof UKMLA_REVISION_PLAN !== 'undefined') ? UKMLA_REVISION_PLAN.find(d => d.date === ds) : null;
+  if (!day) return null;
+  const ticked = getUkmlaProgress()[ds] || [];
+  let i = 0, total = 0, done = 0;
+  ukmlaGroups(day).forEach(g => g.items.forEach(() => { const idx = i++; if (g.subject && /High Yield/.test(g.subject)) { total++; if (ticked[idx]) done++; } }));
+  return { total, done };
+}
 function saveUkmlaProgress(progress) {
   localStorage.setItem('ukmla_progress', JSON.stringify(progress));
   syncPush('ukmla_progress', progress);
+  try { recomputeAllStreaks(); renderHabits(); } catch {}
 }
 function toggleUkmlaItem(date, idx) {
   const progress = getUkmlaProgress();
@@ -13648,6 +13670,7 @@ function applySyncUpdates(updated) {
   if (['checkins', 'life_status', 'sleep_payback', 'weekly_goals', 'experiments', 'shutdowns'].some(k => updated.includes(k))) safe(() => { _refreshPlan(); renderWhoopSleep(); if (updated.includes('life_status')) { recomputeAllStreaks(); renderHabits(); } });
   if (updated.includes('hm_race') || updated.includes('hm_prediction_log')) safe(renderHmPredictor);
   if (updated.includes('ukmla_scores')) safe(() => { renderUkmlaScores(); renderUkmlaPlan(); });
+  if (updated.includes('ukmla_scores') || updated.includes('ukmla_progress')) safe(() => { recomputeAllStreaks(); renderHabits(); });
   if (updated.includes('wardrobe_items') || updated.includes('wardrobe_wears')) safe(() => { if (typeof wdRender === 'function') wdRender(); });
   if (updated.includes('habit_reset_date') || updated.includes('habit_log') || updated.includes('habit_streaks')) safe(() => {
     recomputeAllStreaks();
