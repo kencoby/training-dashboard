@@ -5908,11 +5908,11 @@ renderAuditTracker();
 // dead code from before this plan existed and was removed 2026-09-26.)
 const UKMLA_REVISION_PLAN = [
   {
-    "date": "2026-10-26",
-    "label": "Cardiology: Acute presentations",
+    "date": "2026-11-04",
+    "label": "Cardiology + Respiratory",
     "groups": [
       {
-        "subject": "Cardiology \u2014 High Yield",
+        "subject": "Cardiology — High Yield",
         "items": [
           "Acute coronary syndromes (STEMI/NSTEMI/unstable angina)",
           "Atrial fibrillation & other arrhythmias",
@@ -5927,19 +5927,7 @@ const UKMLA_REVISION_PLAN = [
         ]
       },
       {
-        "subject": null,
-        "items": [
-          "Mixed Passmedicine set + Anki reviews"
-        ]
-      }
-    ]
-  },
-  {
-    "date": "2026-10-27",
-    "label": "Respiratory: Acute presentations",
-    "groups": [
-      {
-        "subject": "Respiratory \u2014 High Yield",
+        "subject": "Respiratory — High Yield",
         "items": [
           "Asthma (incl. acute severe/life-threatening)",
           "Pneumonia (community- & hospital-acquired)",
@@ -5962,11 +5950,11 @@ const UKMLA_REVISION_PLAN = [
     ]
   },
   {
-    "date": "2026-10-28",
-    "label": "Gastroenterology: Acute presentations",
+    "date": "2026-11-05",
+    "label": "Gastroenterology + Surgery",
     "groups": [
       {
-        "subject": "Gastroenterology \u2014 High Yield",
+        "subject": "Gastroenterology — High Yield",
         "items": [
           "Upper GI bleed",
           "Lower GI bleed",
@@ -5981,6 +5969,21 @@ const UKMLA_REVISION_PLAN = [
         ]
       },
       {
+        "subject": "Surgery — High Yield",
+        "items": [
+          "Acute abdomen (surgical causes)",
+          "Bowel obstruction & perforation",
+          "Hernias",
+          "Post-operative complications"
+        ]
+      },
+      {
+        "subject": "Bonus (lower yield)",
+        "items": [
+          "Diverticulitis"
+        ]
+      },
+      {
         "subject": null,
         "items": [
           "Mixed Passmedicine set + Anki reviews"
@@ -5989,11 +5992,11 @@ const UKMLA_REVISION_PLAN = [
     ]
   },
   {
-    "date": "2026-10-29",
+    "date": "2026-11-06",
     "label": "Renal & Urology",
     "groups": [
       {
-        "subject": "Renal & Urology \u2014 High Yield",
+        "subject": "Renal & Urology — High Yield",
         "items": [
           "Acute kidney injury",
           "Chronic kidney disease",
@@ -6019,11 +6022,11 @@ const UKMLA_REVISION_PLAN = [
     ]
   },
   {
-    "date": "2026-10-30",
-    "label": "Endocrinology: Diabetes & acute metabolic emergencies",
+    "date": "2026-11-07",
+    "label": "Endocrinology + Musculoskeletal",
     "groups": [
       {
-        "subject": "Endocrinology \u2014 High Yield",
+        "subject": "Endocrinology — High Yield",
         "items": [
           "Diabetic ketoacidosis & hyperosmolar hyperglycaemic state",
           "Type 2 diabetes management",
@@ -6038,46 +6041,7 @@ const UKMLA_REVISION_PLAN = [
         ]
       },
       {
-        "subject": null,
-        "items": [
-          "Mixed Passmedicine set + Anki reviews"
-        ]
-      }
-    ]
-  },
-  {
-    "date": "2026-10-31",
-    "label": "Neurology: Acute presentations",
-    "groups": [
-      {
-        "subject": "Neurology \u2014 High Yield",
-        "items": [
-          "Stroke & TIA",
-          "Seizures & status epilepticus",
-          "Meningitis & encephalitis",
-          "Subarachnoid haemorrhage"
-        ]
-      },
-      {
-        "subject": "Bonus (lower yield)",
-        "items": [
-          "Bell's palsy"
-        ]
-      },
-      {
-        "subject": null,
-        "items": [
-          "Mixed Passmedicine set + Anki reviews"
-        ]
-      }
-    ]
-  },
-  {
-    "date": "2026-11-01",
-    "label": "Musculoskeletal: Trauma & acute presentations",
-    "groups": [
-      {
-        "subject": "Musculoskeletal \u2014 High Yield",
+        "subject": "Musculoskeletal — High Yield",
         "items": [
           "Common fractures & orthopaedic injuries",
           "Back pain red flags (cauda equina syndrome)",
@@ -6100,11 +6064,26 @@ const UKMLA_REVISION_PLAN = [
     ]
   },
   {
-    "date": "2026-11-02",
-    "label": "Psychiatry: Mood, psychosis & risk",
+    "date": "2026-11-08",
+    "label": "Neurology + Psychiatry",
     "groups": [
       {
-        "subject": "Psychiatry \u2014 High Yield",
+        "subject": "Neurology — High Yield",
+        "items": [
+          "Stroke & TIA",
+          "Seizures & status epilepticus",
+          "Meningitis & encephalitis",
+          "Subarachnoid haemorrhage"
+        ]
+      },
+      {
+        "subject": "Bonus (lower yield)",
+        "items": [
+          "Bell's palsy"
+        ]
+      },
+      {
+        "subject": "Psychiatry — High Yield",
         "items": [
           "Depression & suicide risk assessment",
           "Anxiety disorders & OCD",
@@ -6127,11 +6106,11 @@ const UKMLA_REVISION_PLAN = [
     ]
   },
   {
-    "date": "2026-11-03",
-    "label": "Obstetrics: Antenatal complications",
+    "date": "2026-11-09",
+    "label": "Obstetrics + Paediatrics",
     "groups": [
       {
-        "subject": "Obstetrics \u2014 High Yield",
+        "subject": "Obstetrics — High Yield",
         "items": [
           "Pre-eclampsia & hypertension in pregnancy",
           "Gestational diabetes",
@@ -6146,6 +6125,21 @@ const UKMLA_REVISION_PLAN = [
         ]
       },
       {
+        "subject": "Paediatrics — High Yield",
+        "items": [
+          "Febrile child & paediatric sepsis",
+          "Croup & bronchiolitis",
+          "Safeguarding & non-accidental injury",
+          "Meningococcal disease"
+        ]
+      },
+      {
+        "subject": "Bonus (lower yield)",
+        "items": [
+          "Kawasaki disease"
+        ]
+      },
+      {
         "subject": null,
         "items": [
           "Mixed Passmedicine set + Anki reviews"
@@ -6154,11 +6148,11 @@ const UKMLA_REVISION_PLAN = [
     ]
   },
   {
-    "date": "2026-11-04",
+    "date": "2026-11-10",
     "label": "Gynaecology",
     "groups": [
       {
-        "subject": "Gynaecology \u2014 High Yield",
+        "subject": "Gynaecology — High Yield",
         "items": [
           "Ectopic pregnancy",
           "Miscarriage",
@@ -6184,38 +6178,11 @@ const UKMLA_REVISION_PLAN = [
     ]
   },
   {
-    "date": "2026-11-05",
-    "label": "Paediatrics: Acute & infectious presentations",
+    "date": "2026-11-11",
+    "label": "Haematology & Oncology + Infectious Disease",
     "groups": [
       {
-        "subject": "Paediatrics \u2014 High Yield",
-        "items": [
-          "Febrile child & paediatric sepsis",
-          "Croup & bronchiolitis",
-          "Safeguarding & non-accidental injury",
-          "Meningococcal disease"
-        ]
-      },
-      {
-        "subject": "Bonus (lower yield)",
-        "items": [
-          "Kawasaki disease"
-        ]
-      },
-      {
-        "subject": null,
-        "items": [
-          "Mixed Passmedicine set + Anki reviews"
-        ]
-      }
-    ]
-  },
-  {
-    "date": "2026-11-06",
-    "label": "Haematology & Oncology: Anaemia & malignancy",
-    "groups": [
-      {
-        "subject": "Haematology & Oncology \u2014 High Yield",
+        "subject": "Haematology & Oncology — High Yield",
         "items": [
           "Anaemia (iron / B12 / folate deficiency)",
           "Leukaemia red flags",
@@ -6230,19 +6197,7 @@ const UKMLA_REVISION_PLAN = [
         ]
       },
       {
-        "subject": null,
-        "items": [
-          "Mixed Passmedicine set + Anki reviews"
-        ]
-      }
-    ]
-  },
-  {
-    "date": "2026-11-07",
-    "label": "Infectious Disease: Core presentations",
-    "groups": [
-      {
-        "subject": "Infectious Disease \u2014 High Yield",
+        "subject": "Infectious Disease — High Yield",
         "items": [
           "Sepsis recognition & management",
           "Cellulitis & skin/soft tissue infection",
@@ -6265,11 +6220,11 @@ const UKMLA_REVISION_PLAN = [
     ]
   },
   {
-    "date": "2026-11-08",
+    "date": "2026-11-12",
     "label": "Dermatology",
     "groups": [
       {
-        "subject": "Dermatology \u2014 High Yield",
+        "subject": "Dermatology — High Yield",
         "items": [
           "Skin cancer red flags (melanoma, BCC, SCC)",
           "Eczema & psoriasis",
@@ -6294,11 +6249,11 @@ const UKMLA_REVISION_PLAN = [
     ]
   },
   {
-    "date": "2026-11-09",
+    "date": "2026-11-13",
     "label": "ENT & Ophthalmology",
     "groups": [
       {
-        "subject": "ENT & Ophthalmology \u2014 High Yield",
+        "subject": "ENT & Ophthalmology — High Yield",
         "items": [
           "Acute red eye & vision loss",
           "Acute angle-closure glaucoma",
@@ -6324,38 +6279,11 @@ const UKMLA_REVISION_PLAN = [
     ]
   },
   {
-    "date": "2026-11-10",
-    "label": "Surgery: Acute abdomen & complications",
-    "groups": [
-      {
-        "subject": "Surgery \u2014 High Yield",
-        "items": [
-          "Acute abdomen (surgical causes)",
-          "Bowel obstruction & perforation",
-          "Hernias",
-          "Post-operative complications"
-        ]
-      },
-      {
-        "subject": "Bonus (lower yield)",
-        "items": [
-          "Diverticulitis"
-        ]
-      },
-      {
-        "subject": null,
-        "items": [
-          "Mixed Passmedicine set + Anki reviews"
-        ]
-      }
-    ]
-  },
-  {
-    "date": "2026-11-11",
+    "date": "2026-11-14",
     "label": "Care of the Elderly & Palliative Care",
     "groups": [
       {
-        "subject": "Care of the Elderly & Palliative Care \u2014 High Yield",
+        "subject": "Care of the Elderly & Palliative Care — High Yield",
         "items": [
           "Falls & frailty assessment",
           "Delirium",
@@ -6380,11 +6308,11 @@ const UKMLA_REVISION_PLAN = [
     ]
   },
   {
-    "date": "2026-11-12",
+    "date": "2026-11-15",
     "label": "Pharmacology & Prescribing Safety",
     "groups": [
       {
-        "subject": "Pharmacology & Prescribing Safety \u2014 High Yield",
+        "subject": "Pharmacology & Prescribing Safety — High Yield",
         "items": [
           "High-risk prescribing (anticoagulants, opioids, insulin)",
           "Drug interactions & renal dosing",
@@ -6409,11 +6337,11 @@ const UKMLA_REVISION_PLAN = [
     ]
   },
   {
-    "date": "2026-11-13",
+    "date": "2026-11-16",
     "label": "Public Health, Ethics & Law",
     "groups": [
       {
-        "subject": "Public Health, Ethics & Law \u2014 High Yield",
+        "subject": "Public Health, Ethics & Law — High Yield",
         "items": [
           "Capacity & consent",
           "Safeguarding law & confidentiality",
@@ -6438,11 +6366,11 @@ const UKMLA_REVISION_PLAN = [
     ]
   },
   {
-    "date": "2026-11-14",
+    "date": "2026-11-17",
     "label": "Emergency Medicine & Resus",
     "groups": [
       {
-        "subject": "Emergency Medicine & Resus \u2014 High Yield",
+        "subject": "Emergency Medicine & Resus — High Yield",
         "items": [
           "Anaphylaxis",
           "ALS/BLS algorithms & peri-arrest arrhythmias",
@@ -6467,168 +6395,35 @@ const UKMLA_REVISION_PLAN = [
     ]
   },
   {
-    "date": "2026-11-15",
-    "label": "Cardiology + Respiratory (second pass)",
+    "date": "2026-11-18",
+    "label": "Cardiology, Respiratory, Gastroenterology, Endocrinology (second pass)",
     "groups": [
       {
-        "subject": "Cardiology \u2014 High Yield",
+        "subject": "Cardiology — High Yield",
         "items": [
           "Heart failure (acute & chronic)",
-          "Hypertension & hypertensive emergencies",
-          "Valvular heart disease",
-          "Infective endocarditis",
-          "Peripheral vascular disease"
+          "Hypertension & hypertensive emergencies"
         ]
       },
       {
-        "subject": "Respiratory \u2014 High Yield",
+        "subject": "Respiratory — High Yield",
         "items": [
           "Pneumothorax",
-          "Bronchiectasis",
-          "Lung cancer red flags",
-          "Interstitial lung disease",
-          "Respiratory failure (type 1 vs 2) & NIV"
+          "Bronchiectasis"
         ]
       },
       {
-        "subject": "Bonus (lower yield)",
-        "items": [
-          "Aortic dissection"
-        ]
-      },
-      {
-        "subject": "Bonus (lower yield)",
-        "items": [
-          "Obstructive sleep apnoea"
-        ]
-      },
-      {
-        "subject": null,
-        "items": [
-          "Mixed Passmedicine set + Anki reviews"
-        ]
-      }
-    ]
-  },
-  {
-    "date": "2026-11-16",
-    "label": "Gastroenterology + Endocrinology (second pass)",
-    "groups": [
-      {
-        "subject": "Gastroenterology \u2014 High Yield",
+        "subject": "Gastroenterology — High Yield",
         "items": [
           "Inflammatory bowel disease (Crohn's / UC)",
-          "Acute cholecystitis & cholangitis",
-          "Liver cirrhosis & complications (ascites, varices, encephalopathy)",
-          "Bowel obstruction",
-          "Acute & chronic pancreatitis"
+          "Acute cholecystitis & cholangitis"
         ]
       },
       {
-        "subject": "Endocrinology \u2014 High Yield",
+        "subject": "Endocrinology — High Yield",
         "items": [
           "Thyroid disease (hypo/hyperthyroidism, thyroid storm)",
-          "Addison's disease & adrenal crisis",
-          "Cushing's syndrome",
-          "Calcium disorders (hyper/hypocalcaemia)"
-        ]
-      },
-      {
-        "subject": "Bonus (lower yield)",
-        "items": [
-          "Coeliac disease"
-        ]
-      },
-      {
-        "subject": "Bonus (lower yield)",
-        "items": [
-          "Phaeochromocytoma"
-        ]
-      },
-      {
-        "subject": null,
-        "items": [
-          "Mixed Passmedicine set + Anki reviews"
-        ]
-      }
-    ]
-  },
-  {
-    "date": "2026-11-17",
-    "label": "Neurology + Musculoskeletal (second pass)",
-    "groups": [
-      {
-        "subject": "Neurology \u2014 High Yield",
-        "items": [
-          "Multiple sclerosis",
-          "Parkinson's disease",
-          "Headache red flags (incl. raised ICP)",
-          "Peripheral neuropathy & Guillain-Barr\u00e9 syndrome",
-          "Spinal cord compression"
-        ]
-      },
-      {
-        "subject": "Musculoskeletal \u2014 High Yield",
-        "items": [
-          "Inflammatory arthritis (rheumatoid arthritis)",
-          "Osteoarthritis",
-          "Osteoporosis & fragility fractures",
-          "Vasculitis (giant cell arteritis / polymyalgia rheumatica)",
-          "Gout & pseudogout"
-        ]
-      },
-      {
-        "subject": "Bonus (lower yield)",
-        "items": [
-          "Myasthenia gravis"
-        ]
-      },
-      {
-        "subject": "Bonus (lower yield)",
-        "items": [
-          "Fibromyalgia"
-        ]
-      },
-      {
-        "subject": null,
-        "items": [
-          "Mixed Passmedicine set + Anki reviews"
-        ]
-      }
-    ]
-  },
-  {
-    "date": "2026-11-18",
-    "label": "Psychiatry + Obstetrics (second pass)",
-    "groups": [
-      {
-        "subject": "Psychiatry \u2014 High Yield",
-        "items": [
-          "Bipolar affective disorder",
-          "Delirium vs dementia",
-          "Eating disorders (physical complications)",
-          "Alcohol & substance withdrawal"
-        ]
-      },
-      {
-        "subject": "Obstetrics \u2014 High Yield",
-        "items": [
-          "Postpartum haemorrhage",
-          "Labour & delivery complications (failure to progress, malpresentation)",
-          "Venous thromboembolism in pregnancy",
-          "Obstetric cholestasis"
-        ]
-      },
-      {
-        "subject": "Bonus (lower yield)",
-        "items": [
-          "Personality disorders"
-        ]
-      },
-      {
-        "subject": "Bonus (lower yield)",
-        "items": [
-          "Perineal trauma & repair"
+          "Addison's disease & adrenal crisis"
         ]
       },
       {
@@ -6641,38 +6436,34 @@ const UKMLA_REVISION_PLAN = [
   },
   {
     "date": "2026-11-19",
-    "label": "Paediatrics + Haematology & Oncology (second pass)",
+    "label": "Neurology, Musculoskeletal, Psychiatry, Obstetrics (second pass)",
     "groups": [
       {
-        "subject": "Paediatrics \u2014 High Yield",
+        "subject": "Neurology — High Yield",
         "items": [
-          "Neonatal jaundice",
-          "Congenital heart disease red flags",
-          "Developmental milestones & delay",
-          "Common paediatric rashes",
-          "Febrile seizures"
+          "Multiple sclerosis",
+          "Parkinson's disease"
         ]
       },
       {
-        "subject": "Haematology & Oncology \u2014 High Yield",
+        "subject": "Musculoskeletal — High Yield",
         "items": [
-          "Neutropenic sepsis",
-          "Metastatic spinal cord compression",
-          "Sickle cell crisis",
-          "Bleeding disorders & anticoagulation",
-          "Blood transfusion reactions"
+          "Inflammatory arthritis (rheumatoid arthritis)",
+          "Osteoarthritis"
         ]
       },
       {
-        "subject": "Bonus (lower yield)",
+        "subject": "Psychiatry — High Yield",
         "items": [
-          "Cystic fibrosis"
+          "Bipolar affective disorder",
+          "Delirium vs dementia"
         ]
       },
       {
-        "subject": "Bonus (lower yield)",
+        "subject": "Obstetrics — High Yield",
         "items": [
-          "Tumour lysis syndrome"
+          "Postpartum haemorrhage",
+          "Labour & delivery complications (failure to progress, malpresentation)"
         ]
       },
       {
@@ -6685,36 +6476,34 @@ const UKMLA_REVISION_PLAN = [
   },
   {
     "date": "2026-11-20",
-    "label": "Infectious Disease + Surgery (second pass)",
+    "label": "Paediatrics, Haematology & Oncology, Infectious Disease, Surgery (second pass)",
     "groups": [
       {
-        "subject": "Infectious Disease \u2014 High Yield",
+        "subject": "Paediatrics — High Yield",
+        "items": [
+          "Neonatal jaundice",
+          "Congenital heart disease red flags"
+        ]
+      },
+      {
+        "subject": "Haematology & Oncology — High Yield",
+        "items": [
+          "Neutropenic sepsis",
+          "Metastatic spinal cord compression"
+        ]
+      },
+      {
+        "subject": "Infectious Disease — High Yield",
         "items": [
           "Notifiable diseases & travel/tropical health",
-          "Antimicrobial prescribing principles",
-          "Hospital-acquired infections (C. difficile, MRSA)",
-          "Infective endocarditis prophylaxis & management"
+          "Antimicrobial prescribing principles"
         ]
       },
       {
-        "subject": "Surgery \u2014 High Yield",
+        "subject": "Surgery — High Yield",
         "items": [
           "Major trauma & ATLS principles",
-          "Burns management",
-          "Vascular emergencies (ruptured AAA, acute limb ischaemia)",
-          "Surgical site infection & wound care"
-        ]
-      },
-      {
-        "subject": "Bonus (lower yield)",
-        "items": [
-          "Needlestick injury management"
-        ]
-      },
-      {
-        "subject": "Bonus (lower yield)",
-        "items": [
-          "Abdominal compartment syndrome"
+          "Burns management"
         ]
       },
       {
@@ -6730,7 +6519,7 @@ const UKMLA_REVISION_PLAN = [
     "label": "Cross-system high-yield recap",
     "groups": [
       {
-        "subject": "Recap \u2014 High Yield",
+        "subject": "Recap — High Yield",
         "items": [
           "Red-flag recap: chest pain, headache, abdominal pain, breathlessness",
           "Common prescribing errors to avoid"
@@ -6860,6 +6649,19 @@ function ukmlaFlatItems(day) {
     setTimeout(() => { if (typeof syncPush === 'function') { syncPush('ukmla_progress', prog); syncPush('ukmla_scores', {}); } }, 3000);
   } catch {}
 })();
+// Plan restarted again from Wed 4 Nov 2026 (14 first-pass days + 3 second-pass
+// days, recap 21 Nov): one-off clear of all ticks and scores since 20 Oct.
+(function ukmlaRestart20261104() {
+  try {
+    if (localStorage.getItem('ukmla_restart_2026_11_04')) return;
+    const prog = JSON.parse(localStorage.getItem('ukmla_progress') || '{}') || {};
+    Object.keys(prog).forEach(k => { if (k >= '2026-10-20') delete prog[k]; });
+    localStorage.setItem('ukmla_progress', JSON.stringify(prog));
+    localStorage.setItem('ukmla_scores', '{}');
+    localStorage.setItem('ukmla_restart_2026_11_04', '1');
+    setTimeout(() => { if (typeof syncPush === 'function') { syncPush('ukmla_progress', prog); syncPush('ukmla_scores', {}); } }, 3000);
+  } catch {}
+})();
 function getUkmlaProgress() {
   try { return JSON.parse(localStorage.getItem('ukmla_progress')) || {}; } catch { return {}; }
 }
@@ -6892,33 +6694,24 @@ function ukmlaDayDoneCount(day, progress) {
 // "OSCE revision" habit, and as a 20-min block in the day plan until the
 // habit is ticked.
 const UKMLA_OSCE_STATIONS = {
-  '2026-10-26': { type: 'A–E assessment', title: 'Acute chest pain: suspected ACS', focus: ['12-lead ECG: STEMI criteria and territories', 'Immediate management and when to call for primary PCI', "Don't miss: aortic dissection, PE, pericarditis"] },
-  '2026-10-27': { type: 'A–E assessment', title: 'Acutely breathless patient: acute severe asthma', focus: ['Grade severity: moderate, acute severe, life-threatening', 'Stepwise treatment and when to escalate to seniors/ITU', 'ABG: a normal or rising CO₂ is a life-threatening sign'] },
-  '2026-10-28': { type: 'A–E assessment', title: 'Haematemesis: upper GI bleed', focus: ['Resuscitation: two large-bore cannulae, cross-match, major haemorrhage protocol', 'Glasgow-Blatchford score before endoscopy, Rockall after', 'Suspected variceal bleed: terlipressin and antibiotics'] },
-  '2026-10-29': { type: 'Data interpretation', title: 'Rising creatinine on the ward: AKI', focus: ['KDIGO staging by creatinine and urine output', 'Pre-renal, renal and post-renal causes; bladder scan', 'Review nephrotoxic drugs; check potassium and ECG'] },
-  '2026-10-30': { type: 'A–E assessment', title: 'Unwell patient with diabetes: DKA', focus: ['Diagnosis: ketones ≥3 mmol/L, glucose >11 mmol/L or known diabetes, pH <7.3 and/or bicarbonate <15', 'Fluids, fixed-rate insulin infusion, potassium monitoring', 'Find the precipitant; DKA vs HHS'] },
-  '2026-10-31': { type: 'Examination', title: 'Cranial nerve and limb exam: suspected stroke', focus: ['UMN vs LMN facial weakness (forehead sparing vs Bell’s palsy)', 'Thrombolysis within 4.5 h of onset once CT excludes haemorrhage', 'TIA: risk assessment and specialist review'] },
-  '2026-11-01': { type: 'History + examination', title: 'Back pain with red flags: cauda equina', focus: ['Saddle anaesthesia, bladder/bowel change, bilateral sciatica', 'Lower-limb neuro exam incl. perianal sensation', 'Emergency MRI and same-day referral'] },
-  '2026-11-02': { type: 'Communication', title: 'Suicide risk assessment after an overdose', focus: ['Intent, planning, final acts, regret', 'Risk and protective factors', 'Safety plan and crisis team follow-up'] },
-  '2026-11-03': { type: 'History', title: 'Headache at 34 weeks: pre-eclampsia', focus: ['Headache, visual disturbance, RUQ/epigastric pain, oedema', 'BP ≥140/90 after 20 weeks plus proteinuria or organ dysfunction', 'Severe features: admit, antihypertensives, magnesium sulphate'] },
-  '2026-11-04': { type: 'History', title: 'Abdominal pain and PV bleeding: ectopic pregnancy', focus: ['Pregnancy test in anyone of reproductive age', 'Risk factors: previous ectopic, PID, IUD, IVF', 'Haemodynamic stability, TVUS and serum hCG'] },
-  '2026-11-05': { type: 'History (from parent)', title: 'Febrile child', focus: ['NICE traffic-light system', 'Non-blanching rash: think meningococcal disease', 'Clear safety-netting advice'] },
-  '2026-11-06': { type: 'History', title: 'Tiredness: anaemia work-up', focus: ['Microcytic vs macrocytic: what to ask and test', 'Iron deficiency: look for GI blood loss and know urgent referral criteria', 'Red flags for leukaemia/lymphoma: B symptoms, nodes, bruising'] },
-  '2026-11-07': { type: 'A–E assessment', title: 'Febrile, hypotensive patient: sepsis', focus: ['NEWS2 and sepsis red flags', 'Sepsis Six within the hour', 'Find the source and escalate early'] },
-  '2026-11-08': { type: 'Examination', title: 'Pigmented skin lesion', focus: ['Describe it systematically (site, size, shape, colour, border)', 'ABCDE and the 7-point checklist', 'Explain a 2-week-wait referral'] },
-  '2026-11-09': { type: 'Examination', title: 'Painful red eye', focus: ['Visual acuity, pupils, fluorescein, fundoscopy', 'Acute angle-closure: halos, fixed mid-dilated pupil, hard eye', 'Same-day ophthalmology vs GP management'] },
-  '2026-11-10': { type: 'Examination', title: 'Abdominal exam: acute abdomen / bowel obstruction', focus: ['Peritonism and hernial orifices', 'NBM, IV fluids, NG tube', 'Imaging and common causes: adhesions, hernia, malignancy'] },
-  '2026-11-11': { type: 'Collateral history + assessment', title: 'Confused older patient: delirium', focus: ['4AT', 'Precipitants: infection, drugs, pain, constipation, retention, dehydration', 'Non-drug management first'] },
-  '2026-11-12': { type: 'Data interpretation', title: 'Paracetamol overdose', focus: ['Timed level from 4 h against the treatment line', 'Staggered or uncertain timing: treat regardless of level', 'Acetylcysteine and when to involve liver services'] },
-  '2026-11-13': { type: 'Communication', title: 'Breaking bad news', focus: ['SPIKES structure', 'Warning shot, silence, check understanding', 'Agree a plan and support'] },
-  '2026-11-14': { type: 'A–E assessment', title: 'Anaphylaxis', focus: ['Recognise it: airway/breathing/circulation problem plus skin changes', 'IM adrenaline into the anterolateral thigh; repeat after 5 min if needed', 'Mast cell tryptase, observation and adrenaline auto-injector training'] },
-  '2026-11-15': { type: 'Examination', title: 'Cardiovascular exam: murmurs', focus: ['Aortic stenosis vs mitral regurgitation', 'Signs of heart failure', 'Peripheral stigmata of infective endocarditis'] },
-  '2026-11-16': { type: 'Examination', title: 'Abdominal exam: chronic liver disease', focus: ['Stigmata: palmar erythema, spider naevi, asterixis, ascites', 'Complications: varices, SBP, encephalopathy', 'Common causes and how to investigate'] },
-  '2026-11-17': { type: 'Examination', title: 'Hand exam: rheumatoid vs osteoarthritis', focus: ['Look, feel, move, function', 'Joint distribution and deformities', 'Extra-articular features'] },
-  '2026-11-18': { type: 'History', title: 'Alcohol history and withdrawal', focus: ['AUDIT/CAGE and drinking pattern', 'Withdrawal timeline and delirium tremens', 'Benzodiazepine regime and IV thiamine (Wernicke’s)'] },
-  '2026-11-19': { type: 'A–E assessment', title: 'Unwell patient on chemotherapy: neutropenic sepsis', focus: ['Suspect it in any unwell patient on chemo', 'Empirical IV antibiotics within 1 h; don’t wait for the FBC', 'Escalate early'] },
-  '2026-11-20': { type: 'Examination', title: 'Peripheral vascular exam: acute limb ischaemia', focus: ['The 6 Ps', 'ABPI basics', 'Urgent vascular referral'] },
-  '2026-11-21': { type: 'Mock circuit', title: '3 timed stations: chest pain history, ABG, prescribing', focus: ['12 minutes each', 'Practise an opening and a summary', 'Time management'] },
+  '2026-11-04': {"type":"A–E assessment","title":"Acute chest pain: suspected ACS","focus":["12-lead ECG: STEMI criteria and territories","Immediate management and when to call for primary PCI","Don't miss: aortic dissection, PE, pericarditis"]},
+  '2026-11-05': {"type":"A–E assessment","title":"Haematemesis: upper GI bleed","focus":["Resuscitation: two large-bore cannulae, cross-match, major haemorrhage protocol","Glasgow-Blatchford score before endoscopy, Rockall after","Suspected variceal bleed: terlipressin and antibiotics"]},
+  '2026-11-06': {"type":"Data interpretation","title":"Rising creatinine on the ward: AKI","focus":["KDIGO staging by creatinine and urine output","Pre-renal, renal and post-renal causes; bladder scan","Review nephrotoxic drugs; check potassium and ECG"]},
+  '2026-11-07': {"type":"A–E assessment","title":"Unwell patient with diabetes: DKA","focus":["Diagnosis: ketones ≥3 mmol/L, glucose >11 mmol/L or known diabetes, pH <7.3 and/or bicarbonate <15","Fluids, fixed-rate insulin infusion, potassium monitoring","Find the precipitant; DKA vs HHS"]},
+  '2026-11-08': {"type":"Examination","title":"Cranial nerve and limb exam: suspected stroke","focus":["UMN vs LMN facial weakness (forehead sparing vs Bell’s palsy)","Thrombolysis within 4.5 h of onset once CT excludes haemorrhage","TIA: risk assessment and specialist review"]},
+  '2026-11-09': {"type":"History","title":"Headache at 34 weeks: pre-eclampsia","focus":["Headache, visual disturbance, RUQ/epigastric pain, oedema","BP ≥140/90 after 20 weeks plus proteinuria or organ dysfunction","Severe features: admit, antihypertensives, magnesium sulphate"]},
+  '2026-11-10': {"type":"History","title":"Abdominal pain and PV bleeding: ectopic pregnancy","focus":["Pregnancy test in anyone of reproductive age","Risk factors: previous ectopic, PID, IUD, IVF","Haemodynamic stability, TVUS and serum hCG"]},
+  '2026-11-11': {"type":"History","title":"Tiredness: anaemia work-up","focus":["Microcytic vs macrocytic: what to ask and test","Iron deficiency: look for GI blood loss and know urgent referral criteria","Red flags for leukaemia/lymphoma: B symptoms, nodes, bruising"]},
+  '2026-11-12': {"type":"Examination","title":"Pigmented skin lesion","focus":["Describe it systematically (site, size, shape, colour, border)","ABCDE and the 7-point checklist","Explain a 2-week-wait referral"]},
+  '2026-11-13': {"type":"Examination","title":"Painful red eye","focus":["Visual acuity, pupils, fluorescein, fundoscopy","Acute angle-closure: halos, fixed mid-dilated pupil, hard eye","Same-day ophthalmology vs GP management"]},
+  '2026-11-14': {"type":"Collateral history + assessment","title":"Confused older patient: delirium","focus":["4AT","Precipitants: infection, drugs, pain, constipation, retention, dehydration","Non-drug management first"]},
+  '2026-11-15': {"type":"Data interpretation","title":"Paracetamol overdose","focus":["Timed level from 4 h against the treatment line","Staggered or uncertain timing: treat regardless of level","Acetylcysteine and when to involve liver services"]},
+  '2026-11-16': {"type":"Communication","title":"Breaking bad news","focus":["SPIKES structure","Warning shot, silence, check understanding","Agree a plan and support"]},
+  '2026-11-17': {"type":"A–E assessment","title":"Anaphylaxis","focus":["Recognise it: airway/breathing/circulation problem plus skin changes","IM adrenaline into the anterolateral thigh; repeat after 5 min if needed","Mast cell tryptase, observation and adrenaline auto-injector training"]},
+  '2026-11-18': {"type":"Examination","title":"Cardiovascular exam: murmurs","focus":["Aortic stenosis vs mitral regurgitation","Signs of heart failure","Peripheral stigmata of infective endocarditis"]},
+  '2026-11-19': {"type":"Examination","title":"Hand exam: rheumatoid vs osteoarthritis","focus":["Look, feel, move, function","Joint distribution and deformities","Extra-articular features"]},
+  '2026-11-20': {"type":"A–E assessment","title":"Unwell patient on chemotherapy: neutropenic sepsis","focus":["Suspect it in any unwell patient on chemo","Empirical IV antibiotics within 1 h; don’t wait for the FBC","Escalate early"]},
+  '2026-11-21': {"type":"Mock circuit","title":"3 timed stations: chest pain history, ABG, prescribing","focus":["12 minutes each","Practise an opening and a summary","Time management"]},
 };
 function ukmlaOsceFor(ds) { return UKMLA_OSCE_STATIONS[ds] || null; }
 function _osceDoneOn(ds) {
