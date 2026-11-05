@@ -28,13 +28,22 @@ function analyzeExercise(sets) {
   return { verdict: 'hold', nextWeight: maxW, note: `Reps dropped at ${maxW}kg (${reps.join('/')}) — hold and chase reps.` };
 }
 
-async function fetchRecentSessions(apiKey, pageSize) {
-  const res = await fetch(`${API_BASE}/workouts?page=1&pageSize=${pageSize}`, {
-    headers: { 'api-key': apiKey, accept: 'application/json' }
-  });
-  if (!res.ok) throw new Error(`Hevy API error ${res.status}`);
-  const data = await res.json();
-  return data.workouts || [];
+// Hevy's /workouts endpoint returns at most 10 workouts per page (a larger
+// pageSize is a 400), so bigger requests are fetched page by page.
+async function fetchRecentSessions(apiKey, count) {
+  const out = [];
+  for (let page = 1; out.length < count && page <= 10; page++) {
+    const res = await fetch(`${API_BASE}/workouts?page=${page}&pageSize=${Math.min(10, count - out.length)}`, {
+      headers: { 'api-key': apiKey, accept: 'application/json' }
+    });
+    if (res.status === 404 && page > 1) break; // past the last page
+    if (!res.ok) throw new Error(`Hevy API error ${res.status}`);
+    const data = await res.json();
+    const ws = data.workouts || [];
+    out.push(...ws);
+    if (ws.length < 10 || (data.page_count && page >= data.page_count)) break;
+  }
+  return out;
 }
 
 function analyzeSessions(workouts) {

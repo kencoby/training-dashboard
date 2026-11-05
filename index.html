@@ -6999,6 +6999,25 @@ const DATED_PLAN_TARGETS = [{"week":1,"dates":"Nov 2-8","tt":"8 x 400m (no TT)",
 
 // Weekly targets card (Training → Overview). Actual results are typed in and synced as plan_results.
 function _planResults() { try { return JSON.parse(localStorage.getItem('plan_results')) || {}; } catch { return {}; } }
+// Actual results for a plan week, read automatically: the 5K time is the fastest
+// Strava "5K" best effort in that week (only efforts within 2 min of the target
+// count, so an easy 5 km isn't taken for a time trial); the bench single is the
+// heaviest flat barbell bench set logged in Hevy that week. Falls back to any
+// value saved earlier in plan_results.
+function _planWeekRange(w) { const ds = Object.keys(DATED_PLAN).filter(d => DATED_PLAN[d].week === w).sort(); return ds.length ? [ds[0], ds[ds.length - 1]] : null; }
+function planActual(w, ttTarget) {
+  const rg = _planWeekRange(w), saved = _planResults()[w] || {}, out = { tt: null, ttDate: null, single: null, singleDate: null };
+  if (rg) {
+    const tgt = _mmss(ttTarget);
+    try { Object.values(_bestEffortsCache()).forEach(e => { const t = e && e.efforts && e.efforts['5K']; if (!t || !e.date || e.date < rg[0] || e.date > rg[1]) return; if (tgt != null && t > tgt + 120) return; if (out.tt == null || t < out.tt) { out.tt = t; out.ttDate = e.date; } }); } catch {}
+    (_plannerHevySessions || []).forEach(s => { if (!s.date || s.date < rg[0] || s.date > rg[1]) return;
+      (s.exercises || []).forEach(ex => { if (!/bench press/i.test(ex.title) || /incline|decline|dumbbell|close|machine|floor/i.test(ex.title)) return;
+        (ex.sets || []).forEach(st => { if (typeof st.weight === 'number' && (st.reps || 0) >= 1 && (out.single == null || st.weight > out.single)) { out.single = st.weight; out.singleDate = s.date; } }); }); });
+  }
+  if (out.tt == null && _mmss(saved.tt) != null) { out.tt = _mmss(saved.tt); out.ttSaved = true; }
+  if (out.single == null && saved.single != null && !isNaN(parseFloat(saved.single))) { out.single = parseFloat(saved.single); out.singleSaved = true; }
+  return out;
+}
 function setPlanResult(week, field, val) {
   const r = _planResults(); r[week] = { ...(r[week] || {}), [field]: (val || '').trim() || null };
   localStorage.setItem('plan_results', JSON.stringify(r));
@@ -7015,17 +7034,17 @@ function renderPlanTargets() {
   const inp = (w, f, v, ph) => `<input value="${v ? escHtml(String(v)) : ''}" placeholder="${ph}" onchange="setPlanResult(${w},'${f}',this.value)" style="width:58px;border:1px solid var(--fx-line,#E5E5EA);border-radius:6px;padding:2px 4px;font:inherit;font-size:12px;text-align:right">`;
   const diff = (a, b, unit, lowerBetter) => { if (a == null || b == null) return ''; const d = a - b; const good = lowerBetter ? d <= 0 : d >= 0; return `<span style="font-size:11px;font-weight:700;color:${good ? '#2D7A47' : '#C53030'}">${d > 0 ? '+' : d < 0 ? '−' : '±'}${Math.abs(Math.round(d * 10) / 10)}${unit}</span>`; };
   el.innerHTML = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:430px">
-    <thead><tr style="font-size:11px;color:var(--fx-muted,#8E8E93);text-align:right"><th style="text-align:left;font-weight:600;padding-bottom:6px">Week</th><th style="font-weight:600">5K target</th><th style="font-weight:600">Pace</th><th style="font-weight:600">Actual</th><th></th><th style="font-weight:600">Bench single</th><th style="font-weight:600">Actual</th><th></th><th style="font-weight:600" title="Knee or hamstring flare: drops that week's tests">Flare</th></tr></thead>
-    <tbody>${DATED_PLAN_TARGETS.map(t0 => { const a = adjAll[t0.week] || {}; const t = { ...t0, tt: a.tt ?? t0.tt, pace: a.pace ?? t0.pace, single: a.single ?? t0.single }; const r = res[t.week] || {}; const tt = _mmss(t.tt);
+    <thead><tr style="font-size:11px;color:var(--fx-muted,#8E8E93);text-align:right"><th style="text-align:left;font-weight:600;padding-bottom:6px">Week</th><th style="font-weight:600">5K target</th><th style="font-weight:600" title="Fastest 5K best effort from Strava that week">Actual</th><th></th><th style="font-weight:600">Bench single</th><th style="font-weight:600" title="Heaviest bench set from Hevy that week">Actual</th><th></th><th style="font-weight:600" title="Knee or hamstring flare: drops that week's tests">Flare</th></tr></thead>
+    <tbody>${DATED_PLAN_TARGETS.map(t0 => { const a = adjAll[t0.week] || {}; const t = { ...t0, tt: a.tt ?? t0.tt, pace: a.pace ?? t0.pace, single: a.single ?? t0.single }; const r = res[t.week] || {}; const tt = _mmss(t.tt); const act = planActual(t.week, t.tt);
       const was = (v, b) => v !== b ? ` <span style="text-decoration:line-through;color:var(--fx-muted,#8E8E93);font-size:11px">${escHtml(String(b))}</span>` : '';
       return `<tr style="${t.week === curWeek ? 'background:#F3EFFD;' : ''}border-top:1px solid var(--fx-line,#EEEEF2);${a.flare ? 'opacity:.6;' : ''}">
         <td style="padding:5px 4px;white-space:nowrap">${t.week}. ${escHtml(t.dates)}${a.notes && a.notes.length ? `<div style="font-size:10.5px;color:#B4462E">${escHtml(a.notes.join(' · '))}</div>` : ''}</td>
-        <td style="text-align:right">${escHtml(String(t.tt))}${was(t.tt, t0.tt)}</td><td style="text-align:right;color:var(--fx-muted,#8E8E93)">${escHtml(String(t.pace))}</td>
-        <td style="text-align:right">${tt != null ? inp(t.week, 'tt', r.tt, 'mm:ss') : ''}</td><td style="text-align:right;padding-left:4px">${diff(_mmss(r.tt), tt, 's', true)}</td>
-        <td style="text-align:right">${t.single} kg${was(t.single, t0.single)}</td><td style="text-align:right">${inp(t.week, 'single', r.single, 'kg')}</td><td style="text-align:right;padding-left:4px">${diff(r.single != null ? parseFloat(r.single) : null, t.single, 'kg', false)}</td>
+        <td style="text-align:right">${escHtml(String(t.tt))}${was(t.tt, t0.tt)}</td>
+        <td style="text-align:right" title="${act.ttDate ? 'Strava, ' + act.ttDate : act.ttSaved ? 'Entered earlier' : 'Fills in from Strava after the run'}">${tt != null ? (act.tt != null ? _fmtPbTime(act.tt) : '<span style="color:var(--fx-muted,#8E8E93)">–</span>') : ''}</td><td style="text-align:right;padding-left:4px">${tt != null ? diff(act.tt, tt, 's', true) : ''}</td>
+        <td style="text-align:right">${t.single} kg${was(t.single, t0.single)}</td><td style="text-align:right" title="${act.singleDate ? 'Hevy, ' + act.singleDate : act.singleSaved ? 'Entered earlier' : 'Fills in from Hevy after the session'}">${act.single != null ? act.single + ' kg' : '<span style="color:var(--fx-muted,#8E8E93)">–</span>'}</td><td style="text-align:right;padding-left:4px">${diff(act.single, t.single, 'kg', false)}</td>
         <td style="text-align:center"><input type="checkbox" ${r.flare ? 'checked' : ''} onchange="togglePlanFlare(${t.week})" title="Knee or hamstring flare this week" style="cursor:pointer"></td>
       </tr>`; }).join('')}</tbody></table></div>
-    <div style="font-size:11.5px;color:var(--fx-muted,#8E8E93);margin-top:6px">Targets adjust themselves from your results using the stop rules below, and the day plan uses the adjusted numbers.</div>
+    <div style="font-size:11.5px;color:var(--fx-muted,#8E8E93);margin-top:6px">Actuals fill in automatically: the 5K time is your fastest Strava 5K best effort that week (within 2 min of the target), the bench single is your heaviest flat barbell bench set in Hevy that week. Targets adjust themselves from these using the stop rules below, and the day plan uses the adjusted numbers.</div>
     <div style="font-size:11.5px;color:var(--fx-muted,#8E8E93);margin-top:8px;line-height:1.5">
       <b>Stop rules:</b> miss a 5K target by 15 s+ on two TTs in a row → repeat the week at the previous target · miss two bench singles in a row → hold the weight a week · any knee or hamstring flare → drop that week's test and run easy · every 4th week the TT is a controlled effort.
       <br><b>Knee rule:</b> a dull ache that settles within about a day is fine; sharp or localised pain, or anything lasting more than 24 h, means dropping that week's test (tick Flare). <b>Cool-down:</b> after hard sessions, 10 min easy, slower than 6:00/km and under 150 bpm.
@@ -8522,7 +8541,7 @@ async function refreshBestEfforts() {
     const tokens = getTokens();
     if (!tokens || !tokens.access_token || !_acts) return;
     const cache = _bestEffortsCache();
-    const todo = _acts.filter(a => a.sport_type === 'Run' && a.summary && a.summary.pr_count > 0 && !cache[a.id])
+    const todo = _acts.filter(a => a.sport_type === 'Run' && !cache[a.id] && ((a.summary && a.summary.pr_count > 0) || ((a.start_local || '') >= '2026-11-02' && (a.distance || (a.summary && a.summary.distance) || 0) >= 4990)))
       .sort((a, b) => (b.start_local || '').localeCompare(a.start_local || '')).slice(0, 15);
     if (!todo.length) return;
     for (const a of todo) {
@@ -8540,6 +8559,7 @@ async function refreshBestEfforts() {
     if (typeof renderRunningPBs === 'function') renderRunningPBs(_acts);
     if (typeof renderPRTracker === 'function') renderPRTracker();
     if (typeof renderTrainingTodo === 'function') renderTrainingTodo(); // run paces follow the 5km PB
+    try { renderPlanTargets(); _refreshPlan(); } catch {}
   } finally { _bestEffortsRunning = false; }
 }
 // ── Half-marathon countdown + predicted time ───────────────────────────────
@@ -9098,6 +9118,7 @@ async function loadPlannerHevyHistory() {
   } catch (e) {
     _plannerHevySessions = [];
   }
+  try { renderPlanTargets(); _refreshPlan(); } catch {}
   renderWhoopMonitor();
   if (typeof renderPlannerCalendar === 'function') renderPlannerCalendar();
 }
@@ -13802,9 +13823,10 @@ function planAdjusted() {
     if (w === 4 || w === 8) notes.push('controlled TT');
     out[w] = { week: w, tt, pace: w === 1 ? t.pace : pace(tt) || t.pace, single, flare, notes, baseTt: t.tt, baseSingle: t.single };
     // results feed the next week's offsets
-    const got = _mmss(r.tt), tgt = _mmss(tt);
+    const act = planActual(w, tt);
+    const got = act.tt, tgt = _mmss(tt);
     if (!flare && got != null && tgt != null) { ttMiss = got - tgt > 15 ? ttMiss + 1 : 0; if (ttMiss >= 2) { kt++; ttMiss = 0; } }
-    const gotB = r.single != null ? parseFloat(r.single) : null;
+    const gotB = act.single;
     if (!flare && gotB != null && !isNaN(gotB)) { bMiss = gotB < single ? bMiss + 1 : 0; if (bMiss >= 2) { kb++; bMiss = 0; } }
   });
   return out;
