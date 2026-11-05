@@ -7452,7 +7452,9 @@ function parseOverrideLabel(label) {
   const emoji = emojiMatch ? emojiMatch[0] : '🏅';
   const type = label.replace(/\p{Extended_Pictographic}/gu, '').trim();
   const tagMap = { '🏃': 'run', '🏊': 'swim', '🚴': 'bike', '💪': 'upper' };
-  return { type, emoji, tag: tagMap[emoji] || 'run', intensity: 'moderate' };
+  let tag = tagMap[emoji] || 'run';
+  if (tag === 'upper' && /\b(lower|legs?)\b/i.test(type)) tag = 'lower';
+  return { type, emoji, tag, intensity: 'moderate' };
 }
 
 // Looks up the effective session (override or template) for any date/slot —
@@ -7728,9 +7730,10 @@ function renderTrainingCalendar(acts) {
       amOverride: !!overrides.am && overrides.am !== 'REST',
       pmOverride: !!overrides.pm && overrides.pm !== 'REST',
       eveOverride: !!overrides.eve && overrides.eve !== 'REST',
-      amDone: manual.am === 'done' || sessionDone(tmpl.am, acts, dateStr),
-      pmDone: manual.pm === 'done' || sessionDone(tmpl.pm, acts, dateStr),
-      eveDone: manual.eve === 'done' || sessionDone(tmpl.eve, acts, dateStr),
+      // Check the session actually shown (your override if you changed it), not the template's.
+      amDone: manual.am === 'done' || manual.am_todo === true || sessionDone(am, acts, dateStr),
+      pmDone: manual.pm === 'done' || manual.pm_todo === true || sessionDone(pm, acts, dateStr),
+      eveDone: manual.eve === 'done' || manual.eve_todo === true || sessionDone(eve, acts, dateStr),
       amSkipped: manual.am === 'skipped' || isSkipped(skipped, dateStr, 'am'),
       pmSkipped: manual.pm === 'skipped' || isSkipped(skipped, dateStr, 'pm'),
       eveSkipped: manual.eve === 'skipped' || isSkipped(skipped, dateStr, 'eve'),
