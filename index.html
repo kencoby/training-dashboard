@@ -13131,6 +13131,30 @@ renderSystemAlerts();
 if (localStorage.getItem('task_notif_enabled') === '1') checkUrgentTaskNotifications();
 try { lfStartReminders(); } catch {}
 try { dhLoad(); setInterval(dhLoad, 10 * 60 * 1000); setInterval(lfNowTick, 60 * 1000); } catch {}
+// Strava activities were only loaded when the page opened, so a session logged
+// later (e.g. a Hevy workout synced to Strava) didn't tick until a full reload.
+// Re-check the latest activities when the tab comes back into view (at most every
+// 5 min) and every 20 min while it's open.
+async function refreshRecentActivities() {
+  if (!window._actsFetchedAt || Date.now() - window._actsFetchedAt < 5 * 60 * 1000) return;
+  window._actsFetchedAt = Date.now();
+  try {
+    const tokens = await ensureStravaAuth();
+    if (!tokens) return;
+    const res = await fetch(`${API}/strava-auth?action=proxy&path=${encodeURIComponent('/athlete/activities')}&access_token=${encodeURIComponent(tokens.access_token)}&per_page=30&page=1`);
+    const raw = await res.json();
+    if (!Array.isArray(raw)) return;
+    const fresh = raw.map(normalizeActivity), known = new Set(_acts.map(a => a.id));
+    const added = fresh.filter(a => !known.has(a.id));
+    if (!added.length) return;
+    _acts = [...added, ..._acts].sort((a, b) => new Date(b.start_local) - new Date(a.start_local));
+    const safe = f => { try { f(); } catch (e) { console.warn(e); } };
+    safe(() => { recomputeAllStreaks(); renderHabits(); renderHabitHistory(); });
+    safe(renderTrainingTodo); safe(() => renderTrainingCalendar(_acts)); safe(renderWhoopStrain); safe(_refreshPlan);
+  } catch (e) { console.warn('activity refresh failed', e); }
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshRecentActivities(); });
+setInterval(refreshRecentActivities, 20 * 60 * 1000);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Life features (Oct 2026): check-in, status, energy schedule, end-of-day,
@@ -13851,6 +13875,7 @@ async function main() {
 
     const acts = await fetchActivities(tokens);
     _acts = acts;
+    window._actsFetchedAt = Date.now();
     // Cardio/strength habit ticks come from Strava, which only arrives now.
     try { recomputeAllStreaks(); renderHabits(); if (typeof renderHabitHistory === 'function') renderHabitHistory(); } catch {}
     renderWhoopStrain(); // refresh now that today's workouts are loaded
