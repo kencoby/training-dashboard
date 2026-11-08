@@ -14346,20 +14346,25 @@ function renderWeeklyReview() {
 (function() {
   const style = document.createElement('style');
   style.id = 'dark-mode-style';
+  // The invert filter goes on <html>, not <body>: a filter on any other element
+  // makes position:fixed pop-ups (calendar session menu, overlays) position
+  // against the whole page instead of the screen, so they opened off-screen.
   style.textContent = `
-    body.dark-mode { filter: invert(1) hue-rotate(180deg); background:#111; }
-    body.dark-mode img,
-    body.dark-mode canvas,
-    body.dark-mode video,
-    body.dark-mode .weather-emoji,
-    body.dark-mode [style*="background-image"] { filter: invert(1) hue-rotate(180deg); }
+    html.dark-mode { filter: invert(1) hue-rotate(180deg); background:#eeeeee; } /* inverted → #111 */
+    body.dark-mode { background:#eeeeee; } /* inverted → #111 */
+    html.dark-mode img,
+    html.dark-mode canvas,
+    html.dark-mode video,
+    html.dark-mode .weather-emoji,
+    html.dark-mode [style*="background-image"] { filter: invert(1) hue-rotate(180deg); }
   `;
   document.head.appendChild(style);
-  if (localStorage.getItem('dark_mode') === '1') document.body.classList.add('dark-mode');
+  if (localStorage.getItem('dark_mode') === '1') { document.body.classList.add('dark-mode'); document.documentElement.classList.add('dark-mode'); }
 })();
 
 function toggleDarkMode() {
   const on = document.body.classList.toggle('dark-mode');
+  document.documentElement.classList.toggle('dark-mode', on);
   localStorage.setItem('dark_mode', on ? '1' : '0');
   const btn = document.getElementById('dark-mode-btn');
   if (btn) btn.textContent = on ? '☀️' : '🌙';
