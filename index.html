@@ -3976,7 +3976,6 @@ const DAILY_HABITS = [
   { id: 'h-iron',        label: 'Iron tablet',  group: 'Personal care' },
   { id: 'h-skincare-pm', label: 'Skin care PM', group: 'Personal care' },
   { id: 'h-haircare',    label: 'Hair care',    group: 'Personal care' },
-  { id: 'h-water-plants', label: 'Checked plants', group: 'Home' },
 ];
 const HABIT_GROUP_ORDER = ['Tracked automatically', 'Revision', 'Wellness', 'Personal care', 'Home'];
 
@@ -5061,6 +5060,7 @@ function todayPlanHtml(ds, isToday, labelStyle, rowStyle) {
   const notes = isToday ? _weatherNotes(ds) : [];
   const shift = plan.blocks.find(b => b.type === 'shift');
   const extras = [];
+  if (new Date(ds + 'T12:00:00').getDay() === 0) extras.push('🪴 Sunday reminder: check the plants.');
   if (shift) extras.push(`🏥 ${escHtml(shift.title.split(' - ')[0])} shift today (${escHtml(shift.note || '')}).${typeof lfShiftOn === 'function' && lfShiftOn(ds) ? ' Shift mode: hard training made easier, revision capped at 1h, no walking pad.' : ''}`);
   if (isToday) {
     const sl = _sleepFor(ds);
@@ -7794,7 +7794,7 @@ function renderTrainingCalendar(acts) {
     const shiftTag = shiftEv ? `<span class="badge b-grey" style="font-size:10px;font-weight:600" title="${escHtml(shiftEv.title)}">🏥 ${escHtml(shiftEv.title.split(' - ')[0])} ${_hm(shiftEv.s)}–${_hm(shiftEv.e)}</span>` : '';
     const clashTag = clashes.length ? `<span class="badge b-amber" style="font-size:10px;font-weight:700" title="${escHtml(clashes.map(c => c.why).join(' | '))}">⚠ clash</span>` : '';
     return `<div class="row" style="${style}">
-      <div style="font-size:12px;font-weight:700;min-width:80px;color:${r.isToday?'#1d4ed8':'#999'}">${r.tmpl.day.slice(0,3)} ${dateLabel}${shiftTag || clashTag ? `<div style="display:flex;flex-direction:column;gap:3px;margin-top:4px;align-items:flex-start">${shiftTag}${clashTag}</div>` : ''}</div>
+      <div style="font-size:12px;font-weight:700;min-width:80px;color:${r.isToday?'#1d4ed8':'#999'}">${r.d.toLocaleDateString('en-GB',{weekday:'long'})}<div style="font-size:10px;font-weight:500;opacity:.8">${dateLabel}</div>${shiftTag || clashTag ? `<div style="display:flex;flex-direction:column;gap:3px;margin-top:4px;align-items:flex-start">${shiftTag}${clashTag}</div>` : ''}</div>
       <div style="display:flex;flex-direction:column;gap:4px;flex:1">
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           ${pill(r.am, r.amDone, r.isPast, false, r.amSkipped, r.dateStr, 'am', r.am?.tag, r.amOverride && !r.amDone && !r.amSkipped)}
