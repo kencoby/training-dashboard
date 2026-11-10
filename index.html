@@ -13720,7 +13720,13 @@ function dhPanelHtml() {
 // ── Meal and caffeine times (from MacroFactor entry times) ──────────────────
 function _nutPoints(metric, ds) {
   const d = _healthData && _healthData[metric] && _healthData[metric].byDate && _healthData[metric].byDate[ds];
-  return d && d.points ? Object.entries(d.points).map(([k, v]) => ({ min: _dhClock(k.split('|')[0]), v: +v })).filter(p => p.min != null) : null;
+  if (!d || !d.points) return null;
+  // Since 7 Nov a second sync repeats entries with timestamps cut from the sync time
+  // (hh:mm:27 etc.); when the day has clock-aligned (hh:mm:00) entries from the
+  // full export, use only those (same rule as the server's daily totals).
+  let ent = Object.entries(d.points);
+  if (ent.some(([k]) => k.slice(17, 19) === '00')) ent = ent.filter(([k]) => k.slice(17, 19) === '00');
+  return ent.map(([k, v]) => ({ min: _dhClock(k.split('|')[0]), v: +v })).filter(p => p.min != null);
 }
 // Last time you ate (an entry of 25+ kcal) and last caffeine, as minutes after midnight.
 function lfFoodTimes(ds) {

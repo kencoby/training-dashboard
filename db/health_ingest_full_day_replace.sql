@@ -7,3 +7,12 @@
 --    syncs carrying late watch data from yesterday plus only today's newest
 --    entries, which wiped today's earlier entries (steps showed 143).
 -- Same rule as the Worker fallback in functions/api/health-intake.js.
+
+-- 2026-11-10: health_day_value ignores duplicate entries from a second sync.
+-- From 7 Nov Health Auto Export also sent entries bucketed from the sync time
+-- (hh:mm:27, hh:mm:33 …) on top of the clock-aligned (hh:mm:00) full export, so
+-- each sync re-added the same meals/steps. When a day has clock-aligned entries,
+-- only those count; days with only offset entries join each sync's split pieces
+-- into runs and count each run once. Values for 7 Nov onward were recomputed
+-- for the sum metrics only (health_recompute would also touch sleep_analysis).
+-- Full function text: see the migration "health_day_value_ignore_offset_sync_duplicates".
