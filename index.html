@@ -5546,39 +5546,16 @@ let _healthData = null;
 const ACCORDIONS = [
   {
     id: 'clinical',
-    title: 'Clinical Skills Signoff',
+    title: 'Clinical Skills Signoff', // the rest are listed under JA2 / JA3, where they're being signed off
     deadline: '2027-03-31',
     storageKey: 'signoff_clinical',
     items: [
       'Taking blood cultures via peripheral venepuncture',
-      'Arterial blood gas sampling from the radial artery',
-      'Measure capillary blood glucose',
       'Carry out 3-lead ECG',
       'Carry out 12-lead ECG',
-      'Perform surgical scrubbing up',
-      'Set up an infusion',
-      'Instruct patients in use of inhaled medication devices',
-      'Prepare and administer IM drugs',
       'Prepare and administer subcutaneous drugs',
-      'Prepare and administer IV drugs',
       'IV cannulation',
-      'Male urinary catheterisation',
-      'Female urinary catheterisation',
       'Use of local anaesthetics',
-    ]
-  },
-  {
-    id: 'ja1',
-    title: 'JA1 – Haematology, Singleton (1 Sep – 9 Oct 2026)',
-    deadline: '2027-03-31', // GEM Portal deadline for "Six Mini-CEX Passed"
-    storageKey: 'signoff_ja1',
-    items: [
-      'Mini-CEX 1',
-      'Mini-CEX 2',
-      'End of placement clinician assessment',
-      'Written student feedback',
-      'Out of hours: 1 evening on-call, 5hrs+',
-      'Out of hours: 1 weekend day, 8hrs+ (AM/PM ward round)',
     ]
   },
   {
@@ -5593,6 +5570,11 @@ const ACCORDIONS = [
       'Written student feedback',
       'Out of hours: 1 evening on-call, 5hrs+',
       'Out of hours: 1 weekend day, 8hrs+ (AM/PM ward round)',
+      'Clinical skill: Arterial blood gas sampling from the radial artery',
+      'Clinical skill: Perform surgical scrubbing up',
+      'Clinical skill: Prepare and administer IV drugs',
+      'Clinical skill: Male urinary catheterisation',
+      'Clinical skill: Female urinary catheterisation',
     ]
   },
   {
@@ -5605,6 +5587,10 @@ const ACCORDIONS = [
       'Mini-CEX 2',
       'End of placement clinician assessment',
       'Written student feedback',
+      'Clinical skill: Measure capillary blood glucose',
+      'Clinical skill: Set up an infusion',
+      'Clinical skill: Instruct patients in use of inhaled medication devices',
+      'Clinical skill: Prepare and administer IM drugs',
     ]
   },
 ];
