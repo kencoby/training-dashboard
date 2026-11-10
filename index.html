@@ -385,6 +385,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
       🏠 Home <span class="tab-badge" id="badge-dashboard"></span>
     </button>
     <button class="tab-btn" data-tab="whoop">❤️ Health</button>
+    <button class="tab-btn" data-tab="food">🍽 Food</button>
     <button class="tab-btn" data-tab="training">🏃 Training</button>
     <button class="tab-btn" data-tab="medicine">🩺 Medicine</button>
     <button class="tab-btn" data-tab="planner">✅ Tasks</button>
@@ -738,7 +739,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
     <span class="sub" id="macro-targets-label"></span>
-    <button onclick="promptMacroTargets()" style="background:none;border:1px solid #F0E1D2;border-radius:8px;padding:3px 8px;font-size:11px;cursor:pointer;color:#7A6656;flex-shrink:0">Edit targets</button>
+    <button onclick="switchTab('food')" style="background:none;border:1px solid #F0E1D2;border-radius:8px;padding:3px 8px;font-size:11px;cursor:pointer;color:#7A6656;flex-shrink:0">Food page →</button>
   </div>
   <div id="macros-today-row"></div>
 </div>
@@ -1913,6 +1914,8 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
   </div>
 </div>
 </div><!-- /tab-habits -->
+
+<div class="tab-pane fx" id="tab-food"><div id="food-root" style="max-width:1100px;margin:0 auto"></div></div>
 
 <div class="tab-pane fx" id="tab-wardrobe">
 <div class="wd-wrap">
@@ -3959,8 +3962,8 @@ const DAILY_HABITS = [
   { id: 'h-steps',     label: '15,000 steps', auto: 'steps',       group: 'Tracked automatically' },
   { id: 'h-sleep',     label: '8h sleep',     auto: 'sleep',       group: 'Tracked automatically' },
   { id: 'h-weight',    label: 'Weigh in',     auto: 'weight',      group: 'Tracked automatically' },
-  { id: 'h-calories',  label: 'Under 2,183 kcal', auto: 'health-calories', group: 'Tracked automatically' },
-  { id: 'h-protein',   label: '186g protein',     auto: 'health-protein',  group: 'Tracked automatically' },
+  { id: 'h-calories',  label: 'Under calorie target', auto: 'health-calories', group: 'Tracked automatically' },
+  { id: 'h-protein',   label: 'Protein target',   auto: 'health-protein',  group: 'Tracked automatically' },
   // Revision (Nov 2026). Ids kept for Anki/Passmed so their history and streaks carry on.
   // OSCE revision shows today's station next to it, and ticks from the plan's OSCE block too.
   { id: 'h-topics',          label: "Today's topics",        auto: 'ukmla-topics',  group: 'Revision' },
@@ -4081,10 +4084,10 @@ function getAutoHabitStateOnDate(dateStr) {
   // calorie goal; goes back to unticked once it climbs above.
   const kj = tryHealth('dietary_energy');
   const kcal = kj != null ? _kjToKcal(kj) : null;
-  const underCalories = kcal != null && kcal > 0 && kcal <= NUTRITION_GOALS.calories;
+  const underCalories = kcal != null && kcal > 0 && kcal <= mfTargetFor(dateStr).kcal;
   // Protein (grams, MacroFactor → Apple Health) at or above goal.
   const protein = tryHealth('protein');
-  const proteinMet = protein != null && protein >= getMacroTargets().protein;
+  const proteinMet = protein != null && protein >= mfTargetFor(dateStr).protein;
   // 'top' priority task has no per-date history — only meaningful for today,
   // based on whichever 'top' task was most recently created.
   const todayStr = new Date().toLocaleDateString('en-CA');
@@ -4578,8 +4581,29 @@ function promptWeightGoal() {
 // Health Auto Export (see computeMacrosForDate / renderMacrosCard, defined
 // alongside the Calorie Balance code below).
 const DEFAULT_MACRO_TARGETS = { protein: 186, carbs: 250, fat: 70 };
-// Daily nutrition goals for the habit tracker (set Oct 2026).
-const NUTRITION_GOALS = { calories: 2183 };
+// MacroFactor program targets (from the MacroFactor export, 'Nutrition Program
+// Settings'): each entry applies from its date until the next one. [kcal, protein, fat, carbs];
+// a 7-item 'days' list is Sun..Sat. Add a row when MacroFactor updates the program.
+const MF_PROGRAM = [
+  { from: '2026-03-16', t: [2104, 223, 70, 144] },
+  { from: '2026-03-17', t: [2108, 190, 70, 178] },
+  { from: '2026-03-23', t: [2133, 188, 71, 184] },
+  { from: '2026-09-20', t: [1988, 187, 66, 160] },
+  { from: '2026-09-27', t: [2113, 186, 70, 183] },
+  { from: '2026-10-06', t: [2132, 184, 71, 189] },
+  { from: '2026-10-21', t: [2183, 186, 72, 195] },
+  { from: '2026-10-26', t: [2191, 184, 73, 198] },
+  { from: '2026-11-03', t: [2134, 183, 71, 189] },
+  { from: '2026-11-09', days: [[2074, 185, 68, 179], [2074, 185, 68, 179], [2074, 185, 68, 179], [2074, 185, 68, 179], [2074, 185, 68, 179], [2074, 185, 68, 179], [2385, 185, 84, 221]] },
+];
+function mfTargetFor(ds) {
+  ds = ds || new Date().toLocaleDateString('en-CA');
+  let e = MF_PROGRAM[0]; for (const x of MF_PROGRAM) if (x.from <= ds) e = x;
+  const a = e.days ? e.days[new Date(ds + 'T12:00:00').getDay()] : e.t;
+  return { kcal: a[0], protein: a[1], fat: a[2], carbs: a[3] };
+}
+// Daily nutrition goals for the habit tracker: today's MacroFactor calorie target.
+const NUTRITION_GOALS = { get calories() { return mfTargetFor().kcal; } };
 // One-off: bring any previously saved protein target up to the new 186 g goal.
 try {
   if (!localStorage.getItem('protein_goal_186_applied')) {
@@ -4588,18 +4612,8 @@ try {
     localStorage.setItem('protein_goal_186_applied', '1');
   }
 } catch {}
-function getMacroTargets() {
-  try {
-    const raw = localStorage.getItem('macro_targets');
-    if (raw == null) return DEFAULT_MACRO_TARGETS;
-    const v = JSON.parse(raw) || {};
-    return {
-      protein: typeof v.protein === 'number' && v.protein > 0 ? v.protein : DEFAULT_MACRO_TARGETS.protein,
-      carbs: typeof v.carbs === 'number' && v.carbs > 0 ? v.carbs : DEFAULT_MACRO_TARGETS.carbs,
-      fat: typeof v.fat === 'number' && v.fat > 0 ? v.fat : DEFAULT_MACRO_TARGETS.fat
-    };
-  } catch { return DEFAULT_MACRO_TARGETS; }
-}
+// Macro targets now follow the MacroFactor program (MF_PROGRAM); ds defaults to today.
+function getMacroTargets(ds) { const t = mfTargetFor(ds); return { protein: t.protein, carbs: t.carbs, fat: t.fat }; }
 function setMacroTargets(v) {
   localStorage.setItem('macro_targets', JSON.stringify(v));
   syncPush('macro_targets', v);
@@ -10798,6 +10812,7 @@ function switchTab(name) {
   if (name === 'notes') renderNotes();
   if (name === 'planner') { try { renderDayList(); } catch {} }
   if (name === 'habits') { renderHabitHistory(); }
+  if (name === 'food') { try { renderFood(); } catch (e) { console.warn('food render failed', e); } }
   if (name === 'year4') renderYear4Cal();
   if (name === 'calendar') renderCalendarTab();
   // Dashboard uses a fixed-height grid — override display:block
@@ -10995,6 +11010,7 @@ function _renderAfterHealth() {
     if (_healthData) {
       renderHealthCard();
       syncHealthWeight();
+      if (localStorage.getItem('active_tab') === 'food') { try { renderFood(); } catch {} }
       renderWhoopRecovery();
       renderWhoopSleep();
       renderWhoopStrain();
@@ -12548,7 +12564,7 @@ function renderMacrosCard() {
   const label = document.getElementById('macro-targets-label');
   if (!row && !label) return;
   const targets = getMacroTargets();
-  if (label) label.textContent = `Targets: ${targets.protein}g protein / ${targets.carbs}g carbs / ${targets.fat}g fat`;
+  if (label) label.textContent = `MacroFactor targets today: ${targets.protein}g protein / ${targets.carbs}g carbs / ${targets.fat}g fat`;
   if (!row) return;
   const todayStr = new Date().toLocaleDateString('en-CA');
   const macros = computeMacrosForDate(todayStr);
@@ -16442,5 +16458,227 @@ Reply with JSON only: {"name": "short name with colour, e.g. 'Navy merino jumper
   }, 500);
 })();
 </script>
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// Food page: macros against the MacroFactor program, fibre / salt / fats, the
+// micronutrients MacroFactor records, and what to eat more of.
+// Data: MacroFactor → Apple Health → Health Auto Export (same _healthData the
+// rest of the dashboard reads). Targets: MF_PROGRAM (defined with the macro
+// targets code).
+// ═══════════════════════════════════════════════════════════════════════════
+let _foodRange = (() => { try { return +localStorage.getItem('food_range') || 14; } catch { return 14; } })();
+let _foodCharts = [];
+// UK reference intakes for adult men (Government Dietary Recommendations, PHE 2016;
+// 'safe intakes' where there's no RNI). kind: 'min' = aim for at least, 'max' = keep under.
+const FOOD_REF = [
+  { k: 'fiber',            name: 'Fibre',          unit: 'g',   ref: 30,   kind: 'min', group: 'core' },
+  { k: 'saturated_fat',    name: 'Saturated fat',  unit: 'g',   ref: 30,   kind: 'max', group: 'core' },
+  { k: 'sodium',           name: 'Sodium',         unit: 'mg',  ref: 2400, kind: 'max', group: 'core', note: '2,400 mg sodium = 6 g salt' },
+  { k: 'dietary_sugar',    name: 'Total sugars',   unit: 'g',   ref: null, kind: 'info', group: 'core' },
+  { k: 'polyunsaturated_fat', name: 'Polyunsaturated fat', unit: 'g', ref: null, kind: 'info', group: 'core' },
+  { k: 'potassium',  name: 'Potassium',   unit: 'mg',  ref: 3500, kind: 'min' },
+  { k: 'calcium',    name: 'Calcium',     unit: 'mg',  ref: 700,  kind: 'min' },
+  { k: 'iron',       name: 'Iron',        unit: 'mg',  ref: 8.7,  kind: 'min' },
+  { k: 'magnesium',  name: 'Magnesium',   unit: 'mg',  ref: 300,  kind: 'min' },
+  { k: 'zinc',       name: 'Zinc',        unit: 'mg',  ref: 9.5,  kind: 'min' },
+  { k: 'phosphorus', name: 'Phosphorus',  unit: 'mg',  ref: 550,  kind: 'min' },
+  { k: 'selenium',   name: 'Selenium',    unit: 'mcg', ref: 75,   kind: 'min' },
+  { k: 'copper',     name: 'Copper',      unit: 'mg',  ref: 1.2,  kind: 'min' },
+  { k: 'manganese',  name: 'Manganese',   unit: 'mg',  ref: 1.4,  kind: 'min' },
+  { k: 'vitamin_a',  name: 'Vitamin A',   unit: 'mcg', ref: 700,  kind: 'min' },
+  { k: 'vitamin_c',  name: 'Vitamin C',   unit: 'mg',  ref: 40,   kind: 'min' },
+  { k: 'vitamin_d',  name: 'Vitamin D',   unit: 'mcg', ref: 10,   kind: 'min' },
+  { k: 'vitamin_e',  name: 'Vitamin E',   unit: 'mg',  ref: 4,    kind: 'min' },
+  { k: 'vitamin_k',  name: 'Vitamin K',   unit: 'mcg', ref: 85,   kind: 'min' },
+  { k: 'thiamin',    name: 'Thiamin (B1)',    unit: 'mg',  ref: 1.0,  kind: 'min' },
+  { k: 'riboflavin', name: 'Riboflavin (B2)', unit: 'mg',  ref: 1.3,  kind: 'min' },
+  { k: 'niacin',     name: 'Niacin (B3)',     unit: 'mg',  ref: 16.5, kind: 'min' },
+  { k: 'vitamin_b6', name: 'Vitamin B6',      unit: 'mg',  ref: 1.4,  kind: 'min' },
+  { k: 'vitamin_b12',name: 'Vitamin B12',     unit: 'mcg', ref: 1.5,  kind: 'min' },
+  { k: 'folate',     name: 'Folate',          unit: 'mcg', ref: 200,  kind: 'min' },
+];
+// Food ideas per nutrient (rough amounts per typical portion, UK supermarket foods).
+const FOOD_IDEAS = {
+  protein: ['200 ml liquid egg whites (~22 g, ~100 kcal)', 'A whey shake (~24 g, ~110 kcal)', '200 g 0% Greek yogurt or skyr (~20 g, ~110 kcal)', 'A tin of tuna in spring water (~25 g, ~110 kcal)', '150 g low-fat cottage cheese (~18 g, ~110 kcal)'],
+  kcal: ['Most of the extra is on a few big days — plan those (e.g. Saturday\'s higher target) rather than cutting every day', 'Keep the overnight oats and mince meals as the base; the extra usually comes from snacks and eating out', 'Pre-log the day in MacroFactor in the morning so the evening has a known budget'],
+  total_fat: ['Measure cooking oil (1 tbsp = ~120 kcal)', 'Cheese, nuts and sauces are the usual fat-heavy extras', 'Choose 5% fat mince and lean cuts'],
+  fiber: ['Add 15 g chia or ground flax to the overnight oats (~5 g)', 'Half a tin of chickpeas, lentils or kidney beans in the mince (~6 g)', '100 g raspberries or a pear (~5–6 g)', 'Swap half the white rice for brown rice, or keep the sweet potato skin on (~2–3 g)', '2 slices wholemeal bread instead of white (~4 g)'],
+  potassium: ['Large baked potato or sweet potato with skin (~900 / ~450 mg)', 'A banana (~400 mg)', 'Half a tin of beans or lentils (~400 mg)', 'A big handful of spinach, wilted into the mince (~550 mg per 100 g)', '170 g Greek yogurt (~240 mg)'],
+  calcium: ['170 g Greek yogurt (~200 mg)', '250 ml milk or calcium-fortified oat milk (~300 mg)', '30 g cheddar (~220 mg)', 'Tinned sardines with bones (~380 mg per 100 g)', 'Calcium-set tofu (~350 mg per 100 g)'],
+  iron: ['100 g lean beef mince instead of chicken a few times a week (~2.5 mg)', 'Half a tin of lentils or chickpeas (~3 mg)', 'Fortified breakfast cereal (~4–6 mg per serving)', 'Spinach or kale with a vitamin C source (peppers, citrus) to absorb more'],
+  magnesium: ['30 g pumpkin seeds (~150 mg)', '30 g almonds or cashews (~80 mg)', 'Black beans or edamame (~60–70 mg per 100 g)', '20 g dark chocolate, 70%+ (~45 mg)', 'Spinach (~80 mg per 100 g)'],
+  zinc: ['100 g lean beef mince (~5 mg)', '30 g pumpkin seeds (~2.5 mg)', 'Chickpeas or lentils (~1.5 mg per 100 g)', '30 g cheddar (~1 mg)'],
+  phosphorus: ['Greek yogurt or milk', 'Chicken, fish, eggs', 'Pumpkin seeds, oats, lentils'],
+  selenium: ['1–2 Brazil nuts (~50–90 mcg, don\'t go above 2 a day)', 'A tin of tuna (~80 mcg)', '2 eggs (~30 mcg)'],
+  copper: ['30 g cashews (~0.6 mg)', 'Dark chocolate, lentils, oats', 'Sesame or sunflower seeds'],
+  manganese: ['Oats (~2 mg per 50 g)', 'Wholegrain rice or wholemeal bread', 'Nuts, chickpeas, pineapple'],
+  vitamin_a: ['Sweet potato with skin (well over a day\'s worth in one)', 'A large carrot (~500 mcg)', 'Spinach or kale', '2 eggs (~150 mcg)'],
+  vitamin_c: ['Half a red pepper (~100 mg)', '2 kiwis (~100 mg)', 'An orange (~70 mg)', '80 g broccoli (~50 mg)', 'A handful of strawberries (~45 mg)'],
+  vitamin_d: ['NHS advice: everyone in the UK should consider a 10 mcg (400 IU) vitamin D supplement daily from October to March', 'Oily fish: salmon, mackerel or sardines (~5–10 mcg per portion)', '2 eggs (~3 mcg)', 'Fortified cereals, spreads or plant milks'],
+  vitamin_e: ['30 g almonds (~7 mg)', '30 g sunflower seeds (~10 mg)', 'Olive or rapeseed oil when cooking', 'Avocado (~2 mg each)'],
+  vitamin_k: ['A handful of spinach or kale (well over a day\'s worth)', '80 g broccoli (~80 mcg)', 'Peas, green beans, cabbage'],
+  thiamin: ['Pork loin (~0.8 mg per 100 g)', 'Wholemeal bread, oats, fortified cereal', 'Peas, beans'],
+  riboflavin: ['250 ml milk (~0.4 mg) or Greek yogurt', '2 eggs (~0.5 mg)', 'Mushrooms, almonds, fortified cereal'],
+  niacin: ['Chicken breast (~12 mg per 100 g)', 'Tuna (~15 mg per tin)', 'Peanuts, mushrooms, wholegrains'],
+  vitamin_b6: ['Chicken or turkey (~0.6 mg per 100 g)', 'A banana (~0.4 mg)', 'Chickpeas, potatoes, salmon'],
+  vitamin_b12: ['Eggs, dairy, fish, meat (you get plenty if these are in most meals)', 'Fortified plant milks or nutritional yeast'],
+  folate: ['80 g broccoli or a handful of spinach (~50–100 mcg)', 'Half a tin of chickpeas or lentils (~100–150 mcg)', 'Fortified cereal (~100 mcg)', 'Avocado (~120 mcg each)'],
+  polyunsaturated_fat: ['Oily fish twice a week (NHS advice): salmon, mackerel, sardines', '30 g walnuts (~13 g)', 'Chia or ground flax in the oats'],
+  sodium: ['Most salt comes from sauces, seasoning mixes, bread and processed meat — check the peri-peri / recipe mix and use half', 'Cook with herbs, garlic, lemon, chilli instead of salt', 'Choose reduced-salt stock and sauces'],
+  saturated_fat: ['Swap to 5% fat mince (already doing for chicken)', 'Less cheese, butter and processed meat', 'Use olive or rapeseed oil instead of butter'],
+};
+
+function _foodDates(n) { const out = [], t = new Date(); for (let i = n - 1; i >= 0; i--) { const d = new Date(t); d.setDate(d.getDate() - i); out.push(d.toLocaleDateString('en-CA')); } return out; }
+function _foodVal(k, ds) { const v = _healthValueOnDate(k, ds); return v == null || isNaN(+v) ? null : +v; }
+function _foodKcal(ds) { const kj = _foodVal('dietary_energy', ds); return kj == null ? null : _kjToKcal(kj); }
+function _foodFmt(v, unit) { if (v == null) return '–'; const r = v >= 100 ? Math.round(v).toLocaleString() : v >= 10 ? (Math.round(v * 10) / 10).toString() : (Math.round(v * 100) / 100).toString(); return r + (unit ? ' ' + unit : ''); }
+
+function foodStats(n) {
+  const today = new Date().toLocaleDateString('en-CA');
+  // Logged days only, and today only once the day is over (a half-logged today drags averages down).
+  const days = _foodDates(n + 1).filter(d => d !== today).slice(-n).filter(d => (_foodKcal(d) || 0) > 300);
+  const macro = { kcal: [], protein: [], fat: [], carbs: [] }, tgt = { kcal: [], protein: [], fat: [], carbs: [] };
+  days.forEach(d => { const t = mfTargetFor(d); macro.kcal.push(_foodKcal(d)); macro.protein.push(_foodVal('protein', d) || 0); macro.fat.push(_foodVal('total_fat', d) || 0); macro.carbs.push(_foodVal('carbohydrates', d) || 0);
+    tgt.kcal.push(t.kcal); tgt.protein.push(t.protein); tgt.fat.push(t.fat); tgt.carbs.push(t.carbs); });
+  const avg = a => a.length ? a.reduce((s, x) => s + x, 0) / a.length : null;
+  const hit = (k, i) => { const a = macro[k][i], t = tgt[k][i]; return k === 'protein' ? a >= 0.95 * t : k === 'kcal' ? Math.abs(a - t) <= 0.1 * t : Math.abs(a - t) <= 0.15 * t; };
+  const macros = ['kcal', 'protein', 'fat', 'carbs'].map(k => ({ k, avg: avg(macro[k]), target: avg(tgt[k]), hits: macro[k].filter((_, i) => hit(k, i)).length }));
+  const nutrients = FOOD_REF.map(r => { const vals = days.map(d => _foodVal(r.k, d)).filter(v => v != null && v > 0);
+    const a = vals.length ? vals.reduce((s, x) => s + x, 0) / vals.length : null;
+    return { ...r, avg: a, coverage: days.length ? vals.length / days.length : 0, pct: a != null && r.ref ? a / r.ref : null }; });
+  return { days, macros, nutrients };
+}
+
+function _foodBar(label, actual, target, unit, color, sub) {
+  const pct = target > 0 && actual != null ? actual / target : 0;
+  const over = pct > 1.1;
+  return `<div style="margin-bottom:10px">
+    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="font-weight:600">${label}</span><span style="color:var(--text-faint)">${actual == null ? '–' : Math.round(actual).toLocaleString()} / ${Math.round(target).toLocaleString()} ${unit}${sub ? ' · ' + sub : ''}</span></div>
+    <div style="background:#F0E1D2;border-radius:6px;height:7px;overflow:hidden"><div style="background:${over ? '#C53030' : color};height:100%;width:${Math.min(100, Math.round(pct * 100))}%"></div></div></div>`;
+}
+function _foodStatus(n) {
+  if (n.kind === 'info' || n.avg == null) return { txt: n.avg == null ? 'No data' : '', col: '#A6937F' };
+  if (n.kind === 'max') return n.pct > 1 ? { txt: 'Over', col: '#C53030' } : { txt: 'OK', col: '#2D7A47' };
+  return n.pct < 0.5 ? { txt: 'Low', col: '#C53030' } : n.pct < 0.9 ? { txt: 'Below', col: '#D99A0B' } : { txt: 'OK', col: '#2D7A47' };
+}
+
+function renderFood() {
+  const el = document.getElementById('food-root'); if (!el) return;
+  _foodCharts.forEach(c => { try { c.destroy(); } catch {} }); _foodCharts = [];
+  if (!_healthData) { el.innerHTML = '<div class="card"><span class="sub">Waiting for health data…</span></div>'; return; }
+  const today = new Date().toLocaleDateString('en-CA'), tt = mfTargetFor(today);
+  const st = foodStats(_foodRange);
+  const kToday = _foodKcal(today), m = k => _foodVal(k, today);
+  const rangeBtns = [7, 14, 30].map(n => `<button onclick="foodSetRange(${n})" style="border:1px solid #F0E1D2;background:${n === _foodRange ? 'var(--accent-soft)' : 'none'};color:${n === _foodRange ? 'var(--accent-text)' : '#7A6656'};border-radius:999px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer">${n} days</button>`).join('');
+  const names = { kcal: 'Calories', protein: 'Protein', fat: 'Fat', carbs: 'Carbs' }, units = { kcal: 'kcal', protein: 'g', fat: 'g', carbs: 'g' };
+  const core = st.nutrients.filter(n => n.group === 'core'), micro = st.nutrients.filter(n => !n.group);
+  // Clear issues come from data MacroFactor records reliably: calories, macros, fibre,
+  // saturated fat and salt. Vitamin D is added October-March (NHS advice).
+  const mAvg = k => st.macros.find(x => x.k === k);
+  const clear = [], over = [];
+  const mk = mAvg('kcal'), pr = mAvg('protein'), ft = mAvg('fat');
+  if (mk.avg != null && mk.avg > mk.target * 1.1) over.push({ k: 'kcal', name: 'Calories', unit: 'kcal', avg: mk.avg, ref: mk.target });
+  if (ft.avg != null && ft.avg > ft.target * 1.15) over.push({ k: 'total_fat', name: 'Fat', unit: 'g', avg: ft.avg, ref: ft.target });
+  if (pr.avg != null && pr.avg < pr.target * 0.95) clear.push({ k: 'protein', name: 'Protein', unit: 'g', avg: pr.avg, ref: pr.target });
+  core.filter(n => n.kind === 'min' && n.pct != null && n.pct < 0.9).forEach(n => clear.push(n));
+  core.filter(n => n.kind === 'max' && n.pct != null && n.pct > 1).forEach(n => over.push(n));
+  const vitDMonth = new Date().getMonth(); const vitDSeason = vitDMonth >= 9 || vitDMonth <= 2;
+  if (vitDSeason) { const vd = st.nutrients.find(n => n.k === 'vitamin_d'); if (vd) clear.push(vd); }
+  // Vitamins and minerals low on record: could be real, could be missing data.
+  const maybe = micro.filter(n => n.k !== 'vitamin_d' && n.kind === 'min' && n.pct != null && n.pct < 0.5 && n.coverage >= 0.5).sort((a, b) => a.pct - b.pct);
+  const short = clear, overs = over;
+  const ideaCard = (n, over) => `<div style="padding:10px 12px;border:1px solid #F0E1D2;border-radius:10px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;gap:8px;font-size:13px"><b>${escHtml(n.name)}</b><span style="color:${over ? '#C53030' : '#D99A0B'};font-size:12px">${n.avg == null ? 'no data' : _foodFmt(n.avg, n.unit) + ' / ' + _foodFmt(n.ref, n.unit) + (over ? ' max' : '')}</span></div>
+      ${n.k === 'iron' && typeof DAILY_HABITS !== 'undefined' && DAILY_HABITS.some(h => h.id === 'h-iron') ? '<div style="font-size:11px;color:var(--text-faint);margin-top:2px">Your daily iron tablet isn\'t logged in MacroFactor, so it isn\'t counted here.</div>' : ''}
+      <ul style="margin:6px 0 0 16px;padding:0;font-size:12px;line-height:1.55">${(FOOD_IDEAS[n.k] || []).map(t => `<li>${escHtml(t)}</li>`).join('')}</ul></div>`;
+  el.innerHTML = `
+  <div class="fx-pagehead" style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap">
+    <div><div class="fx-pagetitle">Food</div><div class="fx-pagesub">${st.days.length} logged day${st.days.length === 1 ? '' : 's'} in the last ${_foodRange} · targets from your MacroFactor program (updated ${fmtDate(MF_PROGRAM[MF_PROGRAM.length - 1].from)})</div></div>
+    <div style="display:flex;gap:6px">${rangeBtns}</div>
+  </div>
+  <div class="section"><h2>Today</h2><div class="card">
+    ${_foodBar('Calories', kToday, tt.kcal, 'kcal', '#8B7CF6')}
+    ${_foodBar('Protein', m('protein'), tt.protein, 'g', '#D9481F')}
+    ${_foodBar('Fat', m('total_fat'), tt.fat, 'g', '#D99A0B')}
+    ${_foodBar('Carbs', m('carbohydrates'), tt.carbs, 'g', '#22B8B0')}
+    <div class="sub" style="margin-top:2px">${new Date().toLocaleDateString('en-GB', { weekday: 'long' })} target: ${tt.kcal.toLocaleString()} kcal · ${tt.protein} g protein · ${tt.fat} g fat · ${tt.carbs} g carbs</div>
+  </div></div>
+  <div class="section"><h2>Macros <span class="fx-h2-sub">average of logged days</span></h2><div class="card">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px">
+      ${st.macros.map(x => { const pct = x.avg != null && x.target ? Math.round(x.avg / x.target * 100) : null; return `<div style="background:#FFFBF6;border-radius:10px;padding:10px 12px">
+        <div style="font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em">${names[x.k]}</div>
+        <div style="font-size:20px;font-weight:700">${x.avg == null ? '–' : Math.round(x.avg).toLocaleString()}<span style="font-size:12px;font-weight:500;color:var(--text-faint)"> ${units[x.k]}</span></div>
+        <div style="font-size:11px;color:${pct == null ? '#A6937F' : (x.k === 'protein' ? pct >= 95 : Math.abs(pct - 100) <= (x.k === 'kcal' ? 10 : 15)) ? '#2D7A47' : '#D99A0B'}">${pct == null ? '' : pct + '% of ' + Math.round(x.target).toLocaleString() + ' ' + units[x.k]}</div>
+        <div style="font-size:11px;color:var(--text-faint)">On target ${x.hits}/${st.days.length} days</div></div>`; }).join('')}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px">
+      <div style="height:190px"><canvas id="food-kcal-chart"></canvas></div>
+      <div style="height:190px"><canvas id="food-macro-chart"></canvas></div>
+    </div>
+    <div class="sub" style="margin-top:6px">On target: calories within 10%, protein at least 95%, fat and carbs within 15%.</div>
+  </div></div>
+  <div class="section"><h2>Fibre, fats and salt</h2><div class="card">
+    ${core.map(n => { const s = _foodStatus(n); return n.ref ? _foodBar(n.name + (n.kind === 'max' ? ' (max)' : ''), n.avg, n.ref, n.unit, n.kind === 'max' ? '#2D7A47' : '#22B8B0', `<span style="color:${s.col};font-weight:600">${s.txt}</span>`) :
+      `<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:10px"><span style="font-weight:600">${n.name}</span><span style="color:var(--text-faint)">${_foodFmt(n.avg, n.unit)} a day</span></div>`; }).join('')}
+  </div></div>
+  <div class="section"><h2>Vitamins and minerals <span class="fx-h2-sub">recorded vs UK reference intake</span></h2><div class="card">
+    <div style="font-size:12px;line-height:1.5;background:#FFF7E6;color:#7A5A1E;border-radius:8px;padding:8px 10px;margin-bottom:10px">MacroFactor only counts vitamins and minerals for foods that list them. Quick-adds, many barcode foods and your custom recipes often don't, so these are <b>minimums</b>: a low number can mean missing data rather than a real shortfall. "Days" shows how many logged days had any value.</div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="color:var(--text-faint);text-align:left"><th style="padding:4px 6px;font-weight:600">Nutrient</th><th style="padding:4px 6px;font-weight:600;text-align:right">Recorded / day</th><th style="padding:4px 6px;font-weight:600;text-align:right">Reference</th><th style="padding:4px 6px;font-weight:600;min-width:90px"></th><th style="padding:4px 6px;font-weight:600;text-align:right">Days</th></tr></thead>
+      <tbody>${micro.map(n => { const s = _foodStatus(n); const pct = n.pct != null ? Math.min(100, Math.round(n.pct * 100)) : 0; return `<tr style="border-top:1px solid #F7EEE4">
+        <td style="padding:5px 6px">${escHtml(n.name)}</td><td style="padding:5px 6px;text-align:right">${_foodFmt(n.avg, n.unit)}</td><td style="padding:5px 6px;text-align:right;color:var(--text-faint)">${_foodFmt(n.ref, n.unit)}</td>
+        <td style="padding:5px 6px"><div style="display:flex;align-items:center;gap:6px"><div style="flex:1;background:#F0E1D2;border-radius:6px;height:6px;overflow:hidden"><div style="background:${s.col};height:100%;width:${pct}%"></div></div><span style="color:${s.col};font-weight:600;font-size:11px;min-width:38px">${s.txt}</span></div></td>
+        <td style="padding:5px 6px;text-align:right;color:${n.coverage < 0.5 ? '#C53030' : 'var(--text-faint)'}">${Math.round(n.coverage * st.days.length)}/${st.days.length}</td></tr>`; }).join('')}</tbody></table></div>
+    <div class="sub" style="margin-top:6px">Iodine, chromium, molybdenum and biotin aren't recorded by MacroFactor.</div>
+  </div></div>
+  <div class="section"><h2>What to eat more of</h2><div class="card">
+    ${short.length || overs.length ? '' : '<div class="sub">Nothing clearly short in this period.</div>'}
+    ${short.length ? '<div style="font-size:12px;font-weight:700;margin:0 0 6px">Short</div>' + short.map(n => ideaCard(n, false)).join('') : ''}
+    ${overs.length ? '<div style="font-size:12px;font-weight:700;margin:12px 0 6px">Over</div>' + overs.map(n => ideaCard(n, true)).join('') : ''}
+    <div style="font-size:11px;color:var(--text-faint);margin:6px 0 12px">These use the parts of your log MacroFactor records reliably: calories, macros, fibre, saturated fat and salt.${vitDSeason ? ' Vitamin D is listed from October to March because of the NHS advice, whatever the log says.' : ''}</div>
+    ${maybe.length ? `<details style="margin-bottom:12px"><summary style="cursor:pointer;font-size:12px;font-weight:700">Low on record, could be missing data (${maybe.length})</summary>
+      <div style="font-size:11px;color:var(--text-faint);margin:6px 0 8px">Under half the reference intake in what MacroFactor recorded. Some of this will be foods with no vitamin and mineral data, so treat these as things to include more of rather than definite deficiencies.</div>
+      ${maybe.map(n => ideaCard(n, false)).join('')}</details>` : ''}
+    <div style="border-top:1px solid #F0E1D2;padding-top:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:13px">A plan built around what you already eat <span style="font-weight:400;color:var(--text-faint);font-size:11px">(dashboard AI)</span></b><button id="food-ask-btn" onclick="foodAsk()" class="signoff-btn" style="margin-left:0">Get suggestions</button></div>
+      <div id="food-ask-out" style="margin-top:8px"></div>
+    </div>
+  </div></div>`;
+  // Charts
+  if (typeof Chart === 'undefined') return;
+  const days = _foodDates(_foodRange), lbl = days.map(d => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }));
+  const kc = days.map(d => { const v = _foodKcal(d); return v != null && v > 0 ? Math.round(v) : null; });
+  const base = { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }, scales: { x: { ticks: { font: { size: 9 }, maxTicksLimit: 8, maxRotation: 0 }, grid: { display: false } }, y: { ticks: { font: { size: 10 } } } } };
+  _foodCharts.push(new Chart(document.getElementById('food-kcal-chart'), { data: { labels: lbl, datasets: [
+    { type: 'bar', label: 'Calories', data: kc, backgroundColor: kc.map((v, i) => v != null && v > mfTargetFor(days[i]).kcal * 1.1 ? '#E8A0A0' : '#B9AEF9'), borderRadius: 4 },
+    { type: 'line', label: 'Target', data: days.map(d => mfTargetFor(d).kcal), borderColor: '#7A6656', borderDash: [4, 4], pointRadius: 0, borderWidth: 1.5, stepped: true }] }, options: base }));
+  const g = k => days.map(d => { const v = _foodVal(k, d); return v != null && (_foodKcal(d) || 0) > 0 ? Math.round(v) : null; });
+  _foodCharts.push(new Chart(document.getElementById('food-macro-chart'), { type: 'line', data: { labels: lbl, datasets: [
+    { label: 'Protein (g)', data: g('protein'), borderColor: '#D9481F', backgroundColor: '#D9481F', tension: .3, pointRadius: 2, spanGaps: true },
+    { label: 'Protein target', data: days.map(d => mfTargetFor(d).protein), borderColor: '#D9481F', borderDash: [4, 4], pointRadius: 0, borderWidth: 1, stepped: true },
+    { label: 'Carbs (g)', data: g('carbohydrates'), borderColor: '#22B8B0', backgroundColor: '#22B8B0', tension: .3, pointRadius: 2, spanGaps: true },
+    { label: 'Fat (g)', data: g('total_fat'), borderColor: '#D99A0B', backgroundColor: '#D99A0B', tension: .3, pointRadius: 2, spanGaps: true }] }, options: base }));
+}
+function foodSetRange(n) { _foodRange = n; try { localStorage.setItem('food_range', String(n)); } catch {} renderFood(); }
+
+async function foodAsk() {
+  const out = document.getElementById('food-ask-out'), btn = document.getElementById('food-ask-btn'); if (!out) return;
+  out.innerHTML = '<div class="sub">Thinking…</div>'; if (btn) btn.disabled = true;
+  const st = foodStats(_foodRange);
+  const lines = st.macros.map(x => `${x.k}: avg ${x.avg == null ? 'n/a' : Math.round(x.avg)} vs target ${Math.round(x.target)} (on target ${x.hits}/${st.days.length} days)`)
+    .concat(st.nutrients.map(n => `${n.name}: recorded avg ${n.avg == null ? 'n/a' : _foodFmt(n.avg, n.unit)}${n.ref ? ' vs ' + (n.kind === 'max' ? 'max ' : 'reference ') + _foodFmt(n.ref, n.unit) : ''} (recorded on ${Math.round(n.coverage * 100)}% of logged days)`));
+  const prompt = `You are helping Phil, a final-year UK medical student (male, 26, 182 cm, ~84.5 kg, losing weight slowly at ~0.75%/week with MacroFactor; trains 6 days a week: running, lifting, football). Below are his nutrition averages over the last ${_foodRange} days (${st.days.length} logged days), from MacroFactor via Apple Health.
+Important: MacroFactor only counts vitamins/minerals for foods that list them, so micronutrient figures are minimums and low ones may be missing data. Treat fibre, macros, saturated fat and sodium as reliable. He already takes a daily iron tablet (not in the log). Regular foods from his MacroFactor recipes and favourites: overnight oats (oats, Greek yogurt, whey, chia, Supernutrio), chicken mince with rice and peri-peri mix, chicken mince with sweet potato and lemon-chilli mix, liquid egg whites, whey shakes, Monster Zero.
+Give a practical plan to cover what he's likely short on without going over his calorie target: 4-6 specific swaps or additions to his existing meals, each with the rough nutrient gain and calorie cost, then one line on what not to worry about given the data gaps. UK supermarket foods. Plain text, short bullet points with "- ", no markdown headers, under 220 words.`;
+  try {
+    const res = await fetch('/api/claude', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt, context: lines.join('\n') }) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'AI error');
+    out.innerHTML = `<div style="font-size:13px;line-height:1.6;white-space:pre-wrap">${escHtml((data.text || '').trim())}</div>`;
+  } catch (e) { out.innerHTML = `<div class="sub" style="color:#C53030">Couldn't get suggestions: ${escHtml(e.message)}</div>`; }
+  if (btn) btn.disabled = false;
+}
+</script>
+
 </body>
 </html>
