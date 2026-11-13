@@ -6720,9 +6720,12 @@ function renderUkmlaPlan() {
   }).join('');
   upcoming.forEach(day => renderUkmlaDay(day.date));
 }
+// Catch-up only counts from the current schedule's start (cleared 13 Nov 2026,
+// when the plan switched to whole subjects); older plan days are ignored.
+const UKMLA_CATCHUP_FROM = '2026-11-13';
 function ukmlaPastIncompleteByDay(progress, todayStr) {
   return UKMLA_REVISION_PLAN
-    .filter(day => day.date < todayStr)
+    .filter(day => day.date < todayStr && day.date >= UKMLA_CATCHUP_FROM)
     .map(day => {
       const arr = progress[day.date] || [];
       let idx = 0;
