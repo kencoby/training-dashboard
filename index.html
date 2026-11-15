@@ -7366,6 +7366,24 @@ function restoreCalendarOverrides() {
     }
   } catch {}
 }
+// A saved edit that picks the same kind of session the plan already has that day
+// (Speed Run on the time-trial day, Push on the 1RM bench day) keeps the plan's
+// version, with its target and details, instead of a generic session.
+function _ovSession(label, planned) {
+  const parsed = parseOverrideLabel(label);
+  if (!parsed || !planned) return parsed;
+  if (parsed.type === planned.type) return planned;
+  if (planned.type === '5K Time Trial' && ['Speed Run', 'Intervals', 'Tempo Run'].includes(parsed.type)) return planned;
+  if (planned.single && /^(Push|Upper)$/.test(parsed.type)) return planned;
+  return parsed;
+}
+// What a session is called on the calendar: the key tests say so plainly.
+function sessionDisplay(s) {
+  if (!s) return { emoji: '', label: '' };
+  if (s.type === '5K Time Trial') return { emoji: '🏁', label: `5K TIME TRIAL${s.target ? ' · ' + s.target : ''}` };
+  if (s.single) return { emoji: '🏋️', label: `1RM BENCH · ${s.single} kg` };
+  return { emoji: s.emoji, label: s.type };
+}
 function parseOverrideLabel(label) {
   if (!label) return null;
   const emojiMatch = label.match(/\p{Extended_Pictographic}/u);
@@ -7384,9 +7402,9 @@ function parseOverrideLabel(label) {
 function getSessionForSlot(dateStr, slot) {
   const overrides = getOverrides(dateStr);
   if (overrides[slot] === 'REST') return null;
-  if (overrides[slot]) return parseOverrideLabel(overrides[slot]);
-  if (slot.startsWith('extra')) return null;
+  if (slot.startsWith('extra')) return overrides[slot] ? parseOverrideLabel(overrides[slot]) : null;
   const tmpl = getTemplateDay(dateStr);
+  if (overrides[slot]) return _ovSession(overrides[slot], tmpl ? tmpl[slot] : null);
   return tmpl ? tmpl[slot] : null;
 }
 
@@ -7469,7 +7487,7 @@ function getTodaysSessions(forDate) {
   for (const slot of ['am', 'pm', 'eve']) {
     if (manual[slot] === 'skipped') continue;
     if (overrides[slot] === 'REST') continue;
-    const session = overrides[slot] ? parseOverrideLabel(overrides[slot]) : tmpl[slot];
+    const session = overrides[slot] ? _ovSession(overrides[slot], tmpl[slot]) : tmpl[slot];
     if (!session) continue;
     result.push({ slot, session });
   }
@@ -7635,9 +7653,9 @@ function renderTrainingCalendar(acts) {
     // 'REST' is an explicit sentinel meaning "this slot has been turned into a
     // rest day" — distinct from a preset Rest day (tmpl.am/pm null) since it
     // lets any normally-scheduled slot be converted to Rest too.
-    const am  = overrides.am  === 'REST' ? null : (overrides.am  ? parseOverrideLabel(overrides.am)  : tmpl.am);
-    const pm  = overrides.pm  === 'REST' ? null : (overrides.pm  ? parseOverrideLabel(overrides.pm)  : tmpl.pm);
-    const eve = overrides.eve === 'REST' ? null : (overrides.eve ? parseOverrideLabel(overrides.eve) : tmpl.eve);
+    const am  = overrides.am  === 'REST' ? null : (overrides.am  ? _ovSession(overrides.am, tmpl.am)  : tmpl.am);
+    const pm  = overrides.pm  === 'REST' ? null : (overrides.pm  ? _ovSession(overrides.pm, tmpl.pm)  : tmpl.pm);
+    const eve = overrides.eve === 'REST' ? null : (overrides.eve ? _ovSession(overrides.eve, tmpl.eve) : tmpl.eve);
     const extraSlots = extraKeys(overrides).map(slot => ({
       slot,
       session: parseOverrideLabel(overrides[slot]),
@@ -7676,7 +7694,7 @@ function renderTrainingCalendar(acts) {
     const onclick = ` onclick="toggleSessionPopover(event,'${dateStr}','${slot}','${tag || 'default'}')"`;
     const shoe = getRunShoe(session.type);
     const tip = shoe ? ` title="👟 ${escHtml(shoe.name)} — ${escHtml(shoe.why)}"` : '';
-    return `<span class="badge ${cls}" style="${style}"${onclick}${tip}>${blocked ? '🔒 ' : ''}${session.emoji} ${escHtml(session.type)}${mark}</span>`;
+    return `<span class="badge ${cls}" style="${style}"${onclick}${tip}>${blocked ? '🔒 ' : ''}${sessionDisplay(session).emoji} ${escHtml(sessionDisplay(session).label)}${mark}</span>`;
   };
 
   setH('cal-grid', rows.map(r => {
