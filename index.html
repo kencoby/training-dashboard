@@ -1903,6 +1903,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 
 <div class="tab-pane" id="tab-habits">
 <div class="section">
+  <div class="card" style="padding:16px;margin-bottom:12px" id="habit-day-editor"></div>
   <div class="card" style="padding:16px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
       <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.07em;font-weight:700;color:#A6937F">Daily score — last 30 days</div>
@@ -10444,6 +10445,7 @@ async function renderPlan(acts, acwr, call) {
 
 // ── Habit History ────────────────────────────────────────────────────────────
 function renderHabitHistory() {
+  try { renderHabitDayEditor(); } catch {}
   const log      = getHabitLog();
   const streaks  = getHabitStreaks();
   const ticked   = getHabits(); // today's checkbox state
@@ -10554,6 +10556,50 @@ function renderHabitHistory() {
       <div style="width:44px;flex-shrink:0;font-size:10px;color:#A6937F;text-align:right">streak</div>
     </div>
     ${habitRows}`;
+}
+
+// ── Habits tab: tick list for any day (‹ goes back a day) ────────────────────
+let _habitEditOffset = 0; // 0 = today, -1 = yesterday, …
+function shiftHabitEditDay(n) { _habitEditOffset = Math.min(0, _habitEditOffset + n); renderHabitDayEditor(); }
+function setHabitOnDate(habitId, dateStr, val) {
+  const log = getHabitLog();
+  if (!log[dateStr]) log[dateStr] = {};
+  log[dateStr][habitId] = val;
+  saveHabitLog(log, { [dateStr]: { [habitId]: val } });
+  if (dateStr === new Date().toLocaleDateString('en-CA')) { // keep the Home tracker in step
+    const t = getHabits(); t[habitId] = val;
+    localStorage.setItem('daily_habits', JSON.stringify({ date: dateStr, ticked: t }));
+    syncPush('daily_habits', { date: dateStr, ticked: { [habitId]: val } }, { merge: true });
+  }
+  recomputeAllStreaks();
+  renderHabitHistory();
+  try { renderHabits(); } catch {}
+}
+function renderHabitDayEditor() {
+  const el = document.getElementById('habit-day-editor');
+  if (!el) return;
+  const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + _habitEditOffset);
+  const ds = d.toLocaleDateString('en-CA');
+  const log = getHabitLog()[ds] || {};
+  const auto = (() => { try { return getAutoHabitStateOnDate(ds); } catch { return {}; } })();
+  const label = _habitEditOffset === 0 ? 'Today' : _habitEditOffset === -1 ? 'Yesterday' : d.toLocaleDateString('en-GB', { weekday: 'long' });
+  const groups = [];
+  DAILY_HABITS.forEach(h => { let g = groups.find(x => x.name === (h.group || 'Other')); if (!g) groups.push(g = { name: h.group || 'Other', items: [] }); g.items.push(h); });
+  const done = DAILY_HABITS.filter(h => log[h.id] || (h.auto && auto[h.id])).length;
+  const btn = (txt, n, dis) => `<button onclick="shiftHabitEditDay(${n})" ${dis ? 'disabled' : ''} style="border:1px solid #F0E1D2;background:#fff;border-radius:8px;padding:4px 12px;font-size:16px;line-height:1;cursor:${dis ? 'default' : 'pointer'};color:${dis ? '#ddd' : '#4A3B2E'}">${txt}</button>`;
+  el.innerHTML = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      ${btn('‹', -1, false)}
+      <div style="flex:1;text-align:center"><div style="font-weight:700;font-size:14px">${label}</div><div style="font-size:11px;color:#A6937F">${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} · ${done}/${DAILY_HABITS.length} done</div></div>
+      ${btn('›', 1, _habitEditOffset === 0)}
+    </div>
+    ${groups.map(g => `<div style="font-size:10px;text-transform:uppercase;letter-spacing:.07em;font-weight:700;color:#A6937F;margin:10px 0 4px">${escHtml(g.name)}</div>
+      ${g.items.map(h => {
+        const isAuto = h.auto && auto[h.id];
+        const on = !!log[h.id] || isAuto;
+        return `<label style="display:flex;align-items:center;gap:10px;padding:5px 0;font-size:13px;cursor:${isAuto ? 'default' : 'pointer'}">
+          <input type="checkbox" ${on ? 'checked' : ''} ${isAuto ? 'disabled title="Ticked automatically from your data"' : `onchange="setHabitOnDate('${h.id}','${ds}',this.checked)"`} style="width:16px;height:16px;flex-shrink:0">
+          <span style="${on ? 'color:#A6937F;text-decoration:line-through' : ''}">${escHtml(h.label)}</span>${isAuto ? '<span style="font-size:10px;color:#A6937F">auto</span>' : ''}
+        </label>`; }).join('')}`).join('')}`;
 }
 
 // ── Past-day habit editor ────────────────────────────────────────────────────
