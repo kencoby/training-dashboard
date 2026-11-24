@@ -6604,23 +6604,26 @@ function ukmlaBuildPlan() {
   const blocks1 = UKMLA_BLOCKS.filter(b => !used.has(b.id));
   const blocks2 = UKMLA_BLOCKS.filter(b => !used.has('p2:' + b.id));
   const fullDays = dates.filter(ds => !frozen(ds) && kinds[ds].kind === 'full');
-  // first pass: one block a day; if short of days, double up the smallest
-  let p1 = blocks1.map(b => [b]);
-  const minAfter = Math.min(blocks2.length ? 3 : 0, Math.max(0, fullDays.length - p1.length)); // keep at least a few days for pass 2
-  while (p1.length > Math.max(1, fullDays.length - minAfter - 1) && p1.length > 1) {
-    let bi = 0, best = Infinity;
-    for (let i = 0; i < p1.length - 1; i++) { const n = [...p1[i], ...p1[i + 1]].reduce((s, b) => s + b.items.length, 0); if (n < best) { best = n; bi = i; } }
-    p1.splice(bi, 2, [...p1[bi], ...p1[bi + 1]]);
-  }
-  let left = fullDays.length - p1.length;
-  const recapSlot = left >= 1 ? 1 : 0; left -= recapSlot;
-  // second pass: spread the high-yield conditions over the days left (≤15 days, ~2 blocks a day)
-  const nP2 = Math.min(left, Math.ceil(blocks2.length / 2), blocks2.length);
-  const p2 = [];
-  for (let i = 0; i < nP2; i++) p2.push(blocks2.slice(Math.floor(i * blocks2.length / nP2), Math.floor((i + 1) * blocks2.length / nP2)));
-  left -= nP2;
-  let fi = 0;
-  const lastFull = fullDays[fullDays.length - 1];
+  // December: first pass at ~2 blocks a day, then the high-yield second pass.
+  // January: alternate mock days and a third high-yield pass; last full day = recap.
+  const blocks3 = UKMLA_BLOCKS.filter(b => !used.has('p3:' + b.id));
+  const split = (arr, n) => { const g = []; for (let i = 0; i < n; i++) { const part = arr.slice(Math.floor(i * arr.length / n), Math.floor((i + 1) * arr.length / n)); if (part.length) g.push(part); } return g; };
+  const decDays = fullDays.filter(ds => ds < '2027-01-01'), janDays = fullDays.filter(ds => ds >= '2027-01-01');
+  const recapDay = janDays.length ? janDays[janDays.length - 1] : (decDays.length ? decDays[decDays.length - 1] : null);
+  const decUse = decDays.filter(ds => ds !== recapDay), janUse = janDays.filter(ds => ds !== recapDay);
+  const p2Min = blocks2.length ? Math.min(Math.ceil(blocks2.length / 3), Math.max(0, decUse.length - 1)) : 0;
+  const p1Days = blocks1.length ? Math.max(1, Math.min(Math.ceil(blocks1.length / 2), decUse.length + janUse.length - p2Min)) : 0;
+  const p1 = split(blocks1, p1Days);
+  const p2Days = blocks2.length ? Math.max(1, Math.min(blocks2.length, decUse.length - Math.min(p1.length, decUse.length))) : 0;
+  const p2 = split(blocks2, p2Days);
+  const queue = [...p1.map(g => ['p1', g]), ...p2.map(g => ['p2', g])];
+  const assign = {};
+  [...decUse, ...janUse].forEach(ds => { if (queue.length) assign[ds] = queue.shift(); });
+  // remaining January days: alternate third pass and mocks (third pass first)
+  const janFree = janUse.filter(ds => !assign[ds]);
+  const nThird = blocks3.length ? Math.ceil(janFree.length / 2) : 0;
+  const p3 = split(blocks3, Math.max(1, nThird));
+  janFree.forEach((ds, i) => { assign[ds] = (i % 2 === 0 && p3.length) ? ['p3', p3.shift()] : ['mock']; });
   dates.forEach(ds => {
     if (frozen(ds)) { out.push(snap[ds]); return; }
     const k = kinds[ds];
@@ -6629,12 +6632,13 @@ function ukmlaBuildPlan() {
     if (k.kind === 'rest') return out.push(_ukDay(ds, `Rest day${k.why && k.why !== 'rest day' ? ' — ' + k.why.replace(/^rest day \(|\)$/g, '') : ''}`, [{ subject: null, items: ['Rest — Anki reviews optional'] }]));
     if (k.kind === 'light') return out.push(_ukDay(ds, `Light day — ${k.why}`, [{ subject: null, items: ['30 mixed Passmedicine questions on recent topics + Anki reviews'] }]));
     if (k.kind === 'eve') return out.push(_ukDay(ds, 'Exam eve — light recap', [{ subject: 'Recap', items: ['Skim your high-yield notes and flagged Anki cards', 'Early night: pack ID, check exam venue and time'] }]));
-    // full day
-    if (ds === lastFull && recapSlot) return out.push(_ukDay(ds, 'Weak areas recap', [{ subject: 'Recap', items: ['Re-do incorrect Passmedicine questions from the last 2 weeks', 'Review your lowest-scoring systems'] }, { subject: null, items: ['Mixed Passmedicine set + Anki reviews'] }]));
-    if (fi < p1.length) return out.push(_ukBlockDay(ds, p1[fi++]));
-    const j = fi - p1.length; fi++;
-    if (j < p2.length) return out.push(_ukSecondDay(ds, p2[j]));
-    out.push(_ukDay(ds, 'Full mock + review', [{ subject: 'Mock', items: ['Timed mock: 100 mixed questions (Passmedicine mock or MLA practice paper)', 'Review every wrong answer and add Anki cards'] }]));
+    if (ds === recapDay) return out.push(_ukDay(ds, 'Weak areas recap', [{ subject: 'Recap', items: ['Re-do incorrect Passmedicine questions from the last 2 weeks', 'Review your lowest-scoring systems'] }, { subject: null, items: ['Mixed Passmedicine set + Anki reviews'] }]));
+    const a = assign[ds];
+    if (!a || a[0] === 'mock') return out.push(_ukDay(ds, 'Full mock + review', [{ subject: 'Mock', items: ['Timed mock: 100 mixed questions (Passmedicine mock or MLA practice paper)', 'Review every wrong answer and add Anki cards'] }]));
+    if (a[0] === 'p1') return out.push(_ukBlockDay(ds, a[1]));
+    const d = _ukSecondDay(ds, a[1]);
+    if (a[0] === 'p3') { d.label = d.label.replace('Second pass', 'Third pass'); d.groups.forEach(g => { if (g.subject) g.subject = g.subject.replace('(second pass)', '(third pass)'); }); d.ids = a[1].map(b => 'p3:' + b.id); }
+    out.push(d);
   });
   out.push(_ukDay(UKMLA_EXAM_DATE, 'UKMLA AKT — exam day', [{ subject: null, items: ['UKMLA AKT'] }]));
   // keep history from before this plan, replace the rest
