@@ -1244,7 +1244,6 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
   <nav class="sub-tab-nav">
     <button class="sub-tab-btn active" data-subtab="med-signoffs">Signoffs</button>
     <button class="sub-tab-btn" data-subtab="med-assessments">Assessment Info</button>
-    <button class="sub-tab-btn" data-subtab="med-calculators">Calculators</button>
     <button class="sub-tab-btn" data-subtab="med-st1">CST &amp; Audit</button>
   <button class="sub-tab-btn" data-subtab="med-ukmla">UKMLA</button>
   </nav>
@@ -1367,7 +1366,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 
   </div>
 
-  <div class="sub-tab-pane" id="sub-tab-med-calculators">
+  <div class="sub-tab-pane" id="sub-tab-med-calculators" style="display:none" hidden>
 
 <!-- CLINICAL CALCULATORS -->
 <div class="section">
@@ -6579,6 +6578,20 @@ const _ukSecondDay = (ds, blocks) => {
   groups.push({ subject: null, items: ['Mixed Passmedicine set + Anki reviews'] });
   return _ukDay(ds, 'Second pass: ' + Object.keys(bySys).join(', '), groups, blocks.map(b => 'p2:' + b.id));
 };
+// One-off (24 Nov 2026): new revision block — clear ticks and scores from the old plan.
+(function ukmlaCleanSlate20261124() {
+  try {
+    if (localStorage.getItem('ukmla_clean_2026_11_24')) return;
+    const prog = JSON.parse(localStorage.getItem('ukmla_progress') || '{}') || {};
+    const scores = JSON.parse(localStorage.getItem('ukmla_scores') || '{}') || {};
+    Object.keys(prog).forEach(k => { if (k < UKMLA_PLAN_START) delete prog[k]; });
+    Object.keys(scores).forEach(k => { if (k < UKMLA_PLAN_START) delete scores[k]; });
+    localStorage.setItem('ukmla_progress', JSON.stringify(prog));
+    localStorage.setItem('ukmla_scores', JSON.stringify(scores));
+    localStorage.setItem('ukmla_clean_2026_11_24', '1');
+    setTimeout(() => { try { syncPush('ukmla_progress', prog); syncPush('ukmla_scores', scores); } catch {} }, 3000);
+  } catch {}
+})();
 function ukmlaBuildPlan() {
   const todayStr = new Date().toLocaleDateString('en-CA');
   const snap = _ukmlaSnapshot();
@@ -6641,10 +6654,9 @@ function ukmlaBuildPlan() {
     out.push(d);
   });
   out.push(_ukDay(UKMLA_EXAM_DATE, 'UKMLA AKT — exam day', [{ subject: null, items: ['UKMLA AKT'] }]));
-  // keep history from before this plan, replace the rest
-  const hist = UKMLA_REVISION_PLAN.filter(d => d.date < UKMLA_PLAN_HISTORY_END);
+  // new revision block: the old plan's days are dropped entirely
   UKMLA_REVISION_PLAN.length = 0;
-  UKMLA_REVISION_PLAN.push(...hist, ...out);
+  UKMLA_REVISION_PLAN.push(...out);
   UKMLA_RECAP_DATE = (out.find(d => d.label === 'Weak areas recap') || out[out.length - 2]).date;
   // freeze days that have happened (and today once something's ticked)
   const ns = { ...snap };
