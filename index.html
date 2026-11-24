@@ -1561,7 +1561,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 <!-- UKMLA REVISION PLAN -->
 <div class="section">
 <h2>📖 UKMLA Revision Plan</h2>
-<div class="sub" style="margin-bottom:12px">Exam: Monday 23 Nov 2026. Every condition in the GMC MLA content map is covered by 14 Nov, leaving the final week for mocks and review. Tap a day to expand it, then tick off each section as you go.</div>
+<div class="sub" style="margin-bottom:12px">AKT: Monday 18 Jan 2027. Every condition in the GMC MLA content map (Sept 2026) gets one pass by early January, high-yield conditions first each day, then a second pass of the high-yield ones. Long shifts in your calendar move the days along; shorter shifts are light days. Tap a day to expand it, then tick off each condition as you go.</div>
 <div id="ukmla-summary" style="margin-bottom:14px"></div>
 <div id="ukmla-scores" style="margin-bottom:14px"></div>
 <div id="ukmla-catchup" style="margin-bottom:14px"></div>
@@ -2660,7 +2660,7 @@ const SYNC_KEYS = [
   'shopping_items',
   'notes_data',
   'mood_log', 'habit_reset_date',
-  'weight_goal', 'cst_grades', 'audit_cycle', 'ukmla_progress', 'macro_targets',
+  'weight_goal', 'cst_grades', 'audit_cycle', 'ukmla_progress', 'ukmla_plan_snapshot', 'macro_targets',
   'wardrobe_items', 'wardrobe_wears',
   'hm_race', 'hm_prediction_log', 'ukmla_scores', 'task_day_choices', 'day_lists', 'plan_moves', 'sleep_target', 'wake_defaults',
   'checkins', 'life_status', 'sleep_payback', 'weekly_goals', 'experiments', 'shutdowns', 'plan_results', 'session_times'
@@ -4023,6 +4023,7 @@ const YR4_BLOCKS = [
 const YR4_TRAVEL = [
   {start:406,end:407,label:'California',color:'#4A90D9',tc:'#fff'},
   {start:413,end:413,label:'Mock AKT',color:'#F4B183',tc:'#7a4010',assessment:true},
+  {start:469,end:469,label:'UKMLA AKT',color:'#F4B183',tc:'#7a4010',assessment:true},
   {start:421,end:421,label:'CPSA (Pt 1–3)',color:'#F4B183',tc:'#7a4010',assessment:true},
   {start:423,end:423,label:'AKT (P1 & P2)',color:'#F4B183',tc:'#7a4010',assessment:true},
   {start:429,end:429,label:'Swansea HM · PSA',color:'#9B59B6',tc:'#fff',assessment:true},
@@ -4760,6 +4761,7 @@ async function loadLiveCalendar() {
     const evs = (j && Array.isArray(j.events)) ? j.events : [];
     // Old probe format (summary/ISO times) is ignored; only the sync script's format is used.
     _liveCal = evs.filter(e => e && e.date && e.title).map(e => ({ ...e, kind: _calKind(e) }));
+    try { ukmlaBuildPlan(); } catch (e) { console.error('ukmlaBuildPlan', e); } // shifts move the revision days
     window._liveCalSyncedAt = j.updatedAt || null;
     window._liveCalDate = j.date || null;
     if (typeof renderGcalSyncStatus === 'function') renderGcalSyncStatus();
@@ -4833,7 +4835,7 @@ const _hm = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60
 // Free time = 07:00–22:00 minus calendar events (shifts get 30 min travel
 // either side), minus ~1 h per training session and ~2 h for meals/admin.
 // Plan need = ~25 min per topic + 60 min for the mixed question set.
-const STUDY_DAY = { start: 7 * 60, end: 22 * 60, mealsAdmin: 120, perSession: 60, perTopic: 25, questionSet: 60 };
+const STUDY_DAY = { start: 7 * 60, end: 22 * 60, mealsAdmin: 120, perSession: 60, perTopic: 12, questionSet: 60 };
 // Busy time for a day. Placement (09:00–17:00 in the calendar) really ends at
 // 14:00 on most days; if a mandatory session (SIM, JA2 teaching — anything not
 // marked "(optional)") runs past 14:00, placement counts until it ends plus an
@@ -6496,7 +6498,159 @@ const UKMLA_REVISION_PLAN = [
 // ── Passmedicine scores + weak areas ────────────────────────────────────────
 // A % per revision day (ukmla_scores). Topics from days scoring under 65%
 // (lowest first) become "weak areas", which are added to the recap day.
-const UKMLA_RECAP_DATE = '2026-11-21';
+let UKMLA_RECAP_DATE = '2026-11-21'; // set by ukmlaBuildPlan()
+// UKMLA study blocks, Nov 2026 → AKT 18 Jan 2027.
+// Conditions: GMC MLA content map, Domain 6 (Sept 2026 version), by body system.
+// '*' = high yield (Claude's pick: common, or must-not-miss). Professional-knowledge
+// blocks (last two) are a study list, not GMC wording.
+const UKMLA_BLOCKS = [
+ { id: 'cv1', system: 'Cardiovascular', part: 'ACS, arrhythmias, heart failure', items: ['*Acute coronary syndromes', '*Ischaemic heart disease (including stable angina)', '*Tachyarrhythmias (including atrial fibrillation, atrial flutter, supraventricular tachycardia, torsades de pointes, ventricular tachycardia, ventricular fibrillation)', '*Bradyarrhythmias (including AV block)', '*Cardiac arrest', '*Heart failure', '*Hypertension (essential or secondary)', 'Cardiomyopathy', 'Myocarditis', '*Pericardial disease (including pericarditis, pericardial effusion, cardiac tamponade)', '*Infective endocarditis', '*Syncope (including vasovagal, cardiac)', 'Orthostatic/ postural hypotension', '*Shock'] },
+ { id: 'cv2', system: 'Cardiovascular', part: 'valves, vascular, VTE', items: ['*Aortic valve disease', '*Mitral valve disease', 'Right heart valve disease', 'Congenital heart disease', '*Aortic aneurysm', '*Aortic dissection', '*Aneurysms, ischaemic limb and occlusions', 'Arterial thrombosis/ embolism', '*Peripheral vascular disease', 'Gangrene', 'Carotid dissection', '*Deep vein thrombosis', '*Pulmonary embolism', 'Pulmonary hypertension', 'Superior vena cava obstruction', 'Venous insufficiency (including varicose veins)', '*Hyperlipidaemia'] },
+ { id: 'rs1', system: 'Respiratory', part: 'airways, infection, pleura', items: ['*Asthma', '*Chronic obstructive pulmonary disease (COPD)', 'Asthma-chronic obstructive pulmonary disease (COPD) overlap', '*Pneumonia', '*Lower respiratory tract infection', 'Acute bronchitis', 'Bronchiectasis', '*Pneumothorax', '*Pleural effusion', 'Empyema', 'Lung abscess', '*Respiratory failure', 'Respiratory arrest', 'Acute respiratory distress syndrome (ARDS)'] },
+ { id: 'rs2', system: 'Respiratory', part: 'cancer, ILD, TB', items: ['*Lung cancer', '*Interstitial lung disease (including fibrotic lung disease)', '*Sarcoidosis', 'Occupational lung disease', '*Obstructive sleep apnoea', '*Cystic fibrosis', '*Tuberculosis', 'COVID-19', 'Influenza', '*Acid-base abnormality', 'Carbon monoxide poisoning'] },
+ { id: 'gi1', system: 'Gastrointestinal', part: 'upper GI, IBD, diarrhoea', items: ['*Gastro-oesophageal reflux disease (including Barrett oesophagus)', 'Hiatus hernia', '*Peptic ulcer disease and gastritis', '*Helicobacter pylori', '*Gastrointestinal bleeding (upper and lower GI bleeding)', 'Mallory-Weiss tear', '*Variceal disease (including oesophageal varices)', '*Oesophageal cancer', 'Gastric cancer', '*Coeliac disease', 'Malabsorption', '*Inflammatory bowel disease (including Crohn disease, ulcerative colitis)', '*Irritable bowel syndrome', '*Infectious colitis (including Clostridium difficile)', 'Infectious diarrhoea (including infective gastroenteritis)', 'Toxic megacolon'] },
+ { id: 'gi2', system: 'Gastrointestinal', part: 'lower GI and surgical', items: ['*Appendicitis', '*Intestinal obstruction and ileus', 'Volvulus', '*Diverticular disease and diverticulitis', '*Colorectal cancer', '*Intestinal ischaemia', '*Gastrointestinal perforation', 'Peritonitis', '*Hernias', 'Haemorrhoids', 'Anal fissure', 'Perianal abscesses and fistulae', 'Rectal prolapse', '*Constipation'] },
+ { id: 'gi3', system: 'Liver, pancreas & biliary', part: '', items: ['*Gallstones and biliary colic', '*Cholecystitis', '*Acute cholangitis', '*Acute pancreatitis', 'Chronic pancreatitis', '*Pancreatic cancer', '*Alcohol related liver disease', '*Chronic liver disease (including decompensation and cirrhosis of the liver)', '*Ascites (including spontaneous bacterial peritonitis)', '*Hepatitis (including viral, autoimmune, alcoholic)', 'Hepatocellular carcinoma', 'Liver abscess', '*Liver failure', '*Metabolic dysfunction-associated steatotic liver disease (MASLD)', 'Haemochromatosis'] },
+ { id: 'en1', system: 'Endocrine', part: 'diabetes and thyroid', items: ['*Diabetes mellitus', '*Diabetic ketoacidosis (DKA)', '*Hyperosmolar hyperglycaemic state (HHS)', '*Hypoglycaemia', 'Prediabetes', 'Metabolic syndrome', 'Diabetic nephropathy', 'Diabetic neuropathy', 'Diabetic retinopathy', '*Hyperthyroidism/ thyrotoxicosis', '*Graves disease (including thyroid eye disease)', '*Hypothyroidism', 'Thyroid nodules', 'Thyroid cancer'] },
+ { id: 'en2', system: 'Endocrine', part: 'adrenal, pituitary, calcium', items: ['*Adrenal insufficiency (including primary and secondary)', '*Cushing syndrome', '*Primary aldosteronism', '*Phaeochromocytoma', 'Acromegaly', 'Hyperprolactinaemia', 'Pituitary tumours', 'Hypopituitarism', 'Arginine vasopressin deficiency/ resistance (diabetes insipidus)', '*Syndrome of inappropriate antidiuretic hormone secretion (SIADH)', '*Hyperparathyroidism/ hypoparathyroidism', '*Hypercalcaemia/ hypocalcaemia', 'Refeeding syndrome', 'Obesity'] },
+ { id: 'rn1', system: 'Renal', part: 'AKI, CKD, electrolytes', items: ['*Acute kidney injury', '*Chronic kidney disease', 'End stage renal disease (including renal replacement therapy and transplantation)', '*Hyperkalaemia/ hypokalaemia', '*Hyponatraemia/ hypernatraemia', '*Hypovolaemia/ volume depletion', '*Glomerulonephritis', '*Nephrotic syndrome', 'IgA vasculitis', 'Polycystic kidney disease', '*Rhabdomyolysis', 'Transplantation (including graft rejection and immunosuppression)', 'Hydronephrosis'] },
+ { id: 'rn2', system: 'Urology & male GU', part: '', items: ['*Urinary tract infection', '*Pyelonephritis', '*Urinary tract calculi', '*Urinary retention/ obstructive uropathy', 'Urinary incontinence', '*Benign prostatic hyperplasia', '*Prostate cancer', 'Bladder cancer', 'Renal cancer', '*Testicular torsion', 'Testicular cancer', 'Hydrocoele/ varicocoele/ epididymal cyst', 'Prostatitis, epididymitis and orchitis', 'Phimosis/ paraphimosis', 'Penile cancer'] },
+ { id: 'ne1', system: 'Neurology', part: 'stroke, bleeds, emergencies', items: ['*Stroke', '*Transient ischaemic attacks (TIA)', '*Subarachnoid haemorrhage', '*Subdural haemorrhage', '*Extradural haemorrhage', 'Cerebral venous sinus thrombosis (CVST)', '*Raised intracranial pressure', 'Idiopathic intracranial hypertension', '*Epilepsy', '*Status epilepticus', '*Meningitis', 'Encephalitis', 'Brain abscess', 'Brain tumours (primary and secondary)', '*Spinal cord compression', 'Spinal cord injury'] },
+ { id: 'ne2', system: 'Neurology', part: 'chronic and peripheral', items: ['*Parkinsonism (including Parkinson disease)', '*Multiple sclerosis (MS)', '*Motor neurone disease', '*Myasthenia gravis', '*Guillain-Barré/ inflammatory demyelinating polyneuropathy', 'Huntington disease', 'Essential tremor', '*Primary headache disorders (including migraine, cluster headache, tension headache)', 'Trigeminal neuralgia', '*Bell palsy', 'Peripheral neuropathy', 'Peripheral nerve injuries/ palsies', 'Radiculopathies', 'Autonomic neuropathy', 'Muscular dystrophies', 'Vestibular schwannoma (acoustic neuroma)', '*Wernicke encephalopathy/ Wernicke-Korsakoff syndrome'] },
+ { id: 'mh1', system: 'Mental health', part: 'mood, anxiety, psychosis', items: ['*Depression', '*Generalised anxiety disorder', 'Panic disorder', 'Phobias (including agoraphobia)', 'Obsessive-compulsive disorder (OCD)', '*Post traumatic stress disorder', 'Acute stress reaction', '*Bipolar affective disorder (including mania/ hypomania)', '*Schizophrenia', 'Schizoaffective disorder', 'Delusional disorder', '*Psychotic disorder', '*Self-harm', 'Personality disorder'] },
+ { id: 'mh2', system: 'Mental health', part: 'cognition, substances, drug reactions', items: ['*Delirium', '*Dementias (including Alzheimer dementia, Lewy-Body dementia, frontotemporal dementia, vascular dementia)', '*Alcohol withdrawal and opioid withdrawal', '*Substance use disorder', 'Gambling disorder', '*Eating disorders', 'Attention deficit hyperactivity disorder (ADHD)', 'Autism spectrum disorder (ASD)', 'Somatic symptom disorder', 'Medically unexplained symptoms', 'Gender dysphoria and/ or incongruence', '*Postpartum depression', '*Postpartum psychosis', '*Neuroleptic malignant syndrome', '*Serotonin syndrome', '*Drug overdose'] },
+ { id: 'ms1', system: 'Rheumatology', part: '', items: ['*Rheumatoid arthritis', '*Osteoarthritis', '*Crystal arthropathy', '*Septic arthritis', '*Seronegative spondyloarthropathies (including ankylosing spondylitis, reactive arthritis, enteropathic arthritis, psoriatic arthritis)', '*Systemic lupus erythematosus', 'Sjogren syndrome', 'Scleroderma and mixed connective tissue disease', 'Polymyositis and dermatomyositis', '*Polymyalgia rheumatica', '*Giant cell arteritis', 'Vasculitis/ vasculitides', 'Raynaud phenomenon', 'Fibromyalgia', 'Juvenile idiopathic arthritis'] },
+ { id: 'ms2', system: 'Orthopaedics & trauma', part: '', items: ['*Fracture(s) (including pathological fractures)', '*Complications of fractures (including compartment syndrome, non-union, malunion, avascular necrosis)', '*Osteoporosis and fragility fractures', 'Osteomalacia', 'Vitamin D deficiency', '*Osteomyelitis', 'Bone tumours (primary and secondary including osteosarcoma, Ewing sarcoma)', '*Cauda equina syndrome', '*Lower back pain and sciatica', 'Intervertebral disc prolapse', 'Joint dislocation or subluxation', 'Soft tissue injury', 'Bursitis', '*Childhood hip/ leg disorders (including Perthes disease, slipped upper femoral epiphyses, developmental dysplasia of the hip)'] },
+ { id: 'hm1', system: 'Haematology', part: '', items: ['*Anaemia', '*Vitamin B12 and/ or folate deficiency', '*Haemoglobinopathies', '*Sickle cell disease', '*Leukaemia', '*Lymphoma', '*Multiple myeloma', 'Myeloproliferative disorders', 'Polycythaemia', '*Coagulation disorders (including haemophilia, Von Willebrand disease, and thrombophilia, and secondary to illness or medication)', '*Disseminated intravascular coagulation (DIC)', 'Idiopathic thrombocytopenic purpura (ITP)', 'Platelet disorders (including thrombocytosis, thrombocytopenia)', 'Pancytopenia', '*Neutropenia (including neutropenic sepsis)', '*Transfusion reactions', 'Abnormal blood film', 'Hyposplenism/ splenectomy'] },
+ { id: 'in1', system: 'Infection', part: 'sepsis, travel, soft tissue', items: ['*Sepsis (including neutropenic sepsis)', '*Hospital acquired infections', '*Human immunodeficiency virus (HIV)', '*Malaria', 'Typhoid', 'Infectious mononucleosis (including Epstein-Barr virus, cytomegalovirus)', 'Toxoplasmosis', 'Tetanus', 'Toxic shock syndrome', 'Zoonotic infections (including Lyme disease)', 'Pyrexia of unknown origin', '*Notifiable diseases', 'Surgical site infection', 'Abscess', '*Necrotising fasciitis', '*Cellulitis'] },
+ { id: 'in2', system: 'Sexual health & viral infections', part: '', items: ['*Chlamydia', '*Gonorrhoea', '*Syphilis', 'Herpes simplex virus', 'Human papilloma virus infection', 'Trichomonas vaginalis', '*Bacterial vaginosis', 'Candidiasis', '*Pelvic inflammatory disease', '*Varicella zoster virus', 'Mumps', 'Measles', 'Rubella'] },
+ { id: 'og1', system: 'Gynaecology', part: '', items: ['*Endometriosis', '*Fibroids', '*Ovarian cysts', '*Ovarian torsion', '*Ovarian cancer', '*Cervical cancer', '*Cervical screening (human papilloma virus)', 'Cervical ectropion', '*Endometrial cancer', 'Vulval cancer', 'Lichen sclerosus', '*Menopause/ perimenopause', 'Genitourinary syndrome of menopause', '*Polyendocrine Metabolic Ovarian Syndrome (PMOS)', '*Infertility/ subfertility', 'Vaginal prolapse', 'Termination of pregnancy'] },
+ { id: 'og2', system: 'Obstetrics', part: 'early pregnancy, bleeding, medical problems', items: ['*Ectopic pregnancy', '*Miscarriage and intrauterine death', '*Hyperemesis gravidarum', '*Hypertension in pregnancy (including gestational hypertension, pre-eclampsia, eclampsia)', '*Diabetes in pregnancy (gestational and pre-existing)', '*Antepartum haemorrhage', '*Placenta praevia', '*Placental abruption', 'Vasa praevia', 'Blood group incompatibility in pregnancy', 'Jaundice in pregnancy', 'Obesity in pregnancy', 'Multiple pregnancy'] },
+ { id: 'og3', system: 'Obstetrics & breast', part: 'labour, postpartum, breast', items: ['*Complications of labour (including malpresentation, shoulder-dystocia, preterm labour, cord prolapse)', '*Postpartum haemorrhage', 'Chorioamnionitis', 'Polyhydramnios/ oligohydramnios', '*Venous thromboembolism (VTE) in pregnancy and puerperium', '*Breast cancer', 'Breast abscess/ mastitis', 'Breast cysts', 'Fibroadenoma', 'Prematurity', 'Bronchopulmonary dysplasia (chronic lung disease of prematurity)'] },
+ { id: 'pa1', system: 'Paediatrics', part: '', items: ['*Bronchiolitis', '*Croup', '*Epiglottitis', 'Whooping cough', '*Febrile convulsions', '*Kawasaki disease', '*Neonatal jaundice (including pathological and physiological jaundice)', '*Neonatal surgical emergencies (including pyloric stenosis, intussusception)', 'Necrotising enterocolitis', 'Biliary atresia', 'Faltering growth (failure to thrive)', 'Cow milk protein allergy', 'Mesenteric adenitis', 'Scarlet fever', 'Viral exanthema (including measles, rubella, varicella)', 'Childhood cancer (including retinoblastoma)', 'Cryptorchidism', '*Non-accidental injury'] },
+ { id: 'ms3', system: 'Genetics & multi-system', part: '', items: ['*Down syndrome', 'Turner syndrome', 'Klinefelter syndrome', 'Marfan syndrome', 'Ehlers-Danlos syndrome', 'Cerebral palsy and hypoxic-ischaemic encephalopathy', '*Anaphylaxis', '*Allergic disorder (including food allergy)', 'Urticaria', 'Hyperthermia and hypothermia', 'Multi-organ dysfunction syndrome', 'Malnutrition', '*Sarcopenia/ frailty', 'Myalgic encephalomyelitis (ME)/ chronic fatigue syndrome (CFS) (awareness and approach)', 'Metastatic cancer', 'Incidental finding', 'Iatrogenic condition', '*Adverse drug effects', '*Disease prevention/ screening'] },
+ { id: 'sk1', system: 'Dermatology', part: '', items: ['*Atopic dermatitis/ eczema', '*Psoriasis', '*Acne vulgaris', 'Rosacea', 'Contact dermatitis', 'Impetigo', 'Cutaneous fungal infection', 'Cutaneous warts', 'Scabies', 'Folliculitis and Hidradenitis suppurativa', 'Lichen planus', '*Malignant/ pre-malignant skin lesions (including Bowen disease, malignant melanoma, basal cell carcinoma, squamous cell carcinoma)', 'Benign skin lesion (including melanocytic naevi, epidermal cyst, dermatofibroma, seborrheic keratosis, actinic keratosis)', 'Lipoma', 'Haemangioma', '*Stevens-Johnson Syndrome/ toxic epidermal necrolysis (TEN)', 'Erythema nodosum', 'Skin manifestations of systemic disease (including acanthosis nigricans, livedo reticularis and petechiae/ purpura)', '*Skin ulcers (including arterial, venous and neuropathic ulcers)', '*Pressure sores', '*Burns'] },
+ { id: 'ey1', system: 'Ophthalmology', part: '', items: ['*Acute glaucoma', 'Chronic glaucoma', '*Central retinal arterial occlusion', 'Central retinal vein occlusion', '*Retinal detachment', 'Cataracts', '*Macular degeneration', 'Hypertensive retinopathy', '*Conjunctivitis', 'Corneal ulcer/ abrasion', 'Infective keratitis', '*Inflammatory conditions of the eye (including scleritis, episcleritis, uveitis)', '*Optic neuritis', '*Papilloedema', '*Periorbital and orbital cellulitis', 'Benign eyelid disorders (including blepharitis, ectropion/ entropion, chalazion, hordeolum)', 'Subconjunctival haemorrhage', 'Visual field defects'] },
+ { id: 'ent', system: 'ENT', part: '', items: ['*Otitis media', 'Otitis externa', 'Mastoiditis', 'Cholesteatoma', 'Perforated eardrum', '*Benign paroxysmal positional vertigo (BPPV)', '*Ménière disease', '*Labyrinthitis/ vestibular neuritis', '*Epistaxis', 'Rhinosinusitis', 'Nasal polyps', '*Pharyngitis/ tonsillitis', '*Quinsy/ peritonsillar abscess', '*Head and neck cancer (including oral, laryngeal and salivary gland)', '*Airway compromise/ management', 'Upper respiratory tract infection'] },
+ { id: 'pk1', system: 'Ethics & law', part: 'professional knowledge', items: ['*Consent and mental capacity (Mental Capacity Act 2005, best interests)', '*Advance decisions, lasting power of attorney, DNACPR', '*Confidentiality and when to disclose', '*Mental Health Act sections (2, 3, 4, 5(2), 5(4), 136)', '*Safeguarding adults and children', 'Duty of candour and raising concerns', 'Death certification and coroner referral', 'DVLA fitness to drive', 'Good medical practice, social media and boundaries', 'Gillick competence and Fraser guidelines'] },
+ { id: 'pk2', system: 'Prescribing, perioperative & palliative', part: 'professional knowledge', items: ['*High-risk drugs: anticoagulants, insulin, opioids, gentamicin/ vancomycin levels', '*IV fluids and electrolyte replacement', '*Prescribing in renal, hepatic impairment, pregnancy and breastfeeding', 'Antimicrobial stewardship', '*Perioperative care: fasting, stopping/ bridging anticoagulants, steroid cover, VTE prophylaxis', 'Blood transfusion: thresholds and consent', '*Palliative symptom control and syringe drivers', 'Analgesic ladder and opioid conversions', 'Recognising dying and end-of-life care', 'Common drug interactions'] },
+];
+
+// ── UKMLA plan builder (AKT Mon 18 Jan 2027) ────────────────────────────────
+// Lays the study blocks onto days from 24 Nov, around the calendar:
+//   • HCA shift of 10 h+ → no revision that day (the schedule moves along)
+//   • shift of 6–10 h   → light day: 30 mixed questions + Anki, no new block
+//   • one rest day a week: a long-shift day if the week has one, else Sunday
+//   • Christmas Day off; Sun 17 Jan light recap; Mon 18 Jan the exam
+// Order: first pass of every block (high yield first within each day), then a
+// second pass of the high-yield conditions, then full mock days if time is
+// left, with the last full day as the weak-areas recap. Past days are frozen in
+// 'ukmla_plan_snapshot' so a new shift only moves days that haven't happened.
+const UKMLA_EXAM_DATE = '2027-01-18';
+const UKMLA_PLAN_START = '2026-11-24';
+const UKMLA_PLAN_HISTORY_END = UKMLA_PLAN_START; // older plan days stay as they were
+function _ukmlaSnapshot() { try { return JSON.parse(localStorage.getItem('ukmla_plan_snapshot') || '{}') || {}; } catch { return {}; } }
+function _ukmlaDayKind(ds) {
+  if (ds === '2026-12-25') return { kind: 'off', why: 'Christmas Day' };
+  let shifts = [];
+  try { shifts = getDayEvents(ds).filter(e => e.kind === 'shift' || e.calendar === 'v'); } catch {} // 'v' = bank shifts calendar
+  const longest = shifts.reduce((m, e) => Math.max(m, (e.e || 0) - (e.s || 0)), 0);
+  const name = shifts[0] ? String(shifts[0].title || 'shift').split(' - ')[0] : '';
+  if (longest >= 600) return { kind: 'shift', why: `${name} shift` };
+  if (longest >= 360) return { kind: 'light', why: `${name} shift` };
+  return { kind: 'full' };
+}
+const _ukDay = (ds, label, groups, ids) => ({ date: ds, label, groups, ids: ids || [] });
+const _ukBlockDay = (ds, blocks) => {
+  const groups = [];
+  blocks.forEach(b => {
+    const hy = b.items.filter(x => x[0] === '*').map(x => x.slice(1)), rest = b.items.filter(x => x[0] !== '*');
+    if (hy.length) groups.push({ subject: `${b.system} — High Yield`, items: hy });
+    if (rest.length) groups.push({ subject: `${b.system} — Also covered`, items: rest });
+  });
+  groups.push({ subject: null, items: ['Mixed Passmedicine set + Anki reviews'] });
+  const label = blocks.map(b => b.system + (b.part ? ` (${b.part})` : '')).join(' + ');
+  return _ukDay(ds, label, groups, blocks.map(b => b.id));
+};
+const _ukSecondDay = (ds, blocks) => {
+  const bySys = {};
+  blocks.forEach(b => { (bySys[b.system] = bySys[b.system] || []).push(...b.items.filter(x => x[0] === '*').map(x => x.slice(1))); });
+  const groups = Object.entries(bySys).map(([sys, items]) => ({ subject: `${sys} — High Yield (second pass)`, items }));
+  groups.push({ subject: null, items: ['Mixed Passmedicine set + Anki reviews'] });
+  return _ukDay(ds, 'Second pass: ' + Object.keys(bySys).join(', '), groups, blocks.map(b => 'p2:' + b.id));
+};
+function ukmlaBuildPlan() {
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const snap = _ukmlaSnapshot();
+  const prog = (typeof getUkmlaProgress === 'function') ? getUkmlaProgress() : {};
+  const frozen = ds => snap[ds] && (ds < todayStr || (ds === todayStr && (prog[ds] || []).some(Boolean)));
+  const out = [], used = new Set();
+  const dates = [];
+  for (let d = new Date(UKMLA_PLAN_START + 'T12:00:00'); d.toLocaleDateString('en-CA') < UKMLA_EXAM_DATE; d.setDate(d.getDate() + 1)) dates.push(d.toLocaleDateString('en-CA'));
+  // classify, with one rest day per Mon–Sun week
+  const kinds = {};
+  dates.forEach(ds => { kinds[ds] = _ukmlaDayKind(ds); });
+  const weekOf = ds => { const d = new Date(ds + 'T12:00:00'); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.toLocaleDateString('en-CA'); };
+  const weeks = {};
+  dates.forEach(ds => (weeks[weekOf(ds)] = weeks[weekOf(ds)] || []).push(ds));
+  Object.values(weeks).forEach(days => {
+    if (days.some(ds => ['shift', 'off'].includes(kinds[ds].kind))) return; // already has a day off revision
+    const sun = days.find(ds => new Date(ds + 'T12:00:00').getDay() === 0) || days[days.length - 1];
+    if (sun && sun !== '2027-01-17') kinds[sun] = { kind: 'rest', why: kinds[sun].kind === 'light' ? `rest day (${kinds[sun].why})` : 'rest day' };
+  });
+  kinds['2027-01-17'] = { kind: 'eve' };
+  // frozen days keep what they were; note the blocks they used
+  dates.forEach(ds => { if (frozen(ds)) (snap[ds].ids || []).forEach(id => used.add(id)); });
+  const blocks1 = UKMLA_BLOCKS.filter(b => !used.has(b.id));
+  const blocks2 = UKMLA_BLOCKS.filter(b => !used.has('p2:' + b.id));
+  const fullDays = dates.filter(ds => !frozen(ds) && kinds[ds].kind === 'full');
+  // first pass: one block a day; if short of days, double up the smallest
+  let p1 = blocks1.map(b => [b]);
+  const minAfter = Math.min(blocks2.length ? 3 : 0, Math.max(0, fullDays.length - p1.length)); // keep at least a few days for pass 2
+  while (p1.length > Math.max(1, fullDays.length - minAfter - 1) && p1.length > 1) {
+    let bi = 0, best = Infinity;
+    for (let i = 0; i < p1.length - 1; i++) { const n = [...p1[i], ...p1[i + 1]].reduce((s, b) => s + b.items.length, 0); if (n < best) { best = n; bi = i; } }
+    p1.splice(bi, 2, [...p1[bi], ...p1[bi + 1]]);
+  }
+  let left = fullDays.length - p1.length;
+  const recapSlot = left >= 1 ? 1 : 0; left -= recapSlot;
+  // second pass: spread the high-yield conditions over the days left (≤15 days, ~2 blocks a day)
+  const nP2 = Math.min(left, Math.ceil(blocks2.length / 2), blocks2.length);
+  const p2 = [];
+  for (let i = 0; i < nP2; i++) p2.push(blocks2.slice(Math.floor(i * blocks2.length / nP2), Math.floor((i + 1) * blocks2.length / nP2)));
+  left -= nP2;
+  let fi = 0;
+  const lastFull = fullDays[fullDays.length - 1];
+  dates.forEach(ds => {
+    if (frozen(ds)) { out.push(snap[ds]); return; }
+    const k = kinds[ds];
+    if (k.kind === 'off') return out.push(_ukDay(ds, `${k.why} — off`, [{ subject: null, items: ['Day off'] }]));
+    if (k.kind === 'shift') return out.push(_ukDay(ds, `${k.why} — no revision`, [{ subject: null, items: ['Anki reviews only if you have the energy'] }]));
+    if (k.kind === 'rest') return out.push(_ukDay(ds, `Rest day${k.why && k.why !== 'rest day' ? ' — ' + k.why.replace(/^rest day \(|\)$/g, '') : ''}`, [{ subject: null, items: ['Rest — Anki reviews optional'] }]));
+    if (k.kind === 'light') return out.push(_ukDay(ds, `Light day — ${k.why}`, [{ subject: null, items: ['30 mixed Passmedicine questions on recent topics + Anki reviews'] }]));
+    if (k.kind === 'eve') return out.push(_ukDay(ds, 'Exam eve — light recap', [{ subject: 'Recap', items: ['Skim your high-yield notes and flagged Anki cards', 'Early night: pack ID, check exam venue and time'] }]));
+    // full day
+    if (ds === lastFull && recapSlot) return out.push(_ukDay(ds, 'Weak areas recap', [{ subject: 'Recap', items: ['Re-do incorrect Passmedicine questions from the last 2 weeks', 'Review your lowest-scoring systems'] }, { subject: null, items: ['Mixed Passmedicine set + Anki reviews'] }]));
+    if (fi < p1.length) return out.push(_ukBlockDay(ds, p1[fi++]));
+    const j = fi - p1.length; fi++;
+    if (j < p2.length) return out.push(_ukSecondDay(ds, p2[j]));
+    out.push(_ukDay(ds, 'Full mock + review', [{ subject: 'Mock', items: ['Timed mock: 100 mixed questions (Passmedicine mock or MLA practice paper)', 'Review every wrong answer and add Anki cards'] }]));
+  });
+  out.push(_ukDay(UKMLA_EXAM_DATE, 'UKMLA AKT — exam day', [{ subject: null, items: ['UKMLA AKT'] }]));
+  // keep history from before this plan, replace the rest
+  const hist = UKMLA_REVISION_PLAN.filter(d => d.date < UKMLA_PLAN_HISTORY_END);
+  UKMLA_REVISION_PLAN.length = 0;
+  UKMLA_REVISION_PLAN.push(...hist, ...out);
+  UKMLA_RECAP_DATE = (out.find(d => d.label === 'Weak areas recap') || out[out.length - 2]).date;
+  // freeze days that have happened (and today once something's ticked)
+  const ns = { ...snap };
+  out.forEach(d => { if (d.date < todayStr || (d.date === todayStr && (prog[d.date] || []).some(Boolean))) ns[d.date] = d; });
+  let calReady = false; try { calReady = _liveCal.length > 0; } catch {}
+  if (calReady && JSON.stringify(ns) !== JSON.stringify(snap)) { try { localStorage.setItem('ukmla_plan_snapshot', JSON.stringify(ns)); if (typeof syncPush === 'function') syncPush('ukmla_plan_snapshot', ns); } catch {} }
+  return out;
+}
+try { ukmlaBuildPlan(); } catch (e) { console.error('ukmlaBuildPlan', e); }
+
 const UKMLA_WEAK_PCT = 65;
 function getUkmlaScores() { try { return JSON.parse(localStorage.getItem('ukmla_scores')) || {}; } catch { return {}; } }
 function setUkmlaScore(date, val) {
@@ -6723,7 +6877,7 @@ function renderUkmlaPlan() {
 }
 // Catch-up only counts from the current schedule's start (cleared 13 Nov 2026,
 // when the plan switched to whole subjects); older plan days are ignored.
-const UKMLA_CATCHUP_FROM = '2026-11-13';
+const UKMLA_CATCHUP_FROM = '2026-11-24';
 function ukmlaPastIncompleteByDay(progress, todayStr) {
   return UKMLA_REVISION_PLAN
     .filter(day => day.date < todayStr && day.date >= UKMLA_CATCHUP_FROM)
@@ -6825,16 +6979,16 @@ function renderUkmlaSummary() {
   if (!el) return;
   const progress = getUkmlaProgress();
   let done = 0, total = 0;
-  UKMLA_REVISION_PLAN.forEach(day => {
+  UKMLA_REVISION_PLAN.filter(day => day.date >= UKMLA_PLAN_START).forEach(day => {
     const c = ukmlaDayDoneCount(day, progress);
     done += c.done; total += c.total;
   });
   const pct = total ? Math.round(done / total * 100) : 0;
-  const exam = new Date('2026-11-23T00:00:00'); const now = new Date(); now.setHours(0,0,0,0); // UKMLA mock (same as REV_EXAM, which is declared later, so can't be used here at load)
+  const exam = new Date('2027-01-18T00:00:00'); const now = new Date(); now.setHours(0,0,0,0); // UKMLA AKT (same as REV_EXAM, which is declared later, so can't be used here at load)
   const daysLeft = Math.max(0, Math.ceil((exam - now) / 86400000));
   el.innerHTML = `<div class="card" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
     <div><div style="font-size:22px;font-weight:800;color:#2D7A47">${pct}%</div><div class="sub">${done} / ${total} sections done</div></div>
-    <div style="margin-left:auto;text-align:right"><div style="font-size:22px;font-weight:800">${daysLeft}</div><div class="sub">days to the UKMLA mock</div></div>
+    <div style="margin-left:auto;text-align:right"><div style="font-size:22px;font-weight:800">${daysLeft}</div><div class="sub">days to the UKMLA AKT</div></div>
   </div>`;
 }
 renderUkmlaPlan();
@@ -6853,7 +7007,7 @@ renderUkmlaCompleted();
 // 2026-09-26. REV_EXAM is the one piece still genuinely used, by the exam
 // countdown chip below.
 // 23 Nov is the UKMLA *mock* AKT; the full UKMLA + OSCE plan starts in December.
-const REV_EXAM = new Date('2026-11-23T00:00:00'); // UKMLA mock AKT date
+const REV_EXAM = new Date('2027-01-18T00:00:00'); // UKMLA AKT
 
 // ── Training Calendar ───────────────────────────────────────────────────────
 // Standard week (agreed Oct 2026): one speed/interval run (Mon) and one
@@ -10202,7 +10356,7 @@ function renderDailyBriefing() {
     const examDays = Math.ceil((REV_EXAM - new Date(viewDate.toDateString())) / 864e5);
     const behind = ukmlaPastIncompleteByDay(prog, todayDateStr).reduce((s, d) => s + d.items.length, 0);
     const lowDay = UKMLA_REVISION_PLAN.filter(d => wkDays.includes(d.date) && scores[d.date] != null).sort((a, b) => scores[a.date] - scores[b.date])[0];
-    if (examDays >= 0) recapHtml += `<div style="${rowStyle}">🩺 <span>UKMLA mock in <strong>${examDays} days</strong> · ${behind ? `<strong style="color:#b45309">${behind} items behind</strong>` : 'on schedule'}${lowDay ? ` · lowest: ${escHtml(lowDay.label)} ${scores[lowDay.date]}%` : ''}</span></div>`;
+    if (examDays >= 0) recapHtml += `<div style="${rowStyle}">🩺 <span>UKMLA AKT in <strong>${examDays} days</strong> · ${behind ? `<strong style="color:#b45309">${behind} items behind</strong>` : 'on schedule'}${lowDay ? ` · lowest: ${escHtml(lowDay.label)} ${scores[lowDay.date]}%` : ''}</span></div>`;
     // 7. top priorities
     const tpDone = wkDays.filter(ds => { const t = getTopTaskForDate(ds); return t && t.done; }).length;
     recapHtml += `<div style="${rowStyle}">🎯 <span>Top priority done on <strong>${tpDone}/7</strong> days</span></div>`;
@@ -15109,10 +15263,10 @@ function renderExamCountdown() {
 
   let countdownHtml;
   if (daysLeft <= 0) {
-    countdownHtml = `<span style="background:#FBF1E7;color:#7A6656;border-radius:99px;padding:5px 14px;font-size:13px;font-weight:600">🎓 UKMLA mock done</span>`;
+    countdownHtml = `<span style="background:#FBF1E7;color:#7A6656;border-radius:99px;padding:5px 14px;font-size:13px;font-weight:600">🎓 UKMLA AKT done</span>`;
   } else {
     const urgColor = daysLeft <= 7 ? '#dc2626' : daysLeft <= 14 ? '#d97706' : '#6366f1';
-    countdownHtml = `<span style="background:${urgColor}18;color:${urgColor};border:1px solid ${urgColor}44;border-radius:99px;padding:5px 14px;font-size:13px;font-weight:700">📅 ${daysLeft} day${daysLeft===1?'':'s'} to the UKMLA mock</span>`;
+    countdownHtml = `<span style="background:${urgColor}18;color:${urgColor};border:1px solid ${urgColor}44;border-radius:99px;padding:5px 14px;font-size:13px;font-weight:700">📅 ${daysLeft} day${daysLeft===1?'':'s'} to the UKMLA AKT</span>`;
   }
 
   el.innerHTML = `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
