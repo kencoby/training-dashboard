@@ -114,6 +114,8 @@ h2{font-family:'Quicksand',system-ui,sans-serif;font-size:12px;font-weight:700;t
 @media (max-width:420px){.g4{grid-template-columns:1fr}}
 .home-2col{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);grid-template-rows:auto minmax(0,1fr) auto;grid-template-areas:"briefing training" "briefing right" "statrow right";gap:12px;height:calc(100vh - 130px)}
 .home-training-col{grid-area:training;max-height:48vh}
+.home-desktop-only{display:none}
+@media(min-width:641px){.home-desktop-only{display:block}}
 .home-prio{grid-area:prio}
 @media(min-width:1300px){
   .home-2col{grid-template-columns:minmax(0,5fr) minmax(0,4fr) minmax(0,3fr);grid-template-rows:minmax(0,1fr) auto;grid-template-areas:"briefing training right" "statrow training right"}
@@ -500,6 +502,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
     <div id="home-suggestion"></div>
     <div id="training-todo"></div>
     <div id="home-life" style="margin-top:12px;padding-top:12px;border-top:1px solid #FBF1E7"></div>
+    <div id="home-focus" class="home-desktop-only"></div>
   </div>
 
   <!-- Habits -->
@@ -3054,7 +3057,44 @@ function swapTaskForDay(ds, outId, inId) {
 }
 
 function _refreshPlan() { try { if (typeof renderDayList === 'function') renderDayList(); } catch {} _refreshPlanInner(); }
-function _refreshPlanInner() { try { if (typeof renderDailyBriefing === 'function') renderDailyBriefing(); } catch {} try { if (typeof renderCalendarTab === 'function') renderCalendarTab(); } catch {} }
+// Home (desktop): critical tasks and today's revision topics, tickable, under today's training.
+function renderHomeFocus() {
+  const el = document.getElementById('home-focus');
+  if (!el) return;
+  const lbl = t => `<div class="lbl" style="margin:14px 0 6px">${t}</div>`;
+  const row = (on, onchange, text, sub) => `<label style="display:flex;align-items:flex-start;gap:9px;padding:3px 0;font-size:12.5px;cursor:pointer;line-height:1.35">
+      <input type="checkbox" ${on ? 'checked' : ''} onchange="${onchange}" style="margin-top:2px;flex-shrink:0">
+      <span style="${on ? 'color:#A6937F;text-decoration:line-through' : ''}">${text}${sub ? ` <span style="font-size:10.5px;color:#A6937F">${sub}</span>` : ''}</span></label>`;
+  let html = '';
+  // critical tasks, in your list order
+  try {
+    const crit = getTasks().filter(t => !t.done && t.priority === 'critical');
+    html += lbl(`🔥 Critical tasks <span style="font-weight:500;text-transform:none;letter-spacing:0;color:#bbb">${crit.length}</span>`);
+    html += crit.length ? crit.slice(0, 8).map(t => row(false, `toggleTask('${t.id}')`, escHtml(t.text), typeof taskDuration === 'function' ? `${taskDuration(t)} min` : '')).join('')
+      + (crit.length > 8 ? `<div style="font-size:11px;color:#A6937F;padding:2px 0"><a href="javascript:void(0)" onclick="switchTab('planner')" style="color:#A6937F">+${crit.length - 8} more in Tasks ›</a></div>` : '')
+      : '<div class="sub" style="font-size:12px">None — nice.</div>';
+  } catch {}
+  // today's revision
+  try {
+    const ds = new Date().toLocaleDateString('en-CA');
+    const day = UKMLA_REVISION_PLAN.find(d => d.date === ds);
+    if (day) {
+      const ticked = getUkmlaProgress()[ds] || [];
+      const groups = ukmlaGroups(day);
+      const total = groups.reduce((n, g) => n + g.items.length, 0), done = ticked.filter(Boolean).length;
+      html += lbl(`📚 Today's revision <span style="font-weight:500;text-transform:none;letter-spacing:0;color:#bbb">${done}/${total}</span>`);
+      html += `<div style="font-size:12px;font-weight:600;margin-bottom:4px">${escHtml(day.label)}</div>`;
+      let i = 0;
+      groups.forEach(g => {
+        if (g.subject) html += `<div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;color:#A6937F;margin:8px 0 2px">${escHtml(g.subject)}</div>`;
+        g.items.forEach(it => { const idx = i++; html += row(!!ticked[idx], `toggleUkmlaItem('${ds}',${idx})`, escHtml(it)); });
+      });
+    }
+  } catch {}
+  el.innerHTML = html ? `<div style="margin-top:4px;padding-top:4px;border-top:1px solid #FBF1E7">${html}</div>` : '';
+}
+function _refreshPlanInner() {
+  try { if (typeof renderDailyBriefing === 'function') renderDailyBriefing(); } catch {} try { if (typeof renderCalendarTab === 'function') renderCalendarTab(); } catch {} }
 
 function toggleTask(id) {
   let items = getTasks();
@@ -10178,6 +10218,7 @@ function briefingNav(dir, reset) {
 }
 
 function renderDailyBriefing() {
+  try { renderHomeFocus(); } catch {}
   // ── Date (offset-aware) ──────────────────────────────────────────────────
   const realToday = new Date();
   const viewDate  = new Date(realToday);
