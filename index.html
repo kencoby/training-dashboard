@@ -1564,7 +1564,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 <h2>📖 UKMLA Revision Plan</h2>
 <div class="sub" style="margin-bottom:12px">AKT: Monday 18 Jan 2027. Every condition in the GMC MLA content map (Sept 2026) gets one pass by early January, high-yield conditions first each day, then a second pass of the high-yield ones. Long shifts in your calendar move the days along; shorter shifts are light days. Tap a day to expand it, then tick off each condition as you go.</div>
 <div id="ukmla-summary" style="margin-bottom:14px"></div>
-<div id="ukmla-scores" style="margin-bottom:14px"></div>
+<div id="ukmla-scores" style="display:none"></div>
 <div id="ukmla-catchup" style="margin-bottom:14px"></div>
 <div id="ukmla-days"></div>
 <div id="ukmla-completed" style="margin-top:14px"></div>
@@ -6747,6 +6747,7 @@ function ukmlaGroups(day) {
 }
 function renderUkmlaScores() {
   const el = document.getElementById('ukmla-scores');
+  if (el) { el.innerHTML = ''; return; } // Scores section removed from the UKMLA page (Nov 2026)
   if (!el) return;
   const todayStr = new Date().toLocaleDateString('en-CA');
   const scores = getUkmlaScores();
