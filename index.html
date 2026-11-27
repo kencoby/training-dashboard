@@ -533,6 +533,7 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
   <button class="sub-tab-btn active" data-subtab="whoop-recovery">Recovery</button>
   <button class="sub-tab-btn" data-subtab="whoop-sleep">Sleep</button>
   <button class="sub-tab-btn" data-subtab="whoop-strain">Strain</button>
+  <button class="sub-tab-btn" data-subtab="whoop-insights">Insights</button>
   <button class="sub-tab-btn" data-subtab="whoop-monitor">Monitor</button>
   <button class="sub-tab-btn" data-subtab="whoop-fitness">Fitness</button>
 </nav>
@@ -673,6 +674,45 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 
 </div><!-- /sub-tab-whoop-strain -->
 
+<div class="sub-tab-pane" id="sub-tab-whoop-insights">
+
+<div class="section">
+<h2>🔋 Energy Bank</h2>
+<div class="card" id="ins-energy" style="padding:14px"></div>
+</div>
+
+<div class="section">
+<h2>Stress</h2>
+<div class="card" id="ins-stress" style="padding:14px"></div>
+</div>
+
+<div class="section">
+<h2>Muscle freshness</h2>
+<div class="card" id="ins-muscles" style="padding:14px"></div>
+</div>
+
+<div class="section">
+<h2>Day timeline</h2>
+<div class="card" id="ins-timeline" style="padding:14px"></div>
+</div>
+
+<div class="section">
+<h2>Journal factors</h2>
+<div class="card" id="ins-journal" style="padding:14px"></div>
+</div>
+
+<div class="section">
+<h2>Fitness age</h2>
+<div class="card" id="ins-bioage" style="padding:14px"></div>
+</div>
+
+<div class="section">
+<h2>Blood results</h2>
+<div class="card" id="ins-blood" style="padding:14px"></div>
+</div>
+
+</div><!-- /sub-tab-whoop-insights -->
+
 <div class="sub-tab-pane" id="sub-tab-whoop-monitor">
 
 <div class="section">
@@ -735,6 +775,11 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
   <div id="balance-today-row" style="display:flex;gap:22px;margin-bottom:10px"></div>
   <div class="cht-sm"><canvas id="calorie-balance-chart"></canvas></div>
 </div>
+</div>
+
+<div class="section">
+<h2>Net energy</h2>
+<div class="card" id="ins-net-energy" style="padding:14px"></div>
 </div>
 
 <div class="section">
@@ -2686,7 +2731,8 @@ const SYNC_KEYS = [
   'weight_goal', 'cst_grades', 'audit_cycle', 'ukmla_progress', 'ukmla_plan_snapshot', 'macro_targets',
   'wardrobe_items', 'wardrobe_wears',
   'hm_race', 'hm_prediction_log', 'ukmla_scores', 'task_day_choices', 'day_lists', 'plan_moves', 'sleep_target', 'wake_defaults',
-  'checkins', 'life_status', 'sleep_payback', 'weekly_goals', 'experiments', 'shutdowns', 'plan_results', 'session_times'
+  'checkins', 'life_status', 'sleep_payback', 'weekly_goals', 'experiments', 'shutdowns', 'plan_results', 'session_times',
+  'journal_factors', 'blood_results', 'bio_profile'
 ];
 
 function getSyncMeta() {
@@ -9311,6 +9357,7 @@ async function loadPlannerHevyHistory() {
     _plannerHevySessions = [];
   }
   try { renderPlanTargets(); _refreshPlan(); } catch {}
+  try { renderInsights(); } catch {}
   renderWhoopMonitor();
   if (typeof renderPlannerCalendar === 'function') renderPlannerCalendar();
 }
@@ -11171,6 +11218,636 @@ document.querySelectorAll('.sub-tab-nav').forEach(nav => {
   });
 });
 
+// ══ Insights (Bevel-style): Energy Bank, stress, muscle freshness, fitness age,
+// journal factors, day timeline, blood results, net energy ══════════════════
+// Everything here is computed from data the dashboard already syncs (Apple
+// Health daily values via Health Auto Export, Strava, Hevy, the calendar).
+// Health Auto Export only sends one value per day for HRV/RHR (no continuous
+// heart-rate stream), so stress is a daily score, not a live one.
+const _insEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const _insClamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const _insToday = () => new Date().toLocaleDateString('en-CA');
+const _insDay = (ds, n) => { const d = new Date(ds + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toLocaleDateString('en-CA'); };
+const _insPretty = ds => new Date(ds + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' });
+const _insMinOf = d => d.getHours() * 60 + d.getMinutes();
+function _insVal(metric, ds) { return (typeof _healthValueOnDate === 'function') ? _healthValueOnDate(metric, ds) : null; }
+// Average of a metric over the `days` days BEFORE ds (today excluded, so a bad
+// day doesn't drag its own baseline toward itself).
+function _insBase(metric, ds, days) {
+  const m = _healthData && _healthData[metric];
+  if (!m || !m.byDate) return null;
+  const from = _insDay(ds, -days);
+  const vals = Object.keys(m.byDate).filter(d => d >= from && d < ds).map(d => m.byDate[d].value).filter(v => typeof v === 'number' && isFinite(v));
+  return vals.length >= 3 ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+}
+// Timestamped points Health Auto Export sent for a metric on a day (meals, caffeine).
+function _insPoints(metric, ds) {
+  const m = _healthData && _healthData[metric];
+  const e = m && m.byDate && m.byDate[ds];
+  if (!e || !e.points) return [];
+  return Object.entries(e.points).map(([k, v]) => ({ t: parseHealthDate(k.split('|')[0]), v }))
+    .filter(p => p.t && typeof p.v === 'number').sort((a, b) => a.t - b.t);
+}
+// Meal entries arrive as several points a minute or two apart — group anything
+// within 15 minutes into one meal.
+function _insMeals(ds) {
+  const out = [];
+  _insPoints('dietary_energy', ds).forEach(p => {
+    const last = out[out.length - 1];
+    if (last && p.t - last.end <= 15 * 60000) { last.kj += p.v; last.end = p.t; }
+    else out.push({ t: p.t, end: p.t, kj: p.v });
+  });
+  return out.map(m => ({ t: m.t, kcal: Math.round(m.kj * 0.239006) })).filter(m => m.kcal >= 30 && m.t.toLocaleDateString('en-CA') === ds);
+}
+function _insCaffeine(ds) {
+  return _insPoints('caffeine', ds).filter(p => p.v >= 5 && p.t.toLocaleDateString('en-CA') === ds);
+}
+function _insActs(ds) {
+  const acts = (typeof _acts !== 'undefined' && _acts) ? _acts : [];
+  return acts.filter(a => (a.start_local || '').slice(0, 10) === ds);
+}
+// Strava's start_date_local is local wall-clock time tagged as UTC ("…Z"), so
+// read the clock digits rather than letting Date shift them.
+function _insActStartMin(a) {
+  const m = /T(\d{2}):(\d{2})/.exec(a.start_local || '');
+  return m ? (+m[1]) * 60 + (+m[2]) : null;
+}
+function _insIsHardAct(a) {
+  const n = (a.name || '').toLowerCase();
+  if (/time trial|\btt\b|interval|tempo|speed|race|parkrun|threshold|fartlek/.test(n)) return true;
+  const re = a.summary && a.summary.relative_effort;
+  return re != null && re >= 90;
+}
+function _insShifts(ds) {
+  try { return getDayEvents(ds).filter(e => e.kind === 'shift'); } catch { return []; }
+}
+
+// ── 1. Muscle freshness ────────────────────────────────────────────────────
+const INS_MUSCLES = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'quads', 'hamstrings', 'glutes', 'calves', 'core'];
+const INS_MUSCLE_LABEL = { chest: 'Chest', back: 'Back', shoulders: 'Shoulders', biceps: 'Biceps', triceps: 'Triceps', quads: 'Quads', hamstrings: 'Hamstrings', glutes: 'Glutes', calves: 'Calves', core: 'Core' };
+// First match wins, so the specific patterns come before the general ones.
+const INS_MUSCLE_RULES = [
+  [/rear delt|reverse fly|face pull/, { shoulders: 1, back: 0.5 }],
+  [/rear kick|hip thrust|glute|abduct/, { glutes: 1 }],
+  [/adduct/, { quads: 0.5, glutes: 0.3 }],
+  [/leg curl|hamstring curl/, { hamstrings: 1 }],
+  [/leg extension/, { quads: 1 }],
+  [/calf/, { calves: 1 }],
+  [/romanian|\brdl\b|stiff.?leg|good morning/, { hamstrings: 1, glutes: 0.6, back: 0.3 }],
+  [/deadlift/, { back: 0.8, hamstrings: 0.8, glutes: 0.8 }],
+  [/squat|lunge|leg press|split|step.?up/, { quads: 1, glutes: 0.7, hamstrings: 0.3 }],
+  [/close grip/, { triceps: 1, chest: 0.6, shoulders: 0.3 }],
+  [/tricep|pushdown|kickback|skull|\bdip/, { triceps: 1 }],
+  [/wrist curl/, { biceps: 0.3 }],
+  [/curl/, { biceps: 1 }],
+  [/shrug/, { back: 0.6 }],
+  [/lateral raise|front raise|upright row/, { shoulders: 1 }],
+  [/shoulder press|overhead press|military|arnold|\bohp\b/, { shoulders: 1, triceps: 0.5 }],
+  [/incline/, { chest: 1, shoulders: 0.5, triceps: 0.4 }],
+  [/bench|chest press|push.?up|flat/, { chest: 1, triceps: 0.5, shoulders: 0.3 }],
+  [/fly|pec deck|crossover/, { chest: 1 }],
+  [/row|pulldown|pull.?up|chin.?up|pullover/, { back: 1, biceps: 0.5 }],
+  [/around the world|plank|crunch|sit.?up|leg raise|ab wheel|hollow|\babs?\b/, { core: 1 }]
+];
+function insMusclesFor(title) {
+  const t = String(title || '').toLowerCase();
+  for (const [re, m] of INS_MUSCLE_RULES) if (re.test(t)) return m;
+  return null;
+}
+// Fatigue = hard sets, each decaying with a half-life (36 h for big muscle
+// groups, 24 h for small ones). Freshness = 100·e^(−fatigue/8), so ~8 hard
+// sets just done ≈ 37 % fresh, back to ~80 % three days later.
+const INS_HALF_LIFE = { quads: 36, hamstrings: 36, glutes: 36, back: 36, chest: 30, shoulders: 24, biceps: 24, triceps: 24, calves: 24, core: 24 };
+function insMuscleLoads(nowMs) {
+  nowMs = nowMs || Date.now();
+  const loads = [];
+  const sessions = (typeof _plannerHevySessions !== 'undefined' && Array.isArray(_plannerHevySessions)) ? _plannerHevySessions : [];
+  const acts = (typeof _acts !== 'undefined' && _acts) ? _acts : [];
+  sessions.forEach(s => {
+    if (!s.date) return;
+    // Use the matching Strava weight-training start time when there is one.
+    // Session end: Hevy's own end time, else a matching Strava weight-training
+    // start, else 17:00. A session dated today always counts as done.
+    let t = s.end ? new Date(s.end).getTime() : NaN;
+    if (!isFinite(t)) {
+      const st = acts.find(a => a.sport_type === 'WeightTraining' && (a.start_local || '').slice(0, 10) === s.date);
+      const sm = st ? _insActStartMin(st) : 17 * 60;
+      t = new Date(s.date + 'T00:00:00').getTime() + (sm + (s.durationMin || 60)) * 60000;
+    }
+    if (t > nowMs) t = s.date === new Date(nowMs).toLocaleDateString('en-CA') ? nowMs - 30 * 60000 : t;
+    if (nowMs - t > 10 * 864e5 || t > nowMs) return;
+    (s.exercises || []).forEach(ex => {
+      const m = insMusclesFor(ex.title); if (!m) return;
+      const sets = (ex.sets || []).length;
+      Object.entries(m).forEach(([mu, w]) => loads.push({ mu, units: sets * w, t, src: s.title || 'Gym' }));
+    });
+  });
+  acts.forEach(a => {
+    const ds = (a.start_local || '').slice(0, 10); if (!ds) return;
+    const sm = _insActStartMin(a); if (sm == null) return;
+    const t = new Date(ds + 'T00:00:00').getTime() + sm * 60000 + (a.summary.moving_time || 0) * 1000;
+    if (nowMs - t > 10 * 864e5 || t > nowMs) return;
+    const km = (a.summary.distance || 0) / 1000, hrs = (a.summary.moving_time || 0) / 3600;
+    let per = null;
+    if (a.sport_type === 'Run') {
+      const f = _insIsHardAct(a) ? 1.5 : 1;
+      per = { quads: 0.4 * km * f, calves: 0.5 * km * f, hamstrings: 0.3 * km * f, glutes: 0.2 * km * f };
+    } else if (a.sport_type === 'Soccer') per = { quads: 4 * hrs, hamstrings: 4 * hrs, calves: 3 * hrs, glutes: 2 * hrs };
+    else if (a.sport_type === 'Ride') per = { quads: 3 * hrs, glutes: 1 * hrs };
+    if (per) Object.entries(per).forEach(([mu, u]) => loads.push({ mu, units: u, t, src: a.name || a.sport_type }));
+  });
+  return loads;
+}
+function insMuscleFreshness(nowMs) {
+  nowMs = nowMs || Date.now();
+  const loads = insMuscleLoads(nowMs);
+  const out = {};
+  INS_MUSCLES.forEach(mu => {
+    const mine = loads.filter(l => l.mu === mu);
+    const fat = mine.reduce((s, l) => s + l.units * Math.pow(0.5, (nowMs - l.t) / 3600000 / INS_HALF_LIFE[mu]), 0);
+    const last = mine.reduce((b, l) => (!b || l.t > b.t) && l.units >= 1 ? l : b, null);
+    out[mu] = { pct: Math.round(100 * Math.exp(-fat / 8)), last };
+  });
+  return out;
+}
+function _insFreshColour(p) { return p >= 80 ? '#2d7a47' : p >= 60 ? '#6b9e7a' : p >= 40 ? '#D9A441' : '#c53030'; }
+function _insFreshWord(p) { return p >= 80 ? 'Fresh' : p >= 60 ? 'Mostly recovered' : p >= 40 ? 'Recovering' : 'Fatigued'; }
+function insLegsFreshness() {
+  const f = insMuscleFreshness();
+  return Math.round((f.quads.pct + f.hamstrings.pct + f.glutes.pct + f.calves.pct) / 4);
+}
+function renderInsMuscles() {
+  const el = document.getElementById('ins-muscles'); if (!el) return;
+  const sessions = (typeof _plannerHevySessions !== 'undefined' && Array.isArray(_plannerHevySessions)) ? _plannerHevySessions : null;
+  if (!sessions) { el.innerHTML = '<div class="sub">Loading Hevy sessions…</div>'; return; }
+  const f = insMuscleFreshness();
+  const legs = Math.round((f.quads.pct + f.hamstrings.pct + f.glutes.pct + f.calves.pct) / 4);
+  const upper = Math.round((f.chest.pct + f.back.pct + f.shoulders.pct + f.biceps.pct + f.triceps.pct) / 5);
+  const ago = l => { if (!l) return 'not in last 10 days'; const h = Math.round((Date.now() - l.t) / 3600000); return h < 36 ? `${h} h ago` : `${Math.round(h / 24)} days ago`; };
+  const tile = mu => { const x = f[mu], c = _insFreshColour(x.pct); return `<div style="background:#FFFBF6;border:1px solid #F0E1D2;border-radius:10px;padding:8px 10px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:12px;font-weight:700;color:#4A3B2E">${INS_MUSCLE_LABEL[mu]}</span><span style="font-size:15px;font-weight:800;color:${c}">${x.pct}%</span></div>
+    <div style="background:#F0E1D2;border-radius:99px;height:5px;overflow:hidden;margin:5px 0 4px"><div style="background:${c};height:100%;width:${x.pct}%"></div></div>
+    <div style="font-size:10px;color:#A6937F">${_insFreshWord(x.pct)} · ${ago(x.last)}</div></div>`; };
+  const legNote = legs >= 75 ? 'Legs are fresh enough for a speed session or heavy legs.' : legs >= 55 ? 'Legs are part-recovered: fine for easy running; a speed session or heavy legs will feel harder than usual.' : 'Legs are still fatigued: keep today easy if you can.';
+  el.innerHTML = `<div style="display:flex;gap:18px;margin-bottom:10px;flex-wrap:wrap">
+      <div><div class="lbl" style="margin:0">Legs</div><div style="font-size:24px;font-weight:800;color:${_insFreshColour(legs)}">${legs}%</div></div>
+      <div><div class="lbl" style="margin:0">Upper body</div><div style="font-size:24px;font-weight:800;color:${_insFreshColour(upper)}">${upper}%</div></div>
+      <div style="flex:1;min-width:180px;font-size:12px;color:#4A3B2E;align-self:center">${legNote}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px">${INS_MUSCLES.map(tile).join('')}</div>
+    <div class="sub" style="margin-top:8px">From Hevy working sets and Strava runs, football and rides over the last 10 days. Each hard set adds fatigue that wears off over 1–3 days (faster for small muscles).</div>`;
+}
+
+// ── 2. Stress score (daily) ────────────────────────────────────────────────
+function insStressForDate(ds) {
+  const hrv = _insVal('heart_rate_variability', ds), hrvB = _insBase('heart_rate_variability', ds, 30);
+  const rhr = _insVal('resting_heart_rate', ds), rhrB = _insBase('resting_heart_rate', ds, 30);
+  if ((hrv == null || !hrvB) && (rhr == null || !rhrB)) return null;
+  const rr = _insVal('respiratory_rate', ds), rrB = _insBase('respiratory_rate', ds, 30);
+  const tmp = _insVal('apple_sleeping_wrist_temperature', ds), tmpB = _insBase('apple_sleeping_wrist_temperature', ds, 30);
+  const sl = _insVal('sleep_analysis', ds);
+  const parts = [];
+  if (hrv != null && hrvB) { const d = (hrvB - hrv) / hrvB * 100; parts.push({ k: 'HRV', txt: `${Math.round(hrv)} ms vs ${Math.round(hrvB)} baseline`, pts: _insClamp(d * 1.5, -20, 40) }); }
+  if (rhr != null && rhrB) { const d = (rhr - rhrB) / rhrB * 100; parts.push({ k: 'Resting HR', txt: `${Math.round(rhr)} bpm vs ${Math.round(rhrB)} baseline`, pts: _insClamp(d * 2, -10, 25) }); }
+  if (rr != null && rrB) parts.push({ k: 'Breathing rate', txt: `${rr.toFixed(1)} vs ${rrB.toFixed(1)} /min`, pts: _insClamp((rr - rrB) * 8, -5, 15) });
+  if (tmp != null && tmpB) { const d = tmp - tmpB; parts.push({ k: 'Wrist temp', txt: `${d >= 0 ? '+' : ''}${d.toFixed(2)} °C vs baseline`, pts: d > 0.2 ? _insClamp(d * 25, 0, 15) : 0 }); }
+  if (sl != null) { const short = Math.max(0, (typeof SLEEP_NEED_HOURS !== 'undefined' ? SLEEP_NEED_HOURS : 8) - sl); parts.push({ k: 'Sleep', txt: `${fmtHrsMin(sl)}`, pts: _insClamp(short * 4, 0, 15) }); }
+  const score = Math.round(_insClamp(25 + parts.reduce((s, p) => s + p.pts, 0), 0, 100));
+  return { ds, score, parts };
+}
+function _insStressColour(s) { return s >= 67 ? '#c53030' : s >= 34 ? '#D9A441' : '#2d7a47'; }
+function _insStressWord(s) { return s >= 67 ? 'High' : s >= 34 ? 'Moderate' : 'Low'; }
+function renderInsStress() {
+  const el = document.getElementById('ins-stress'); if (!el) return;
+  if (!_healthData) { el.innerHTML = '<div class="sub">Waiting for health data…</div>'; return; }
+  const today = _insToday();
+  let cur = insStressForDate(today), curDs = today;
+  if (!cur) { curDs = _insDay(today, -1); cur = insStressForDate(curDs); }
+  if (!cur) { el.innerHTML = '<div class="sub">Needs HRV or resting HR from the last two days.</div>'; return; }
+  const days = []; for (let i = 13; i >= 0; i--) { const ds = _insDay(today, -i); const s = insStressForDate(ds); days.push({ ds, s: s ? s.score : null }); }
+  const bars = days.map(d => `<div title="${_insPretty(d.ds)}: ${d.s == null ? 'no data' : d.s}" style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:2px">
+      <div style="width:100%;max-width:18px;height:${d.s == null ? 2 : Math.max(3, d.s * 0.6)}px;background:${d.s == null ? '#E5DACB' : _insStressColour(d.s)};border-radius:3px"></div>
+      <div style="font-size:9px;color:#A6937F">${new Date(d.ds + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'narrow' })}</div></div>`).join('');
+  const valid = days.filter(d => d.s != null), avg = valid.length ? Math.round(valid.reduce((a, d) => a + d.s, 0) / valid.length) : null;
+  el.innerHTML = `<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+      <div><div style="font-size:30px;font-weight:800;color:${_insStressColour(cur.score)};line-height:1">${cur.score}</div><div style="font-size:12px;font-weight:700;color:${_insStressColour(cur.score)}">${_insStressWord(cur.score)} stress</div><div class="sub" style="margin:2px 0 0">${curDs === today ? 'Today' : 'Yesterday'}${avg != null ? ` · 14-day avg ${avg}` : ''}</div></div>
+      <div style="flex:1;min-width:200px">${cur.parts.map(p => `<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;color:#4A3B2E"><span>${p.k}</span><span style="color:#7A6656">${p.txt} <strong style="color:${p.pts > 3 ? '#c53030' : p.pts < -3 ? '#2d7a47' : '#A6937F'}">${p.pts > 0 ? '+' : ''}${Math.round(p.pts)}</strong></span></div>`).join('')}</div>
+    </div>
+    <div style="display:flex;gap:3px;height:70px;align-items:flex-end;margin-top:12px">${bars}</div>
+    <div class="sub" style="margin-top:8px">0–100, from overnight HRV, resting HR, breathing rate, wrist temperature and sleep against your own 30-day baselines. It's a daily score: Health Auto Export sends one HRV/resting HR value per day, not a continuous heart-rate stream.</div>`;
+}
+
+// ── 3. Energy Bank ─────────────────────────────────────────────────────────
+// Starts at wake from recovery (60 %) and sleep score (40 %), drains ~2.5 % an
+// hour awake (more on high-stress days), plus each workout and shift.
+function insEnergyBank(ds) {
+  ds = ds || _insToday();
+  const rec = (typeof computeRecoveryForDate === 'function') ? computeRecoveryForDate(ds) : null;
+  const slp = (typeof computeSleepScoreForDate === 'function') ? computeSleepScoreForDate(ds) : null;
+  if (!rec && slp == null) return null;
+  const start = Math.round(_insClamp(rec && slp != null ? rec.score * 0.6 + slp * 0.4 : rec ? rec.score : slp, 5, 100));
+  const wake = (typeof getWakeTime === 'function') ? getWakeTime(ds) : 7 * 60;
+  const bed = (typeof getSleepTarget === 'function') ? getSleepTarget() : 23 * 60;
+  const bedMin = bed < wake ? bed + 24 * 60 : bed;
+  const stress = insStressForDate(ds);
+  const baseRate = 2.5 * (1 + ((stress ? stress.score : 40) - 40) / 200); // % per hour
+  const drains = [];
+  _insActs(ds).forEach(a => {
+    const sm = _insActStartMin(a); if (sm == null) return;
+    const mins = (a.summary.moving_time || 0) / 60;
+    const rate = a.sport_type === 'WeightTraining' ? 0.2 : a.sport_type === 'Walk' ? 0.05 : _insIsHardAct(a) ? 0.45 : 0.28;
+    const amt = Math.round(_insClamp(mins * rate, 1, 35));
+    if (amt >= 1) drains.push({ s: sm, e: sm + mins, amt, label: `${a.name || a.sport_type}` });
+  });
+  try {
+    getDayEvents(ds).filter(e => e.kind === 'shift' || e.kind === 'placement').forEach(e => {
+      const hrs = (e.e - e.s) / 60, amt = Math.round(hrs * (e.kind === 'shift' ? 3 : 1.5));
+      if (amt >= 1) drains.push({ s: e.s, e: e.e, amt, label: e.title || (e.kind === 'shift' ? 'Shift' : 'Placement') });
+    });
+  } catch {}
+  const levelAt = m => {
+    let v = start - Math.max(0, m - wake) / 60 * baseRate;
+    drains.forEach(d => { if (m >= d.e) v -= d.amt; else if (m > d.s) v -= d.amt * (m - d.s) / Math.max(1, d.e - d.s); });
+    return _insClamp(v, 0, 100);
+  };
+  const now = new Date(); const nowMin = ds === _insToday() ? _insMinOf(now) : bedMin;
+  return { ds, start, wake, bed: bedMin, baseRate, drains, levelAt, nowMin, now: Math.round(levelAt(Math.max(wake, nowMin))), atBed: Math.round(levelAt(bedMin)), rec, slp, stress };
+}
+function _insBankColour(v) { return v >= 70 ? '#2d7a47' : v >= 40 ? '#D9A441' : '#c53030'; }
+function renderInsEnergyBank() {
+  const el = document.getElementById('ins-energy'); if (!el) return;
+  if (!_healthData) { el.innerHTML = '<div class="sub">Waiting for health data…</div>'; return; }
+  const b = insEnergyBank();
+  if (!b) { el.innerHTML = '<div class="sub">Needs last night\'s sleep or this morning\'s HRV to start the day\'s bank.</div>'; return; }
+  const W = 320, H = 90, x = m => (m - b.wake) / Math.max(1, b.bed - b.wake) * W, y = v => H - v / 100 * H;
+  const nowM = _insClamp(b.nowMin, b.wake, b.bed);
+  const pts = (a, z) => { const o = []; for (let m = a; m <= z; m += 10) o.push(`${x(m).toFixed(1)},${y(b.levelAt(m)).toFixed(1)}`); o.push(`${x(z).toFixed(1)},${y(b.levelAt(z)).toFixed(1)}`); return o.join(' '); };
+  const past = pts(b.wake, nowM), fut = nowM < b.bed ? pts(nowM, b.bed) : '';
+  const col = _insBankColour(b.now);
+  const ticks = [b.wake, Math.round((b.wake + b.bed) / 2), b.bed].map(m => `<text x="${_insClamp(x(m), 12, W - 12)}" y="${H + 12}" font-size="9" fill="#A6937F" text-anchor="middle">${_hm(((m % 1440) + 1440) % 1440)}</text>`).join('');
+  const battery = `<div style="width:44px;height:22px;border:2px solid ${col};border-radius:5px;position:relative;padding:2px"><div style="height:100%;width:${b.now}%;background:${col};border-radius:2px"></div><div style="position:absolute;right:-6px;top:6px;width:3px;height:8px;background:${col};border-radius:0 2px 2px 0"></div></div>`;
+  el.innerHTML = `<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+      ${battery}
+      <div><div style="font-size:30px;font-weight:800;color:${col};line-height:1">${b.now}%</div><div class="sub" style="margin:2px 0 0">now · started at ${b.start}% (${_hm(b.wake)}) · ~${b.atBed}% by ${_hm(b.bed % 1440)}</div></div>
+    </div>
+    <svg viewBox="0 0 ${W} ${H + 16}" style="width:100%;max-width:560px;height:auto;margin-top:10px;display:block">
+      <line x1="0" y1="${y(40)}" x2="${W}" y2="${y(40)}" stroke="#F0E1D2" stroke-dasharray="3 3"/>
+      <polyline points="${past}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round"/>
+      ${fut ? `<polyline points="${fut}" fill="none" stroke="${col}" stroke-width="2" stroke-dasharray="4 4" opacity=".6"/>` : ''}
+      ${b.nowMin >= b.wake && b.nowMin <= b.bed ? `<circle cx="${x(nowM)}" cy="${y(b.levelAt(nowM))}" r="4" fill="${col}"/>` : ''}
+      ${ticks}
+    </svg>
+    <div style="margin-top:6px;font-size:12px;color:#4A3B2E">
+      <div style="display:flex;justify-content:space-between;padding:2px 0"><span>Charge from ${b.rec ? `recovery ${b.rec.score}` : ''}${b.rec && b.slp != null ? ' + ' : ''}${b.slp != null ? `sleep ${Math.round(b.slp)}` : ''}</span><strong style="color:#2d7a47">${b.start}%</strong></div>
+      <div style="display:flex;justify-content:space-between;padding:2px 0"><span>Being awake (${b.baseRate.toFixed(1)}%/h${b.stress && b.stress.score >= 50 ? ', higher on a stressful day' : ''})</span><strong style="color:#c53030">−${Math.round(Math.max(0, Math.min(b.nowMin, b.bed) - b.wake) / 60 * b.baseRate)}%</strong></div>
+      ${b.drains.map(d => `<div style="display:flex;justify-content:space-between;padding:2px 0"><span>${_insEsc(d.label)} <span style="color:#A6937F">${_hm(d.s)}</span>${d.s > b.nowMin ? ' <span style="color:#A6937F">(coming up)</span>' : ''}</span><strong style="color:#c53030">−${d.amt}%</strong></div>`).join('')}
+    </div>
+    <div class="sub" style="margin-top:6px">Dashed line = the rest of today if nothing else is added. Workouts appear once Strava has them; shifts and placement come from your calendar.</div>`;
+}
+
+// ── 4. Journal factors ─────────────────────────────────────────────────────
+// Auto-detected tags come from data you already sync; the manual ones you tick.
+// Each tag on day D is compared against that night's sleep and the next
+// morning's HRV (both filed under D+1).
+const INS_FACTORS = [
+  { id: 'late_meal', label: 'Late meal', icon: '🍽', auto: true, hint: '150+ kcal logged after 21:00' },
+  { id: 'late_caffeine', label: 'Caffeine after 2pm', icon: '☕', auto: true, hint: '40+ mg logged after 14:00' },
+  { id: 'hard_training', label: 'Hard training day', icon: '🔥', auto: true, hint: 'Time trial, intervals/tempo, long run 15 km+, football or a leg day' },
+  { id: 'late_workout', label: 'Evening workout', icon: '🌙', auto: true, hint: 'Workout starting 19:00 or later' },
+  { id: 'shift', label: 'HCA shift', icon: '🏥', auto: true, hint: 'Shift in your calendar' },
+  { id: 'steps_15k', label: '15k+ steps', icon: '👟', auto: true, hint: 'From Apple Health' },
+  { id: 'alcohol', label: 'Alcohol', icon: '🍺' },
+  { id: 'screens', label: 'Screens in bed', icon: '📱' },
+  { id: 'stressful', label: 'Stressful day', icon: '😣' },
+  { id: 'nap', label: 'Nap', icon: '😴' },
+  { id: 'reading', label: 'Read before bed', icon: '📖' },
+  { id: 'magnesium', label: 'Magnesium', icon: '💊' },
+  { id: 'unwell', label: 'Feeling unwell', icon: '🤒' }
+];
+function _insJournal() { try { return JSON.parse(localStorage.getItem('journal_factors')) || {}; } catch { return {}; } }
+function insAutoFactors(ds) {
+  const out = {};
+  out.late_meal = _insMeals(ds).some(m => _insMinOf(m.t) >= 21 * 60 && m.kcal >= 150);
+  out.late_caffeine = _insCaffeine(ds).some(p => _insMinOf(p.t) >= 14 * 60 && p.v >= 40);
+  const acts = _insActs(ds);
+  const sessions = (typeof _plannerHevySessions !== 'undefined' && Array.isArray(_plannerHevySessions)) ? _plannerHevySessions : [];
+  const legDay = sessions.some(s => s.date === ds && (s.exercises || []).filter(ex => { const m = insMusclesFor(ex.title); return m && (m.quads >= 1 || m.hamstrings >= 1); }).length >= 2);
+  out.hard_training = acts.some(a => _insIsHardAct(a) || (a.sport_type === 'Run' && (a.summary.distance || 0) >= 15000) || a.sport_type === 'Soccer') || legDay;
+  out.late_workout = acts.some(a => a.sport_type !== 'Walk' && (_insActStartMin(a) || 0) >= 19 * 60);
+  out.shift = _insShifts(ds).length > 0;
+  const steps = _insVal('step_count', ds);
+  out.steps_15k = steps != null && steps >= 15000;
+  return out;
+}
+function insFactorsFor(ds) {
+  const auto = insAutoFactors(ds), man = _insJournal()[ds] || {}, out = {};
+  INS_FACTORS.forEach(f => { out[f.id] = (f.id in man) ? !!man[f.id] : (f.auto ? !!auto[f.id] : false); });
+  return out;
+}
+let _insJournalDay = null;
+function insToggleFactor(id) {
+  const ds = _insJournalDay || _insToday();
+  const all = _insJournal(), day = all[ds] || {};
+  const cur = insFactorsFor(ds)[id];
+  const f = INS_FACTORS.find(x => x.id === id);
+  const autoVal = f && f.auto ? !!insAutoFactors(ds)[id] : false;
+  if (!cur === autoVal && f && f.auto) delete day[id]; else day[id] = !cur;
+  if (Object.keys(day).length) all[ds] = day; else delete all[ds];
+  localStorage.setItem('journal_factors', JSON.stringify(all));
+  if (typeof syncPush === 'function') try { syncPush('journal_factors', all); } catch {}
+  renderInsJournal();
+}
+function insShiftJournalDay(n) {
+  const today = _insToday();
+  const next = _insDay(_insJournalDay || today, n);
+  if (next > today) return;
+  _insJournalDay = next; renderInsJournal();
+}
+function insFactorImpact(days) {
+  const today = _insToday();
+  const rows = [];
+  const series = [];
+  for (let i = days; i >= 1; i--) {
+    const ds = _insDay(today, -i), nx = _insDay(ds, 1);
+    const sleep = _insVal('sleep_analysis', nx), hrv = _insVal('heart_rate_variability', nx);
+    if (sleep == null && hrv == null) continue;
+    series.push({ ds, f: insFactorsFor(ds), sleep, hrv });
+  }
+  const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
+  INS_FACTORS.forEach(f => {
+    const w = series.filter(s => s.f[f.id]), wo = series.filter(s => !s.f[f.id]);
+    const sW = mean(w.map(s => s.sleep).filter(v => v != null)), sWo = mean(wo.map(s => s.sleep).filter(v => v != null));
+    const hW = mean(w.map(s => s.hrv).filter(v => v != null)), hWo = mean(wo.map(s => s.hrv).filter(v => v != null));
+    rows.push({ f, n: w.length, nWo: wo.length, ok: w.length >= 3 && wo.length >= 3,
+      dSleep: sW != null && sWo != null ? sW - sWo : null,
+      dHrvPct: hW != null && hWo ? (hW - hWo) / hWo * 100 : null, hW, hWo });
+  });
+  return { rows, total: series.length };
+}
+function renderInsJournal() {
+  const el = document.getElementById('ins-journal'); if (!el) return;
+  const today = _insToday(), ds = _insJournalDay || today;
+  const fac = insFactorsFor(ds), auto = _healthData ? insAutoFactors(ds) : {}, man = _insJournal()[ds] || {};
+  const chip = f => { const on = fac[f.id], isAuto = f.auto && !(f.id in man) && auto[f.id];
+    return `<button onclick="insToggleFactor('${f.id}')" title="${_insEsc(f.hint || '')}" style="border:1px solid ${on ? '#6b9e7a' : '#E5DACB'};background:${on ? '#EAF4EC' : '#fff'};color:${on ? '#2d5a3a' : '#7A6656'};border-radius:99px;padding:4px 10px;font:inherit;font-size:12px;font-weight:600;cursor:pointer">${f.icon} ${f.label}${isAuto ? ' <span style="font-size:9px;color:#6b9e7a">auto</span>' : ''}</button>`; };
+  const imp = _healthData ? insFactorImpact(60) : { rows: [], total: 0 };
+  const ready = imp.rows.filter(r => r.ok).sort((a, b) => Math.abs(b.dHrvPct || 0) - Math.abs(a.dHrvPct || 0));
+  const waiting = imp.rows.filter(r => !r.ok && r.n > 0);
+  const fmtS = d => d == null ? '—' : `<strong style="color:${d < -0.15 ? '#c53030' : d > 0.15 ? '#2d7a47' : '#7A6656'}">${d >= 0 ? '+' : '−'}${fmtHrsMin(Math.abs(d))}</strong>`;
+  const fmtH = d => d == null ? '—' : `<strong style="color:${d < -4 ? '#c53030' : d > 4 ? '#2d7a47' : '#7A6656'}">${d >= 0 ? '+' : ''}${Math.round(d)}%</strong>`;
+  el.innerHTML = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <button onclick="insShiftJournalDay(-1)" style="border:1px solid #E5DACB;background:#fff;border-radius:8px;padding:2px 9px;cursor:pointer;font:inherit">‹</button>
+      <strong style="font-size:13px;color:#4A3B2E">${ds === today ? 'Today' : ds === _insDay(today, -1) ? 'Yesterday' : _insPretty(ds)}</strong>
+      <button onclick="insShiftJournalDay(1)" ${ds >= today ? 'disabled' : ''} style="border:1px solid #E5DACB;background:#fff;border-radius:8px;padding:2px 9px;cursor:pointer;font:inherit;${ds >= today ? 'opacity:.4' : ''}">›</button>
+      <span class="sub" style="margin:0">Tap to tick or untick. "auto" ones come from your data.</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">${INS_FACTORS.map(chip).join('')}</div>
+    <div class="lbl" style="margin:14px 0 6px">What moves your sleep and HRV <span style="font-size:10px;color:#bbb;text-transform:none;letter-spacing:0;font-weight:500">— last 60 days, ${imp.total} nights</span></div>
+    ${ready.length ? `<table style="width:100%;border-collapse:collapse;font-size:12px;color:#4A3B2E">
+      <tr style="color:#A6937F;font-size:10px;text-transform:uppercase;letter-spacing:.05em"><td style="padding:3px 0">Factor</td><td>Days</td><td>Sleep that night</td><td>Next-morning HRV</td></tr>
+      ${ready.map(r => `<tr style="border-top:1px solid #F7ECDE"><td style="padding:5px 0">${r.f.icon} ${r.f.label}</td><td>${r.n}</td><td>${fmtS(r.dSleep)}</td><td>${fmtH(r.dHrvPct)}</td></tr>`).join('')}
+    </table>` : '<div class="sub">Not enough tagged days yet.</div>'}
+    ${waiting.length ? `<div class="sub" style="margin-top:6px">Still collecting: ${waiting.map(r => `${r.f.label} (${r.n} day${r.n === 1 ? '' : 's'}, need 3${r.nWo < 3 ? ' and 3 without' : ''})`).join(' · ')}</div>` : ''}
+    <div class="sub" style="margin-top:6px">Compared with nights without that factor. These are averages from your own data, not proof of cause: other things can happen on the same days.</div>`;
+}
+
+// ── 5. Fitness age ─────────────────────────────────────────────────────────
+// VO2 max compared against the HUNT3 Fitness Study averages (NTNU, ~4,600
+// healthy Norwegians, directly measured): fitness age = the age at which the
+// average person of your sex has your VO2 max.
+const INS_VO2_NORMS = {
+  m: [[25, 54], [35, 49], [45, 47], [55, 42], [65, 39], [75, 34]],
+  f: [[25, 43], [35, 40], [45, 38], [55, 34], [65, 31], [75, 27]]
+};
+function insFitnessAge(vo2, sex) {
+  const t = INS_VO2_NORMS[sex]; if (!t || vo2 == null) return null;
+  if (vo2 >= t[0][1]) { const slope = (t[0][1] - t[1][1]) / 10; return Math.max(20, t[0][0] - (vo2 - t[0][1]) / slope); }
+  for (let i = 0; i < t.length - 1; i++) {
+    const [a1, v1] = t[i], [a2, v2] = t[i + 1];
+    if (vo2 <= v1 && vo2 >= v2) return a1 + (v1 - vo2) / (v1 - v2) * (a2 - a1);
+  }
+  const n = t.length, slope = (t[n - 2][1] - t[n - 1][1]) / 10;
+  return Math.min(90, t[n - 1][0] + (t[n - 1][1] - vo2) / slope);
+}
+function _insBio() { try { return JSON.parse(localStorage.getItem('bio_profile')) || {}; } catch { return {}; } }
+function insSaveBio() {
+  const dob = (document.getElementById('ins-bio-dob') || {}).value, sex = (document.getElementById('ins-bio-sex') || {}).value;
+  if (!dob || !sex) return;
+  const v = { dob, sex };
+  localStorage.setItem('bio_profile', JSON.stringify(v));
+  if (typeof syncPush === 'function') try { syncPush('bio_profile', v); } catch {}
+  renderInsBioAge();
+}
+function _insAvgRange(metric, fromDs, toDs) {
+  const m = _healthData && _healthData[metric]; if (!m || !m.byDate) return null;
+  const v = Object.keys(m.byDate).filter(d => d >= fromDs && d <= toDs).map(d => m.byDate[d].value).filter(x => typeof x === 'number' && isFinite(x));
+  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+}
+function renderInsBioAge() {
+  const el = document.getElementById('ins-bioage'); if (!el) return;
+  const bio = _insBio();
+  if (!bio.dob || !bio.sex) {
+    el.innerHTML = `<div style="font-size:13px;color:#4A3B2E;margin-bottom:8px">Add your date of birth so your VO2 max can be compared with people your age.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input type="date" id="ins-bio-dob" style="border:1px solid #E5DACB;border-radius:8px;padding:5px 8px;font:inherit;font-size:13px">
+        <select id="ins-bio-sex" style="border:1px solid #E5DACB;border-radius:8px;padding:5px 8px;font:inherit;font-size:13px"><option value="">Sex (for the norms)</option><option value="m">Male</option><option value="f">Female</option></select>
+        <button onclick="insSaveBio()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:6px 12px;font:inherit;font-size:13px;font-weight:600;cursor:pointer">Save</button>
+      </div>`;
+    return;
+  }
+  if (!_healthData) { el.innerHTML = '<div class="sub">Waiting for health data…</div>'; return; }
+  const today = _insToday();
+  const age = (Date.now() - new Date(bio.dob + 'T00:00:00')) / (365.25 * 864e5);
+  const vo2Latest = _healthLatest('vo2_max');
+  const vo2 = _insAvgRange('vo2_max', _insDay(today, -30), today) || (vo2Latest && vo2Latest.value);
+  const vo2Prev = _insAvgRange('vo2_max', _insDay(today, -120), _insDay(today, -90));
+  const fa = insFitnessAge(vo2, bio.sex);
+  const rhr = _insAvgRange('resting_heart_rate', _insDay(today, -30), today);
+  const hrvNow = _insAvgRange('heart_rate_variability', _insDay(today, -30), today), hrvPrev = _insAvgRange('heart_rate_variability', _insDay(today, -60), _insDay(today, -31));
+  const sleep = _insAvgRange('sleep_analysis', _insDay(today, -14), today);
+  const steps = _insAvgRange('step_count', _insDay(_insDay(today, -1), -30), _insDay(today, -1));
+  const bf = _healthLatest('body_fat_percentage', 60);
+  const bfRange = bio.sex === 'm' ? [8, 19] : [21, 32]; // Gallagher et al. 2000, healthy range age 20–39
+  const rows = [];
+  if (vo2Prev != null && vo2 != null) rows.push({ k: 'VO2 max trend', v: `${vo2.toFixed(1)} vs ${vo2Prev.toFixed(1)} three months ago`, good: vo2 >= vo2Prev - 0.3 });
+  if (rhr != null) rows.push({ k: 'Resting HR (30-day avg)', v: `${Math.round(rhr)} bpm`, good: rhr < 60 });
+  if (hrvNow != null && hrvPrev != null) rows.push({ k: 'HRV (30-day avg)', v: `${Math.round(hrvNow)} ms vs ${Math.round(hrvPrev)} the month before`, good: hrvNow >= hrvPrev * 0.97 });
+  if (sleep != null) rows.push({ k: 'Sleep (14-night avg)', v: fmtHrsMin(sleep), good: sleep >= 7 });
+  if (steps != null) rows.push({ k: 'Steps (30-day avg)', v: Math.round(steps).toLocaleString('en-GB'), good: steps >= 8000 });
+  if (bf) rows.push({ k: 'Body fat', v: `${bf.value.toFixed(1)}% (healthy ${bfRange[0]}–${bfRange[1]}%)`, good: bf.value >= bfRange[0] && bf.value <= bfRange[1] });
+  const diff = fa != null ? fa - age : null;
+  el.innerHTML = fa == null ? '<div class="sub">No VO2 max from your watch yet (it needs outdoor runs or walks with GPS).</div>' : `
+    <div style="display:flex;gap:20px;align-items:flex-end;flex-wrap:wrap">
+      <div><div class="lbl" style="margin:0">Fitness age</div><div style="font-size:30px;font-weight:800;color:${diff <= 0 ? '#2d7a47' : '#D9A441'};line-height:1.1">${Math.round(fa)}</div></div>
+      <div><div class="lbl" style="margin:0">Actual age</div><div style="font-size:22px;font-weight:700;color:#4A3B2E;line-height:1.1">${Math.floor(age)}</div></div>
+      <div style="font-size:12px;color:#4A3B2E;flex:1;min-width:180px">VO2 max ${vo2.toFixed(1)} ml/kg/min (30-day avg from Apple Watch) is the average for a ${Math.round(fa)}-year-old ${bio.sex === 'm' ? 'man' : 'woman'}${diff <= -1 ? `, about ${Math.round(-diff)} year${Math.round(-diff) === 1 ? '' : 's'} younger than you` : diff >= 1 ? `, about ${Math.round(diff)} year${Math.round(diff) === 1 ? '' : 's'} older than you` : ''}.</div>
+    </div>
+    ${rows.length ? `<div class="lbl" style="margin:12px 0 4px">Other markers</div>${rows.map(r => `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:#4A3B2E;border-top:1px solid #F7ECDE"><span>${r.good ? '✅' : '⚠️'} ${r.k}</span><span style="color:#7A6656">${r.v}</span></div>`).join('')}` : ''}
+    <div class="sub" style="margin-top:8px">Fitness age uses the HUNT3 Fitness Study averages by age (NTNU). Apple Watch VO2 max is an estimate, typically within a few ml/kg/min of a lab test. The other markers are shown against common healthy ranges and don't change the age number. <a href="#" onclick="localStorage.removeItem('bio_profile');renderInsBioAge();return false" style="color:#A6937F">Change date of birth</a></div>`;
+}
+
+// ── 6. Blood results ───────────────────────────────────────────────────────
+const INS_BLOOD_PRESETS = [
+  ['Ferritin', 'µg/L'], ['Haemoglobin', 'g/L'], ['Iron', 'µmol/L'], ['Transferrin saturation', '%'], ['Vitamin D', 'nmol/L'], ['Vitamin B12', 'ng/L'], ['Folate', 'µg/L'],
+  ['HbA1c', 'mmol/mol'], ['Total cholesterol', 'mmol/L'], ['LDL cholesterol', 'mmol/L'], ['HDL cholesterol', 'mmol/L'], ['Triglycerides', 'mmol/L'],
+  ['TSH', 'mU/L'], ['Free T4', 'pmol/L'], ['CRP', 'mg/L'], ['Creatinine', 'µmol/L'], ['eGFR', 'mL/min/1.73m²'], ['ALT', 'U/L'], ['Testosterone', 'nmol/L']
+];
+function _insBlood() { try { return JSON.parse(localStorage.getItem('blood_results')) || []; } catch { return []; } }
+function _insSetBlood(list) {
+  localStorage.setItem('blood_results', JSON.stringify(list));
+  if (typeof syncPush === 'function') try { syncPush('blood_results', list); } catch {}
+  renderInsBlood();
+}
+function insBloodMarkerChanged() {
+  const mk = (document.getElementById('ins-bl-marker').value || '').trim();
+  const prev = _insBlood().filter(r => r.marker.toLowerCase() === mk.toLowerCase()).sort((a, b) => b.date.localeCompare(a.date))[0];
+  const preset = INS_BLOOD_PRESETS.find(p => p[0].toLowerCase() === mk.toLowerCase());
+  const u = document.getElementById('ins-bl-unit'), lo = document.getElementById('ins-bl-lo'), hi = document.getElementById('ins-bl-hi');
+  if (prev) { u.value = prev.unit || ''; lo.value = prev.lo != null ? prev.lo : ''; hi.value = prev.hi != null ? prev.hi : ''; }
+  else if (preset) u.value = preset[1];
+}
+function insAddBlood() {
+  const g = id => (document.getElementById(id) || {}).value;
+  const marker = (g('ins-bl-marker') || '').trim(), value = parseFloat(g('ins-bl-value')), date = g('ins-bl-date');
+  if (!marker || !isFinite(value) || !date) { alert('Add a date, marker and value.'); return; }
+  const lo = parseFloat(g('ins-bl-lo')), hi = parseFloat(g('ins-bl-hi'));
+  const list = _insBlood();
+  list.push({ id: 'b' + Date.now().toString(36), date, marker, value, unit: (g('ins-bl-unit') || '').trim(), lo: isFinite(lo) ? lo : null, hi: isFinite(hi) ? hi : null });
+  _insSetBlood(list);
+}
+function insDeleteBlood(id) { if (confirm('Delete this result?')) _insSetBlood(_insBlood().filter(r => r.id !== id)); }
+let _insBloodOpen = {};
+function renderInsBlood() {
+  const el = document.getElementById('ins-blood'); if (!el) return;
+  const list = _insBlood();
+  const groups = {};
+  list.forEach(r => { const k = r.marker.toLowerCase(); (groups[k] = groups[k] || []).push(r); });
+  const today = _insToday();
+  const form = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;align-items:center">
+      <input type="date" id="ins-bl-date" value="${today}" style="border:1px solid #E5DACB;border-radius:8px;padding:5px 6px;font:inherit;font-size:12px">
+      <input id="ins-bl-marker" list="ins-bl-list" placeholder="Marker (e.g. Ferritin)" onchange="insBloodMarkerChanged()" style="border:1px solid #E5DACB;border-radius:8px;padding:5px 6px;font:inherit;font-size:12px">
+      <input id="ins-bl-value" type="number" step="any" placeholder="Value" style="border:1px solid #E5DACB;border-radius:8px;padding:5px 6px;font:inherit;font-size:12px">
+      <input id="ins-bl-unit" placeholder="Unit" style="border:1px solid #E5DACB;border-radius:8px;padding:5px 6px;font:inherit;font-size:12px">
+      <input id="ins-bl-lo" type="number" step="any" placeholder="Range low" title="From your lab report" style="border:1px solid #E5DACB;border-radius:8px;padding:5px 6px;font:inherit;font-size:12px">
+      <input id="ins-bl-hi" type="number" step="any" placeholder="Range high" title="From your lab report" style="border:1px solid #E5DACB;border-radius:8px;padding:5px 6px;font:inherit;font-size:12px">
+      <button onclick="insAddBlood()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:600;cursor:pointer">Add result</button>
+    </div>
+    <datalist id="ins-bl-list">${INS_BLOOD_PRESETS.map(p => `<option value="${p[0]}">`).join('')}</datalist>
+    <div class="sub" style="margin-top:4px">Reference ranges differ between labs, so copy them from your report. The unit and range fill in from your last result for that marker.</div>`;
+  const spark = rs => {
+    if (rs.length < 2) return '';
+    const vals = rs.map(r => r.value), lo = Math.min(...vals), hi = Math.max(...vals), W = 90, H = 24;
+    const p = rs.map((r, i) => `${(i / (rs.length - 1) * W).toFixed(1)},${(H - (hi === lo ? H / 2 : (r.value - lo) / (hi - lo) * H)).toFixed(1)}`).join(' ');
+    return `<svg viewBox="-2 -2 ${W + 4} ${H + 4}" width="${W}" height="${H}"><polyline points="${p}" fill="none" stroke="#7c3aed" stroke-width="1.8"/></svg>`;
+  };
+  const cards = Object.values(groups).map(rs => {
+    rs.sort((a, b) => a.date.localeCompare(b.date));
+    const last = rs[rs.length - 1], prev = rs[rs.length - 2];
+    const flag = last.lo != null && last.value < last.lo ? ['Low', '#c53030'] : last.hi != null && last.value > last.hi ? ['High', '#c53030'] : (last.lo != null || last.hi != null) ? ['In range', '#2d7a47'] : null;
+    const k = last.marker.toLowerCase(), open = _insBloodOpen[k];
+    return `<div style="border-top:1px solid #F7ECDE;padding:8px 0">
+      <div style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="_insBloodOpen['${_insEsc(k)}']=!_insBloodOpen['${_insEsc(k)}'];renderInsBlood()">
+        <div style="flex:1"><div style="font-size:13px;font-weight:700;color:#4A3B2E">${_insEsc(last.marker)}</div>
+          <div class="sub" style="margin:0">${new Date(last.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}${last.lo != null || last.hi != null ? ` · range ${last.lo != null ? last.lo : ''}–${last.hi != null ? last.hi : ''}` : ''}${prev ? ` · was ${prev.value}` : ''}</div></div>
+        ${spark(rs)}
+        <div style="text-align:right"><div style="font-size:17px;font-weight:800;color:#4A3B2E">${last.value} <span style="font-size:11px;font-weight:500;color:#A6937F">${_insEsc(last.unit)}</span></div>${flag ? `<div style="font-size:10px;font-weight:700;color:${flag[1]}">${flag[0]}</div>` : ''}</div>
+      </div>
+      ${open ? `<div style="margin-top:6px">${rs.slice().reverse().map(r => `<div style="display:flex;justify-content:space-between;font-size:12px;color:#7A6656;padding:2px 0"><span>${r.date}</span><span>${r.value} ${_insEsc(r.unit)} <button onclick="insDeleteBlood('${r.id}')" style="border:none;background:none;color:#c53030;cursor:pointer;font-size:12px">✕</button></span></div>`).join('')}</div>` : ''}
+    </div>`;
+  }).join('');
+  el.innerHTML = form + (cards ? `<div style="margin-top:10px">${cards}</div>` : '<div class="sub" style="margin-top:10px">No results yet.</div>');
+}
+
+// ── 7. Net energy (weekly) ─────────────────────────────────────────────────
+function insNetEnergy(days) {
+  const today = _insToday();
+  const series = (typeof computeCalorieBalanceSeries === 'function' ? computeCalorieBalanceSeries(days + 1) : [])
+    .filter(p => p.date < today && p.intake != null && p.output != null && p.intake > 300);
+  if (!series.length) return null;
+  const avg = k => series.reduce((s, p) => s + p[k], 0) / series.length;
+  const intake = avg('intake'), output = avg('output'), net = intake - output;
+  const wFrom = _healthLatestOnOrBefore('weight_body_mass', _insDay(today, -days)), wTo = _healthLatestOnOrBefore('weight_body_mass', today);
+  return { days: series.length, intake, output, net, predKg: net * series.length / 7700, wFrom, wTo, series };
+}
+function _healthLatestOnOrBefore(metric, ds) {
+  const m = _healthData && _healthData[metric]; if (!m || !m.byDate) return null;
+  const d = Object.keys(m.byDate).filter(x => x <= ds).sort().pop();
+  return d ? { date: d, value: m.byDate[d].value } : null;
+}
+function renderInsNetEnergy() {
+  const el = document.getElementById('ins-net-energy'); if (!el) return;
+  if (!_healthData) { el.innerHTML = ''; return; }
+  const w = insNetEnergy(7), f = insNetEnergy(14);
+  if (!w) { el.innerHTML = '<div class="sub">Needs a few full days with both food logged and calories burned.</div>'; return; }
+  const target = (typeof mfTargetFor === 'function') ? mfTargetFor(_insToday()).kcal : null;
+  const sign = v => (v >= 0 ? '+' : '−') + Math.abs(Math.round(v)).toLocaleString('en-GB');
+  const col = v => v < -100 ? '#2d7a47' : v > 100 ? '#c53030' : '#7A6656';
+  const block = (x, label) => x ? `<div style="flex:1;min-width:140px">
+      <div class="lbl" style="margin:0 0 2px">${label} <span style="font-size:10px;color:#bbb;text-transform:none;letter-spacing:0;font-weight:500">(${x.days} full days)</span></div>
+      <div style="font-size:24px;font-weight:800;color:${col(x.net)}">${sign(x.net)} <span style="font-size:12px;font-weight:500">kcal/day</span></div>
+      <div class="sub" style="margin:0">Eaten ${Math.round(x.intake).toLocaleString('en-GB')} · burned ${Math.round(x.output).toLocaleString('en-GB')}</div>
+      <div class="sub" style="margin:2px 0 0">Expected ${x.predKg >= 0 ? '+' : '−'}${Math.abs(x.predKg).toFixed(2)} kg${x.wFrom && x.wTo && x.wFrom.date !== x.wTo.date ? ` · scales ${x.wTo.value - x.wFrom.value >= 0 ? '+' : '−'}${Math.abs(x.wTo.value - x.wFrom.value).toFixed(1)} kg` : ''}</div>
+    </div>` : '';
+  el.innerHTML = `<div style="display:flex;gap:16px;flex-wrap:wrap">${block(w, 'Last 7 days')}${block(f, 'Last 14 days')}</div>
+    ${target ? `<div style="font-size:12px;color:#4A3B2E;margin-top:10px;padding-top:8px;border-top:1px solid #F7ECDE">Today's target of ${target.toLocaleString('en-GB')} kcal against your 14-day average burn of ${Math.round((f || w).output).toLocaleString('en-GB')} kcal would be <strong style="color:${col(target - (f || w).output)}">${sign(target - (f || w).output)} kcal/day</strong> (≈ ${Math.abs((target - (f || w).output) * 7 / 7700).toFixed(2)} kg a week).</div>` : ''}
+    <div class="sub" style="margin-top:6px">Eaten minus burned (active + resting energy from Apple Health), today left out because it isn't finished. 7,700 kcal ≈ 1 kg. Scale weight swings with water and glycogen, so expect the two to match only over a few weeks.</div>`;
+}
+
+// ── 8. Day timeline ────────────────────────────────────────────────────────
+let _insTimelineDay = null;
+function insShiftTimelineDay(n) {
+  const today = _insToday(), next = _insDay(_insTimelineDay || today, n);
+  if (next > today) return;
+  _insTimelineDay = next; renderInsTimeline();
+}
+function renderInsTimeline() {
+  const el = document.getElementById('ins-timeline'); if (!el) return;
+  const today = _insToday(), ds = _insTimelineDay || today;
+  const items = [];
+  const sd = _healthData && _healthData.sleep_analysis && _healthData.sleep_analysis.byDate && _healthData.sleep_analysis.byDate[ds];
+  if (sd && sd.raw && sd.raw.sleepEnd) {
+    const st = parseHealthDate(sd.raw.sleepStart), en = parseHealthDate(sd.raw.sleepEnd);
+    if (en) items.push({ m: _insMinOf(en), icon: '☀️', txt: `Woke up · slept ${fmtHrsMin(sd.value)}${st ? ` from ${_hm(_insMinOf(st))}` : ''}` });
+  }
+  const nx = _healthData && _healthData.sleep_analysis && _healthData.sleep_analysis.byDate && _healthData.sleep_analysis.byDate[_insDay(ds, 1)];
+  if (nx && nx.raw && nx.raw.sleepStart) { const st = parseHealthDate(nx.raw.sleepStart); if (st && st.toLocaleDateString('en-CA') === ds) items.push({ m: _insMinOf(st), icon: '🌙', txt: 'Fell asleep' }); }
+  _insMeals(ds).forEach(x => items.push({ m: _insMinOf(x.t), icon: '🍽', txt: `Meal · ${x.kcal} kcal` }));
+  _insCaffeine(ds).forEach(x => items.push({ m: _insMinOf(x.t), icon: '☕', txt: `Caffeine · ${Math.round(x.v)} mg` }));
+  const acts = _insActs(ds);
+  acts.forEach(a => {
+    const sm = _insActStartMin(a); if (sm == null) return;
+    const mins = Math.round((a.summary.moving_time || 0) / 60), km = (a.summary.distance || 0) / 1000;
+    items.push({ m: sm, end: sm + mins, icon: (typeof EMOJI !== 'undefined' && EMOJI[a.sport_type]) || '🏅', txt: `${_insEsc(a.name || a.sport_type)} · ${mins} min${km >= 0.5 ? ` · ${km.toFixed(1)} km` : ''}` });
+  });
+  // Apple Health workouts Strava doesn't have (e.g. cycling commutes).
+  try {
+    Object.values((_healthData && _healthData._workouts && _healthData._workouts.byId) || {}).forEach(w => {
+      const st = parseHealthDate(w.start); if (!st || st.toLocaleDateString('en-CA') !== ds) return;
+      const sm = _insMinOf(st);
+      if (items.some(i => i.end != null && Math.abs(i.m - sm) <= 15)) return;
+      items.push({ m: sm, end: sm + Math.round((w.duration || 0) / 60), icon: /cycl/i.test(w.name) ? '🚴' : /walk/i.test(w.name) ? '🚶' : /run/i.test(w.name) ? '🏃' : '🏅', txt: `${_insEsc(w.name)} · ${Math.round((w.duration || 0) / 60)} min${w.distance && w.distance.qty ? ` · ${w.distance.qty.toFixed(1)} km` : ''} <span style="color:#A6937F">(Apple Health)</span>` });
+    });
+  } catch {}
+  try {
+    getDayEvents(ds).forEach(e => items.push({ m: e.s, end: e.e, icon: e.kind === 'shift' ? '🏥' : e.kind === 'placement' ? '🩺' : '📅', txt: `${_insEsc(e.title || e.kind)} · until ${_hm(e.e)}` }));
+  } catch {}
+  items.sort((a, b) => a.m - b.m);
+  const nav = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <button onclick="insShiftTimelineDay(-1)" style="border:1px solid #E5DACB;background:#fff;border-radius:8px;padding:2px 9px;cursor:pointer;font:inherit">‹</button>
+      <strong style="font-size:13px;color:#4A3B2E">${ds === today ? 'Today' : _insPretty(ds)}</strong>
+      <button onclick="insShiftTimelineDay(1)" ${ds >= today ? 'disabled' : ''} style="border:1px solid #E5DACB;background:#fff;border-radius:8px;padding:2px 9px;cursor:pointer;font:inherit;${ds >= today ? 'opacity:.4' : ''}">›</button></div>`;
+  el.innerHTML = nav + (items.length ? `<div style="border-left:2px solid #F0E1D2;margin-left:6px;padding-left:12px">${items.map(i => `<div style="position:relative;padding:4px 0;font-size:12.5px;color:#4A3B2E"><span style="position:absolute;left:-19px;top:7px;width:10px;height:10px;border-radius:50%;background:#fff;border:2px solid #D9C7B3"></span><span style="display:inline-block;width:44px;color:#A6937F;font-variant-numeric:tabular-nums">${_hm(i.m)}</span>${i.icon} ${i.txt}</div>`).join('')}</div>` : '<div class="sub">Nothing recorded for this day yet.</div>')
+    + '<div class="sub" style="margin-top:6px">Sleep, meals and caffeine from Apple Health, workouts from Strava and Apple Health, and your calendar.</div>';
+}
+
+// ── Render all ─────────────────────────────────────────────────────────────
+function renderInsights() {
+  [renderInsEnergyBank, renderInsStress, renderInsMuscles, renderInsBioAge, renderInsJournal, renderInsTimeline, renderInsBlood, renderInsNetEnergy]
+    .forEach(fn => { try { fn(); } catch (e) { console.warn('insights', fn.name, e); } });
+}
+// Keep the Energy Bank moving through the day.
+setInterval(() => { try { if (document.getElementById('sub-tab-whoop-insights')?.classList.contains('active')) { renderInsEnergyBank(); } } catch {} }, 5 * 60000);
+
 // ── Sub-tab navigation ───────────────────────────────────────────────────────
 function setupSubTabs(paneId, storageKey) {
   const group = document.getElementById(paneId);
@@ -11261,6 +11938,7 @@ function _renderAfterHealth() {
       else pendingCharts['whoop-fitness'] = renderFitnessSubTab;
       renderDailyBriefing();
       renderSleepPerformanceLink();
+      try { renderInsights(); } catch (e) { console.warn(e); }
       recomputeAllStreaks(); // health data (steps/sleep/weight) just arrived — stale streaks were computed before it existed
       renderHabits(); // re-render with updated auto habit state + sleep suggestion/wake times
       if (typeof renderHabitHistory === 'function') renderHabitHistory(); // past days' steps/sleep/calories ticks
@@ -14153,6 +14831,7 @@ async function main() {
     try { recomputeAllStreaks(); renderHabits(); if (typeof renderHabitHistory === 'function') renderHabitHistory(); } catch {}
     renderWhoopStrain(); // refresh now that today's workouts are loaded
     renderWhoopMonitor(); // weekly rollup + fitness trend also depend on _acts
+    try { renderInsights(); } catch {}
     if (initialised['whoop-fitness']) renderFitnessSubTab();
     else pendingCharts['whoop-fitness'] = renderFitnessSubTab;
     if (typeof renderPlannerCalendar === 'function') renderPlannerCalendar(); // actual-vs-planned depends on _acts
@@ -14258,6 +14937,7 @@ function applySyncUpdates(updated) {
   if (updated.includes('wake_defaults') || updated.includes('wake_overrides')) safe(_refreshPlan);
   if (updated.includes('plan_results')) safe(() => { renderPlanTargets(); _refreshPlan(); renderTrainingTodo(); });
   if (updated.includes('session_times')) safe(_refreshPlan);
+  if (['journal_factors', 'blood_results', 'bio_profile'].some(k => updated.includes(k))) safe(renderInsights);
   if (['checkins', 'life_status', 'sleep_payback', 'weekly_goals', 'experiments', 'shutdowns'].some(k => updated.includes(k))) safe(() => { _refreshPlan(); renderWhoopSleep(); if (updated.includes('life_status')) { recomputeAllStreaks(); renderHabits(); } });
   if (updated.includes('hm_race') || updated.includes('hm_prediction_log')) safe(renderHmPredictor);
   if (updated.includes('ukmla_scores')) safe(() => { renderUkmlaScores(); renderUkmlaPlan(); });

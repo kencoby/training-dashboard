@@ -54,7 +54,7 @@ function analyzeSessions(workouts) {
       return { title: ex.title, sets: workingSets.map(s => ({ weight: s.weight_kg, reps: s.reps })), ...analyzeExercise(workingSets) };
     }).filter(Boolean);
     const durationMin = (w.start_time && w.end_time) ? Math.round((new Date(w.end_time) - new Date(w.start_time)) / 60000) : null;
-    return { id: w.id, title: w.title, date: w.start_time ? w.start_time.slice(0, 10) : null, durationMin, exercises };
+    return { id: w.id, title: w.title, date: w.start_time ? w.start_time.slice(0, 10) : null, start: w.start_time || null, end: w.end_time || null, durationMin, exercises };
   }).filter(s => s.exercises.length);
 }
 
