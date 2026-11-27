@@ -1631,6 +1631,28 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 </div>
 </div>
 
+<!-- WAITING ON -->
+<div class="section">
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+  <div style="width:10px;height:10px;border-radius:50%;background:#7c3aed;flex-shrink:0"></div>
+  <div style="flex:1">
+    <div style="font-size:15px;font-weight:700">⏳ Waiting on</div>
+    <div style="font-size:11px;color:#A6937F">Parked until you hear back — kept out of your day plan. Set a check-back date to get a reminder.</div>
+  </div>
+  <span id="tasks-count-waiting" style="background:#F3EEFF;color:#7c3aed;border-radius:99px;padding:2px 9px;font-size:11px;font-weight:700;min-width:20px;text-align:center"></span>
+</div>
+<div class="card" style="padding:4px 14px 10px">
+  <div id="tasks-list-waiting"></div>
+  <div style="display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid #FAF3EC;flex-wrap:wrap">
+    <input id="tasks-input-waiting" type="text" placeholder="e.g. Nepal application — waiting on uni"
+      onkeydown="if(event.key==='Enter')addTask('waiting')"
+      style="flex:1;min-width:160px;border:1.5px solid #E8D8C6;border-radius:8px;padding:7px 10px;font-size:13px;outline:none;font-family:inherit">
+    <input id="tasks-date-waiting" type="date" title="Check back on (reminder)" style="border:1.5px solid #F0E1D2;border-radius:8px;padding:5px 6px;font-size:12px;font-family:inherit;color:#4A3B2E;background:#fff">
+    <button onclick="addTask('waiting')" style="background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:16px;font-weight:700;cursor:pointer;line-height:1">+</button>
+  </div>
+</div>
+</div>
+
 <!-- CRITICAL -->
 <div class="section">
 <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
@@ -1671,28 +1693,6 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
       style="flex:1;border:1.5px solid #fcd34d;border-radius:8px;padding:7px 10px;font-size:13px;outline:none;font-family:inherit">
     <select id="tasks-dur-ondeck" title="Roughly how long it will take you (helps the day plan)" style="border:1.5px solid #F0E1D2;border-radius:8px;padding:5px 4px;font-size:12px;font-family:inherit;color:#4A3B2E;background:#fff"><option value="">⏱ time</option><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="20">20 min</option><option value="30">30 min</option><option value="45">45 min</option><option value="60">1h</option><option value="90">1h30</option><option value="120">2h</option></select>
     <button onclick="addTask('ondeck')" style="background:#d97706;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:16px;font-weight:700;cursor:pointer;line-height:1">+</button>
-  </div>
-</div>
-</div>
-
-<!-- WAITING ON -->
-<div class="section">
-<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-  <div style="width:10px;height:10px;border-radius:50%;background:#7c3aed;flex-shrink:0"></div>
-  <div style="flex:1">
-    <div style="font-size:15px;font-weight:700">⏳ Waiting on</div>
-    <div style="font-size:11px;color:#A6937F">Parked until you hear back — kept out of your day plan. Set a check-back date to get a reminder.</div>
-  </div>
-  <span id="tasks-count-waiting" style="background:#F3EEFF;color:#7c3aed;border-radius:99px;padding:2px 9px;font-size:11px;font-weight:700;min-width:20px;text-align:center"></span>
-</div>
-<div class="card" style="padding:4px 14px 10px">
-  <div id="tasks-list-waiting"></div>
-  <div style="display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid #FAF3EC;flex-wrap:wrap">
-    <input id="tasks-input-waiting" type="text" placeholder="e.g. Nepal application — waiting on uni"
-      onkeydown="if(event.key==='Enter')addTask('waiting')"
-      style="flex:1;min-width:160px;border:1.5px solid #E8D8C6;border-radius:8px;padding:7px 10px;font-size:13px;outline:none;font-family:inherit">
-    <input id="tasks-date-waiting" type="date" title="Check back on (reminder)" style="border:1.5px solid #F0E1D2;border-radius:8px;padding:5px 6px;font-size:12px;font-family:inherit;color:#4A3B2E;background:#fff">
-    <button onclick="addTask('waiting')" style="background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:16px;font-weight:700;cursor:pointer;line-height:1">+</button>
   </div>
 </div>
 </div>
@@ -3094,6 +3094,11 @@ function renderHomeFocus() {
       <input type="checkbox" ${on ? 'checked' : ''} onchange="${onchange}" style="margin-top:2px;flex-shrink:0">
       <span style="${on ? 'color:#A6937F;text-decoration:line-through' : ''}">${text}${sub ? ` <span style="font-size:10.5px;color:#A6937F">${sub}</span>` : ''}</span></label>`;
   let html = '';
+  // waiting on (not in the plan; due check-backs flagged)
+  try {
+    const w = getTasks().filter(t => !t.done && t.priority === 'waiting'), td = new Date().toLocaleDateString('en-CA');
+    if (w.length) html += lbl(`⏳ Waiting on <span style="font-weight:500;text-transform:none;letter-spacing:0;color:#bbb">${w.length}</span>`) + w.map(t => `<div style="display:flex;gap:8px;align-items:baseline;padding:3px 0;font-size:12.5px"><span style="flex:1">${escHtml(t.text)}</span>${t.checkOn ? `<span style="font-size:10.5px;font-weight:700;color:${t.checkOn <= td ? '#b91c1c' : '#7c3aed'}">🔔 ${t.checkOn <= td ? 'check back now' : _topDateLabel(t.checkOn)}</span>` : ''}<button onclick="resumeTask('${t.id}')" title="Resume" style="border:none;background:none;color:#7c3aed;cursor:pointer;font-size:11px;font-weight:700">▶</button></div>`).join('');
+  } catch {}
   // critical tasks, in your list order
   try {
     const crit = getTasks().filter(t => !t.done && t.priority === 'critical');
@@ -3101,11 +3106,6 @@ function renderHomeFocus() {
     html += crit.length ? crit.slice(0, 8).map(t => row(false, `toggleTask('${t.id}')`, escHtml(t.text), typeof taskDuration === 'function' ? `${taskDuration(t)} min` : '')).join('')
       + (crit.length > 8 ? `<div style="font-size:11px;color:#A6937F;padding:2px 0"><a href="javascript:void(0)" onclick="switchTab('planner')" style="color:#A6937F">+${crit.length - 8} more in Tasks ›</a></div>` : '')
       : '<div class="sub" style="font-size:12px">None — nice.</div>';
-  } catch {}
-  // waiting on (not in the plan; due check-backs flagged)
-  try {
-    const w = getTasks().filter(t => !t.done && t.priority === 'waiting'), td = new Date().toLocaleDateString('en-CA');
-    if (w.length) html += lbl(`⏳ Waiting on <span style="font-weight:500;text-transform:none;letter-spacing:0;color:#bbb">${w.length}</span>`) + w.map(t => `<div style="display:flex;gap:8px;align-items:baseline;padding:3px 0;font-size:12.5px"><span style="flex:1">${escHtml(t.text)}</span>${t.checkOn ? `<span style="font-size:10.5px;font-weight:700;color:${t.checkOn <= td ? '#b91c1c' : '#7c3aed'}">🔔 ${t.checkOn <= td ? 'check back now' : _topDateLabel(t.checkOn)}</span>` : ''}<button onclick="resumeTask('${t.id}')" title="Resume" style="border:none;background:none;color:#7c3aed;cursor:pointer;font-size:11px;font-weight:700">▶</button></div>`).join('');
   } catch {}
   // today's revision
   try {
