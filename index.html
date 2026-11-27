@@ -1675,6 +1675,28 @@ body.fx-mode{--bg:#F2F2F7;background:#F2F2F7}
 </div>
 </div>
 
+<!-- WAITING ON -->
+<div class="section">
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+  <div style="width:10px;height:10px;border-radius:50%;background:#7c3aed;flex-shrink:0"></div>
+  <div style="flex:1">
+    <div style="font-size:15px;font-weight:700">⏳ Waiting on</div>
+    <div style="font-size:11px;color:#A6937F">Parked until you hear back — kept out of your day plan. Set a check-back date to get a reminder.</div>
+  </div>
+  <span id="tasks-count-waiting" style="background:#F3EEFF;color:#7c3aed;border-radius:99px;padding:2px 9px;font-size:11px;font-weight:700;min-width:20px;text-align:center"></span>
+</div>
+<div class="card" style="padding:4px 14px 10px">
+  <div id="tasks-list-waiting"></div>
+  <div style="display:flex;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid #FAF3EC;flex-wrap:wrap">
+    <input id="tasks-input-waiting" type="text" placeholder="e.g. Nepal application — waiting on uni"
+      onkeydown="if(event.key==='Enter')addTask('waiting')"
+      style="flex:1;min-width:160px;border:1.5px solid #E8D8C6;border-radius:8px;padding:7px 10px;font-size:13px;outline:none;font-family:inherit">
+    <input id="tasks-date-waiting" type="date" title="Check back on (reminder)" style="border:1.5px solid #F0E1D2;border-radius:8px;padding:5px 6px;font-size:12px;font-family:inherit;color:#4A3B2E;background:#fff">
+    <button onclick="addTask('waiting')" style="background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:16px;font-weight:700;cursor:pointer;line-height:1">+</button>
+  </div>
+</div>
+</div>
+
 <!-- SOMEDAY -->
 <div class="section">
 <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
@@ -2781,13 +2803,13 @@ async function syncAll() {
 const escHtml = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 // ── Priority Tasks ────────────────────────────────────────────────────────────
-const TASK_TIERS = ['top', 'critical', 'ondeck', 'someday', 'dashboard'];
+const TASK_TIERS = ['top', 'critical', 'ondeck', 'someday', 'dashboard', 'waiting'];
 // Grayscale-by-urgency instead of a four-hue system — red reserved for the
 // one tier that's genuinely time-critical, everything else reads by weight.
 // 'top' is capped at a single active task (see _addTaskItem/moveTask) — it's
 // the one thing shown on the Home dashboard card instead of the old
 // top-3-critical-tasks list.
-const TASK_TIER_COLORS = { top: 'var(--lavender-text)', critical: 'var(--danger)', ondeck: 'var(--text)', someday: 'var(--text-muted)', dashboard: 'var(--text-faint)' };
+const TASK_TIER_COLORS = { top: 'var(--lavender-text)', critical: 'var(--danger)', ondeck: 'var(--text)', someday: 'var(--text-muted)', dashboard: 'var(--text-faint)', waiting: '#7c3aed' };
 
 function getTasks() { try { return JSON.parse(localStorage.getItem('tasks_priority'))||[]; } catch { return []; } }
 function saveTasks(items) { localStorage.setItem('tasks_priority', JSON.stringify(items)); syncPush('tasks_priority', items); }
@@ -2815,6 +2837,12 @@ function addTask(priority) {
   const items = getTasks();
   const dateEl = priority === 'top' ? document.getElementById('tasks-date-top') : null;
   _addTaskItem(items, text, priority, dateEl && dateEl.value ? dateEl.value : null);
+  if (priority === 'waiting') {
+    const cb = document.getElementById('tasks-date-waiting');
+    const t = items.filter(x => x.text === text && x.priority === 'waiting' && !x.done).pop();
+    if (t) { t.waitingSince = new Date().toLocaleDateString('en-CA'); if (cb && cb.value) t.checkOn = cb.value; }
+    if (cb) cb.value = '';
+  }
   const durEl = document.getElementById(`tasks-dur-${priority}`);
   if (durEl && durEl.value) { const last = items[items.length - 1]; if (last && last.text === text) last.durationMin = +durEl.value; else { const ex = items.find(t => t.text === text && !t.done); if (ex) ex.durationMin = +durEl.value; } durEl.value = ''; }
   if (dateEl) dateEl.value = '';
@@ -2979,7 +3007,7 @@ function planTasksForToday(ds) {
   if (top) add(all.find(t => t.id === top.id) || top);
   _revSwapTasks(ds).forEach(add);
   ch.add.forEach(id => add(all.find(t => t.id === id)));
-  all.filter(t => t.dueDate && t.dueDate <= ds && t.priority !== 'someday').forEach(add);
+  all.filter(t => t.dueDate && t.dueDate <= ds && !['someday', 'waiting'].includes(t.priority)).forEach(add);
   all.filter(t => t.parentId).forEach(add);
   const extraDoneToday = all.filter(t => t.done && t.doneAt && new Date(t.doneAt).toLocaleDateString('en-CA') === ds
     && ['critical', 'ondeck'].includes(t.priority) && !t.parentId && !t.dupOf && !(t.dueDate && t.dueDate <= ds)).length;
@@ -3074,6 +3102,11 @@ function renderHomeFocus() {
       + (crit.length > 8 ? `<div style="font-size:11px;color:#A6937F;padding:2px 0"><a href="javascript:void(0)" onclick="switchTab('planner')" style="color:#A6937F">+${crit.length - 8} more in Tasks ›</a></div>` : '')
       : '<div class="sub" style="font-size:12px">None — nice.</div>';
   } catch {}
+  // waiting on (not in the plan; due check-backs flagged)
+  try {
+    const w = getTasks().filter(t => !t.done && t.priority === 'waiting'), td = new Date().toLocaleDateString('en-CA');
+    if (w.length) html += lbl(`⏳ Waiting on <span style="font-weight:500;text-transform:none;letter-spacing:0;color:#bbb">${w.length}</span>`) + w.map(t => `<div style="display:flex;gap:8px;align-items:baseline;padding:3px 0;font-size:12.5px"><span style="flex:1">${escHtml(t.text)}</span>${t.checkOn ? `<span style="font-size:10.5px;font-weight:700;color:${t.checkOn <= td ? '#b91c1c' : '#7c3aed'}">🔔 ${t.checkOn <= td ? 'check back now' : _topDateLabel(t.checkOn)}</span>` : ''}<button onclick="resumeTask('${t.id}')" title="Resume" style="border:none;background:none;color:#7c3aed;cursor:pointer;font-size:11px;font-weight:700">▶</button></div>`).join('');
+  } catch {}
   // today's revision
   try {
     const ds = new Date().toLocaleDateString('en-CA');
@@ -3124,6 +3157,24 @@ function deleteTask(id) {
   renderTasks();
 }
 
+// Waiting on: park a task you can't move forward (out of the day plan), resume later.
+function parkTask(id) {
+  const items = getTasks(); const t = items.find(x => x.id === id); if (!t) return;
+  t.prevPriority = t.priority; t.priority = 'waiting'; t.waitingSince = new Date().toLocaleDateString('en-CA');
+  saveTasks(items); renderTasks(); _refreshPlan();
+}
+function resumeTask(id) {
+  const items = getTasks(); const t = items.find(x => x.id === id); if (!t) return;
+  let to = t.prevPriority && t.prevPriority !== 'waiting' ? t.prevPriority : 'critical';
+  if (to === 'top' && items.some(x => x.id !== id && x.priority === 'top' && !x.done && !x.forDate)) to = 'critical';
+  t.priority = to; delete t.prevPriority; delete t.checkOn; delete t.waitingSince;
+  saveTasks(items); renderTasks(); _refreshPlan();
+}
+function setTaskCheckOn(id, v) {
+  const items = getTasks(); const t = items.find(x => x.id === id); if (!t) return;
+  if (v) t.checkOn = v; else delete t.checkOn;
+  saveTasks(items); renderTasks(); _refreshPlan();
+}
 function moveTask(id, dir) {
   const items = getTasks();
   const t = items.find(t => t.id === id);
@@ -3203,7 +3254,7 @@ function autoEscalateDueDates() {
   let changed = false;
   const today = new Date(); today.setHours(0,0,0,0);
   items.forEach(t => {
-    if (t.done || !t.dueDate || t.priority === 'critical') return;
+    if (t.done || !t.dueDate || t.priority === 'critical' || t.priority === 'waiting') return;
     const diff = Math.round((new Date(t.dueDate + 'T00:00:00') - today) / 86400000);
     if (diff <= 2) { t.priority = 'critical'; changed = true; }
   });
@@ -3864,9 +3915,12 @@ function renderTasks() {
           ${subBadge}
           ${priority === 'top' && t.forDate ? `<span style="font-size:10px;font-weight:700;border-radius:99px;padding:2px 7px;background:${t.forDate < todayKey && !t.done ? '#fee2e2' : '#FFEFC2'};color:${t.forDate < todayKey && !t.done ? '#b91c1c' : '#B0700A'}">📌 ${_topDateLabel(t.forDate)}</span>` : ''}
           ${priority === 'top' ? '' : taskDueDateChip(t)}
-          ${pi > 0 ? `<button onclick="moveTask('${t.id}',-1)" title="Escalate" style="background:none;border:none;cursor:pointer;color:#A6937F;font-size:14px;padding:2px 3px;line-height:1">↑</button>` : ''}
+          ${priority === 'waiting' && !t.done ? `<span style="position:relative;display:inline-flex;align-items:center"><button onclick="document.getElementById('task-cb-${t.id}').showPicker()" title="Check back on (reminder)" style="border:none;border-radius:99px;cursor:pointer;font-size:10px;font-weight:700;padding:2px 7px;background:${t.checkOn && t.checkOn <= todayKey ? '#fee2e2' : '#F3EEFF'};color:${t.checkOn && t.checkOn <= todayKey ? '#b91c1c' : '#7c3aed'}">🔔 ${t.checkOn ? (t.checkOn <= todayKey ? 'check back now' : 'check back ' + _topDateLabel(t.checkOn)) : 'set check-back'}</button><input type="date" id="task-cb-${t.id}" value="${t.checkOn||''}" onchange="setTaskCheckOn('${t.id}',this.value)" style="position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;border:none;padding:0"></span>
+            <button onclick="resumeTask('${t.id}')" title="Can move it forward again — back to ${escHtml(t.prevPriority || 'critical')}" style="background:#7c3aed;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:10px;font-weight:700;padding:2px 7px">▶ Resume</button>` : ''}
+          ${priority !== 'waiting' && priority !== 'dashboard' && !t.done ? `<button onclick="parkTask('${t.id}')" title="Waiting on someone — park it (keeps it out of the day plan)" style="background:none;border:none;cursor:pointer;color:#A6937F;font-size:12px;padding:2px 3px;line-height:1">⏸</button>` : ''}
+          ${pi > 0 && priority !== 'waiting' ? `<button onclick="moveTask('${t.id}',-1)" title="Escalate" style="background:none;border:none;cursor:pointer;color:#A6937F;font-size:14px;padding:2px 3px;line-height:1">↑</button>` : ''}
           ${pi < 3 ? `<button onclick="moveTask('${t.id}',1)" title="Defer" style="background:none;border:none;cursor:pointer;color:#A6937F;font-size:14px;padding:2px 3px;line-height:1">↓</button>` : ''}
-          ${priority === 'top' ? '' : `<span style="position:relative;display:inline-flex;align-items:center">
+          ${priority === 'top' || priority === 'waiting' ? '' : `<span style="position:relative;display:inline-flex;align-items:center">
             <button onclick="openTaskDatePicker('${t.id}')" title="Set due date" style="background:none;border:none;cursor:pointer;color:#A6937F;font-size:12px;padding:2px 3px;line-height:1">📅</button>
             <input type="date" id="task-date-${t.id}" value="${t.dueDate||''}" onchange="setTaskDueDate('${t.id}',this.value)" style="position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;border:none;padding:0">
           </span>`}
@@ -5114,6 +5168,7 @@ function todayPlanHtml(ds, isToday, labelStyle, rowStyle) {
   const notes = isToday ? _weatherNotes(ds) : [];
   const shift = plan.blocks.find(b => b.type === 'shift');
   const extras = [];
+  try { getTasks().filter(t => !t.done && t.priority === 'waiting' && t.checkOn && t.checkOn <= ds).forEach(t => extras.push(`🔔 Check back on: <strong>${escHtml(t.text)}</strong>${t.waitingSince ? ` <span style="color:#A6937F">(waiting since ${_topDateLabel(t.waitingSince)})</span>` : ''}`)); } catch {}
   if (new Date(ds + 'T12:00:00').getDay() === 0) extras.push('🪴 Sunday reminder: check the plants.');
   if (shift) extras.push(`🏥 ${escHtml(shift.title.split(' - ')[0])} shift today (${escHtml(shift.note || '')}).${typeof lfShiftOn === 'function' && lfShiftOn(ds) ? ' Shift mode: hard training made easier, revision capped at 1h, no walking pad.' : ''}`);
   if (isToday) {
